@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  # PostgreSQL データベース
+  postgres:
+    image: postgres:15-alpine
+    container_name: railway_maintenance_db
+    environment:
+      POSTGRES_DB: railway_maintenance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts:/docker-entrypoint-initdb.d
+    networks:
+      - railway_network
+
+  # クライアント（Next.js）
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: railway_maintenance_client
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    ports:
+      - "3000:3000"
+    depends_on:
+      - postgres
+    volumes:
+      - ./client:/app/client
+    networks:
+      - railway_network
+    command: npm run dev
+
+volumes:
+  postgres_data:
+
+networks:
+  railway_network:
+    driver: bridge 
