@@ -1,33 +1,37 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
-// 環境変数の存在チェック
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// Supabaseクライアントの作成
+export function createClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Supabaseが設定されている場合のみクライアントを作成
-export const supabase = supabaseUrl && supabaseKey 
-  ? createClient(supabaseUrl, supabaseKey)
-  : null
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase URL and key are required')
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseKey)
+}
+
+// サービスロールキーを使用したクライアントの作成
+export function createServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Supabase URL and service role key are required')
+  }
+
+  return createSupabaseClient(supabaseUrl, supabaseServiceKey)
+}
 
 // サーバーサイド用のクライアント
 export function createServerClient() {
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.warn('Supabase configuration is missing. Using mock mode.')
-    return null
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Supabase URL and key are required')
   }
-  return createClient(supabaseUrl, serviceRoleKey)
-}
 
-// Supabaseが利用可能かチェック
-export function isSupabaseAvailable() {
-  return !!supabase
-}
-
-// 環境変数の設定状況をログ出力
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('Supabase environment variables are not set:')
-  console.warn('- NEXT_PUBLIC_SUPABASE_URL:', !!supabaseUrl)
-  console.warn('- NEXT_PUBLIC_SUPABASE_ANON_KEY:', !!supabaseKey)
-  console.warn('The application will run in mock mode.')
+  return createSupabaseClient(supabaseUrl, supabaseKey)
 }

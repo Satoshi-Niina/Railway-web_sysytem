@@ -15,16 +15,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Car } from "lucide-react"
 import type { InspectionPlan, Vehicle, Base } from "@/types"
 
+// データベース設定の確認
+const isDatabaseConfigured = (): boolean => {
+  return !!(process.env.NEXT_PUBLIC_DATABASE_URL || process.env.DATABASE_URL)
+}
+
 interface InspectionPlanFormProps {
   vehicles: Vehicle[]
-  bases: Base[] // 基地データも受け取る
+  bases: Base[]
   onSubmit: (plans: InspectionPlan[]) => void
   onCancel: () => void
 }
 
 export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: InspectionPlanFormProps) {
   const [formData, setFormData] = useState({
-    inspection_type: "", // 新しい検査種別
+    inspection_type: "",
     planned_start_date: "",
     planned_end_date: "",
     notes: "",
@@ -52,25 +57,61 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
     const newPlans: InspectionPlan[] = []
     for (const vehicleId of selectedVehicleIds) {
       try {
-        const response = await fetch("/api/inspection-plans", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        // inspection_type から inspection_category を導出
+        let inspection_category: InspectionPlan["inspection_category"]
+        switch (formData.inspection_type) {
+          case "臨時修繕":
+            inspection_category = "臨修"
+            break
+          case "定期点検":
+            inspection_category = "定検"
+            break
+          case "乙A検査":
+          case "乙B検査":
+            inspection_category = "乙検"
+            break
+          case "甲A検査":
+          case "甲B検査":
+            inspection_category = "甲検"
+            break
+          default:
+            inspection_category = "その他"
+        }
+
+        if (isDatabaseConfigured()) {
+          const response = await fetch("/api/inspection-plans", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              vehicle_id: vehicleId,
+              inspection_type: formData.inspection_type,
+              planned_start_date: formData.planned_start_date,
+              planned_end_date: formData.planned_end_date || formData.planned_start_date,
+              notes: formData.notes || null,
+            }),
+          })
+
+          if (response.ok) {
+            const newPlan = await response.json()
+            newPlans.push(newPlan)
+          }
+        } else {
+          // モックデータを作成
+          const mockPlan: InspectionPlan = {
+            id: Date.now() + vehicleId,
             vehicle_id: vehicleId,
             inspection_type: formData.inspection_type,
             planned_start_date: formData.planned_start_date,
-            planned_end_date: formData.planned_end_date || formData.planned_start_date, // 終了日がなければ開始日と同じ
+            planned_end_date: formData.planned_end_date || formData.planned_start_date,
+            estimated_duration: 1,
+            inspection_category,
+            status: "planned",
             notes: formData.notes || null,
-            // inspection_category はAPI側で導出される
-            // status はAPI側でデフォルト値が設定される
-          }),
-        })
-
-        if (response.ok) {
-          const newPlan = await response.json()
-          newPlans.push(newPlan)
-        } else {
-          console.error(`Failed to create plan for vehicle ${vehicleId}`)
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            vehicle: vehicles.find((v) => v.id === vehicleId),
+          }
+          newPlans.push(mockPlan)
         }
       } catch (error) {
         console.error(`Error creating plan for vehicle ${vehicleId}:`, error)
@@ -88,7 +129,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
   // 車両選択モーダルで表示する車両リスト
   const filteredVehiclesForModal = useMemo(() => {
     return vehicles.filter((vehicle) => {
-      const matchesCategory = vehicleFilterCategory === "all" || vehicle.name === vehicleFilterCategory // nameが機種
+      const matchesCategory = vehicleFilterCategory === "all" || vehicle.name === vehicleFilterCategory
       const matchesBase = vehicleFilterBase === "all" || vehicle.base_location === vehicleFilterBase
       return matchesCategory && matchesBase
     })
@@ -96,7 +137,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
 
   // ユニークな機種と基地のリストを取得
   const uniqueCategories = useMemo(() => {
-    const categories = new Set(vehicles.map((v) => v.name)) // nameが機種
+    const categories = new Set(vehicles.map((v) => v.name))
     return ["all", ...Array.from(categories)].sort()
   }, [vehicles])
 
@@ -108,7 +149,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
   return (
     <Card>
       <CardHeader>
-        <CardTitle>新規検査計画登録</CardTitle> {/* タイトル変更 */}
+        <CardTitle>新規検査計画登録</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -122,7 +163,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
                   const vehicle = vehicles.find((v) => v.id === id)
                   return (
                     <Badge key={id} variant="secondary" className="flex items-center gap-1">
-                      {vehicle?.name} ({vehicle?.machine_number}) {/* 機種と機械番号を表示 */}
+                      {vehicle?.name} ({vehicle?.machine_number})
                       <button
                         type="button"
                         onClick={() => setSelectedVehicleIds(selectedVehicleIds.filter((vid) => vid !== id))}
@@ -152,7 +193,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
           </div>
 
           <div>
-            <Label htmlFor="inspection_type">検査種別</Label> {/* ラベル変更 */}
+            <Label htmlFor="inspection_type">検査種別</Label>
             <Select
               value={formData.inspection_type}
               onValueChange={(value) => setFormData({ ...formData, inspection_type: value })}
@@ -173,7 +214,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="planned_start_date">施工予定 (開始)</Label> {/* ラベル変更 */}
+              <Label htmlFor="planned_start_date">施工予定 (開始)</Label>
               <Input
                 id="planned_start_date"
                 type="date"
@@ -183,7 +224,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
               />
             </div>
             <div>
-              <Label htmlFor="planned_end_date">施工予定 (終了)</Label> {/* ラベル変更 */}
+              <Label htmlFor="planned_end_date">施工予定 (終了)</Label>
               <Input
                 id="planned_end_date"
                 type="date"

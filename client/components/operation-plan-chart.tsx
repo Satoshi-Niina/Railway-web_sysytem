@@ -1,25 +1,57 @@
 "use client"
 
-import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  History,
+  CalendarDays,
+  Car,
+  AlertCircle,
+  Building,
+  Filter,
+  Home,
+  MapPin,
+  ArrowRight,
+} from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Plus, Calendar, MapPin, Car } from "lucide-react"
-import type { TravelPlan, Vehicle, Base } from "@/types"
-import { Badge } from "@/components/ui/badge"
+
+import type { Vehicle, Base, ManagementOffice, OperationAssignment } from "@/types"
+
+// データベース設定の確認
+const isDatabaseConfigured = (): boolean => {
+  return !!(process.env.NEXT_PUBLIC_DATABASE_URL || process.env.DATABASE_URL)
+}
+
+// 固定の機種表示順
+const VEHICLE_TYPE_ORDER = ["モータカー", "MCR", "鉄トロ（10t）", "鉄トロ（15t）", "箱トロ", "ホッパー車"]
 
 export function OperationPlanChart() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
-  const [plans, setPlans] = useState<TravelPlan[]>([])
   const [allVehicles, setAllVehicles] = useState<Vehicle[]>([])
   const [allBases, setAllBases] = useState<Base[]>([])
+  const [allOffices, setAllOffices] = useState<ManagementOffice[]>([])
+  const [operationAssignments, setOperationAssignments] = useState<OperationAssignment[]>([])
   const [loading, setLoading] = useState(true)
-  const [showPlanForm, setShowPlanForm] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // フィルター状態
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("all")
+  const [selectedVehicleType, setSelectedVehicleType] = useState<string>("all")
+  const [selectedMachineNumber, setSelectedMachineNumber] = useState<string>("all")
+
+  const currentDate = new Date()
+  const selectedDate = new Date(currentMonth + "-01")
+  const isCurrentMonth = currentMonth === currentDate.toISOString().slice(0, 7)
+  const isPastMonth = selectedDate < new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+  const isFutureMonth = selectedDate > new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
 
   useEffect(() => {
     fetchData()
@@ -28,31 +60,148 @@ export function OperationPlanChart() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [plansRes, vehiclesRes, basesRes] = await Promise.all([
-        fetch(`/api/travel-plans?month=${currentMonth}`),
-        fetch("/api/vehicles"),
-        fetch("/api/bases"),
-      ])
+      setError(null)
 
-      const [plansData, vehiclesData, basesData] = await Promise.all([
-        plansRes.json(),
-        vehiclesRes.json(),
-        basesRes.json(),
-      ])
+      // モックデータ
+      const mockVehicles: Vehicle[] = [
+        {
+          id: 1,
+          name: "モータカー",
+          model: "MC-100",
+          base_location: "本社基地",
+          machine_number: "M001",
+          manufacturer: "メーカーA",
+          acquisition_date: "2020-04-01",
+          management_office: "本社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          name: "モータカー",
+          model: "MC-100",
+          base_location: "本社基地",
+          machine_number: "M002",
+          manufacturer: "メーカーA",
+          acquisition_date: "2020-05-01",
+          management_office: "本社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 3,
+          name: "MCR",
+          model: "MCR-200",
+          base_location: "本社基地",
+          machine_number: "MCR001",
+          manufacturer: "メーカーB",
+          acquisition_date: "2019-06-01",
+          management_office: "本社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+      ]
 
-      setPlans(plansData)
-      setAllVehicles(vehiclesData)
-      setAllBases(basesData)
+      const mockBases: Base[] = [
+        {
+          id: 1,
+          base_name: "本社基地",
+          location: "東京",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          base_name: "関西保守基地",
+          location: "大阪",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 3,
+          base_name: "九州基地",
+          location: "福岡",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 4,
+          base_name: "北海道基地",
+          location: "札幌",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+      ]
+
+      const mockOffices: ManagementOffice[] = [
+        {
+          id: 1,
+          office_name: "本社保守事業所",
+          location: "東京",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          office_name: "関西支社保守事業所",
+          location: "大阪",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+      ]
+
+      // サンプル運用割り当てデータ（結果表示用）
+      const mockOperationAssignments: OperationAssignment[] = [
+        {
+          id: 1,
+          date: `${currentMonth}-01`,
+          vehicle_id: 1,
+          base_id: 1,
+          shift_type: "昼間",
+          departure_base_id: 1,
+          arrival_base_id: 1,
+          is_detention: false,
+          movement_destination: null,
+        },
+        {
+          id: 2,
+          date: `${currentMonth}-02`,
+          vehicle_id: 1,
+          base_id: 1,
+          shift_type: "夜間",
+          departure_base_id: 1,
+          arrival_base_id: 2,
+          is_detention: false,
+          movement_destination: "関西保守基地",
+        },
+        {
+          id: 3,
+          date: `${currentMonth}-03`,
+          vehicle_id: 1,
+          base_id: 2,
+          shift_type: "昼間",
+          departure_base_id: 2,
+          arrival_base_id: 2,
+          is_detention: true,
+          movement_destination: null,
+        },
+        {
+          id: 4,
+          date: `${currentMonth}-10`,
+          vehicle_id: 1,
+          base_id: 2,
+          shift_type: "昼間",
+          departure_base_id: 2,
+          arrival_base_id: 2,
+          is_detention: false,
+          movement_destination: null,
+        },
+      ]
+
+      setAllVehicles(mockVehicles)
+      setAllBases(mockBases)
+      setAllOffices(mockOffices)
+      setOperationAssignments(mockOperationAssignments)
     } catch (error) {
       console.error("Error fetching data:", error)
+      setError("データの取得に失敗しました。")
     } finally {
       setLoading(false)
     }
-  }
-
-  const handlePlanAdded = (newPlans: TravelPlan[]) => {
-    setPlans([...plans, ...newPlans])
-    setShowPlanForm(false)
   }
 
   const getDaysInMonth = (dateString: string) => {
@@ -64,12 +213,210 @@ export function OperationPlanChart() {
     return `${currentMonth}-${day.toString().padStart(2, "0")}`
   }
 
-  const getPlansForDate = (vehicleId: number, date: string) => {
-    return plans.filter((p) => p.vehicle_id === vehicleId && p.plan_date === date)
+  // 事業所でフィルタリングされた車両を取得
+  const filteredVehicles = useMemo(() => {
+    let vehicles = allVehicles
+
+    // 事業所でフィルタリング
+    if (selectedOfficeId !== "all") {
+      const officeName = allOffices.find((o) => o.id === Number.parseInt(selectedOfficeId))?.office_name
+      vehicles = vehicles.filter((vehicle) => vehicle.management_office === officeName)
+    }
+
+    // 機種でフィルタリング
+    if (selectedVehicleType !== "all") {
+      vehicles = vehicles.filter((vehicle) => vehicle.name === selectedVehicleType)
+    }
+
+    // 機械番号でフィルタリング
+    if (selectedMachineNumber !== "all") {
+      vehicles = vehicles.filter((vehicle) => vehicle.machine_number === selectedMachineNumber)
+    }
+
+    return vehicles
+  }, [allVehicles, selectedOfficeId, selectedVehicleType, selectedMachineNumber, allOffices])
+
+  // 事業所でフィルタリングされた基地を取得
+  const filteredBases = useMemo(() => {
+    let bases = allBases
+
+    // 事業所でフィルタリング（簡易版 - 実際は基地と事業所の関連付けが必要）
+    if (selectedOfficeId !== "all") {
+      // ここでは簡易的に事業所名に基づいてフィルタリング
+      const officeName = allOffices.find((o) => o.id === Number.parseInt(selectedOfficeId))?.office_name
+      if (officeName?.includes("本社")) {
+        bases = bases.filter(
+          (base) =>
+            base.location === "東京" ||
+            base.location === "福岡" ||
+            base.location === "札幌" ||
+            base.location === "仙台",
+        )
+      } else if (officeName?.includes("関西")) {
+        bases = bases.filter((base) => base.location === "大阪")
+      }
+    }
+
+    return bases
+  }, [allBases, selectedOfficeId, allOffices])
+
+  // 機種別にグループ化された車両を取得（固定順序）
+  const vehiclesByType = useMemo(() => {
+    const grouped: Record<string, Vehicle[]> = {}
+
+    // 固定順序で初期化
+    VEHICLE_TYPE_ORDER.forEach((type) => {
+      grouped[type] = []
+    })
+
+    filteredVehicles.forEach((vehicle) => {
+      if (grouped[vehicle.name]) {
+        grouped[vehicle.name].push(vehicle)
+      }
+    })
+
+    // 各機種内で機械番号順にソート
+    Object.keys(grouped).forEach((type) => {
+      grouped[type].sort((a, b) => (a.machine_number || "").localeCompare(b.machine_number || ""))
+    })
+
+    // 空の機種を除外
+    const result: Record<string, Vehicle[]> = {}
+    Object.entries(grouped).forEach(([type, vehicles]) => {
+      if (vehicles.length > 0) {
+        result[type] = vehicles
+      }
+    })
+
+    return result
+  }, [filteredVehicles])
+
+  // 特定の日付、車両、基地の運用割り当てを取得
+  const getAssignment = (date: string, vehicleId: number, baseId: number): OperationAssignment | undefined => {
+    return operationAssignments.find(
+      (assignment) => assignment.date === date && assignment.vehicle_id === vehicleId && assignment.base_id === baseId,
+    )
   }
+
+  // 移動情報を取得（前日の移動による表示用）
+  const getMovementInfo = (date: string, vehicleId: number, baseId: number) => {
+    const prevDate = getPreviousDate(date)
+    if (!prevDate) return null
+
+    const prevAssignment = operationAssignments.find(
+      (assignment) => assignment.date === prevDate && assignment.vehicle_id === vehicleId
+    )
+
+    if (prevAssignment && prevAssignment.arrival_base_id === baseId && prevAssignment.arrival_base_id !== prevAssignment.base_id) {
+      return prevAssignment
+    }
+
+    return null
+  }
+
+  // 前日の日付を取得
+  const getPreviousDate = (dateString: string) => {
+    const date = new Date(dateString)
+    date.setDate(date.getDate() - 1)
+
+    // 月をまたぐ場合は null を返す（簡易版）
+    if (date.getMonth() !== new Date(dateString).getMonth()) {
+      return null
+    }
+
+    return date.toISOString().slice(0, 10)
+  }
+
+  // 留置期間かどうかをチェック
+  const checkDetentionPeriod = (date: string, vehicleId: number, baseId: number): boolean => {
+    const assignments = operationAssignments
+      .filter(a => a.vehicle_id === vehicleId && a.date <= date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    if (assignments.length === 0) return false
+
+    const lastAssignment = assignments[0]
+    
+    // 最後の運用が留置の場合、その後の運用がない期間を留置期間とする
+    if (lastAssignment.is_detention && lastAssignment.base_id === baseId) {
+      const nextOperation = operationAssignments
+        .filter(a => a.vehicle_id === vehicleId && a.date > date && a.shift_type !== null && a.shift_type !== "none")
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0]
+
+      // 次の運用がない場合、または次の運用がまだ入力されていない場合
+      return !nextOperation
+    }
+
+    return false
+  }
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    const [year, month] = currentMonth.split("-").map(Number)
+    const newDate = new Date(year, month - 1, 1)
+
+    if (direction === "prev") {
+      newDate.setMonth(newDate.getMonth() - 1)
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1)
+    }
+
+    setCurrentMonth(newDate.toISOString().slice(0, 7))
+  }
+
+  const goToCurrentMonth = () => {
+    setCurrentMonth(new Date().toISOString().slice(0, 7))
+  }
+
+  const getShiftTypeColor = (shiftType: string) => {
+    switch (shiftType) {
+      case "昼間":
+        return "bg-yellow-100 text-yellow-800 border-yellow-300"
+      case "夜間":
+        return "bg-blue-100 text-blue-800 border-blue-300"
+      case "昼夜":
+        return "bg-purple-100 text-purple-800 border-purple-300"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-300"
+    }
+  }
+
+  const getMonthTypeInfo = () => {
+    if (isPastMonth) {
+      return {
+        icon: History,
+        label: "履歴",
+        color: "text-gray-600",
+        bgColor: "bg-gray-50",
+      }
+    } else if (isFutureMonth) {
+      return {
+        icon: CalendarDays,
+        label: "計画",
+        color: "text-blue-600",
+        bgColor: "bg-blue-50",
+      }
+    } else {
+      return {
+        icon: Calendar,
+        label: "当月",
+        color: "text-green-600",
+        bgColor: "bg-green-50",
+      }
+    }
+  }
+
+  const monthInfo = getMonthTypeInfo()
+  const MonthIcon = monthInfo.icon
 
   const daysInMonth = getDaysInMonth(currentMonth)
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+
+  // フィルターリセット
+  const resetFilters = () => {
+    setSelectedOfficeId("all")
+    setSelectedVehicleType("all")
+    setSelectedMachineNumber("all")
+  }
 
   if (loading) {
     return <div className="flex justify-center p-8">読み込み中...</div>
@@ -77,385 +424,310 @@ export function OperationPlanChart() {
 
   return (
     <div className="space-y-6">
+      {!isDatabaseConfigured() && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            データベースが設定されていません。モックデータを表示しています。実際のデータを使用するには、データベースの設定を完了してください。
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">運用計画管理</h2>
+        <div className="flex items-center space-x-4">
+          <h2 className="text-2xl font-bold">運用計画チャート</h2>
+          <Badge className={`${monthInfo.bgColor} ${monthInfo.color} border-0`}>
+            <MonthIcon className="w-4 h-4 mr-1" />
+            {monthInfo.label}
+          </Badge>
+        </div>
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
-            <Calendar className="w-4 h-4" />
-            <Input
-              type="month"
-              value={currentMonth}
-              onChange={(e) => setCurrentMonth(e.target.value)}
-              className="w-40"
-            />
+            <Button variant="outline" size="sm" onClick={() => navigateMonth("prev")}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <div className="flex items-center space-x-2 min-w-40">
+              <Calendar className="w-4 h-4" />
+              <Input
+                type="month"
+                value={currentMonth}
+                onChange={(e) => setCurrentMonth(e.target.value)}
+                className="w-32"
+              />
+            </div>
+            <Button variant="outline" size="sm" onClick={() => navigateMonth("next")}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
           </div>
-          <Button onClick={() => setShowPlanForm(true)} size="sm">
-            <Plus className="w-4 h-4 mr-2" />
-            計画追加
-          </Button>
+          {!isCurrentMonth && (
+            <Button variant="outline" size="sm" onClick={goToCurrentMonth}>
+              今月に戻る
+            </Button>
+          )}
         </div>
       </div>
 
-      {showPlanForm && (
-        <OperationPlanForm
-          vehicles={allVehicles}
-          bases={allBases}
-          onSubmit={handlePlanAdded}
-          onCancel={() => setShowPlanForm(false)}
-        />
-      )}
-
+      {/* フィルター */}
       <Card>
         <CardHeader>
-          <CardTitle>{currentMonth} 運用計画チャート</CardTitle>
-          <div className="flex items-center space-x-4 text-sm">
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded mr-2"></div>
-              <span>計画</span>
+          <CardTitle className="flex items-center space-x-2">
+            <Filter className="w-5 h-5" />
+            <span>フィルター</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="officeFilter" className="text-sm font-medium">
+                事業所
+              </Label>
+              <Select value={selectedOfficeId} onValueChange={setSelectedOfficeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="事業所を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ての事業所</SelectItem>
+                  {allOffices.map((office) => (
+                    <SelectItem key={office.id} value={office.id.toString()}>
+                      <div className="flex items-center space-x-2">
+                        <Building className="w-4 h-4" />
+                        <span>{office.office_name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vehicleTypeFilter" className="text-sm font-medium">
+                機種
+              </Label>
+              <Select value={selectedVehicleType} onValueChange={setSelectedVehicleType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="機種を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ての機種</SelectItem>
+                  {VEHICLE_TYPE_ORDER.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      <div className="flex items-center space-x-2">
+                        <Car className="w-4 h-4" />
+                        <span>{type}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="machineNumberFilter" className="text-sm font-medium">
+                機械番号
+              </Label>
+              <Select value={selectedMachineNumber} onValueChange={setSelectedMachineNumber}>
+                <SelectTrigger>
+                  <SelectValue placeholder="機械番号を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">全ての機械番号</SelectItem>
+                  {filteredVehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.machine_number} value={vehicle.machine_number}>
+                      <div className="flex items-center space-x-2">
+                        <Car className="w-4 h-4" />
+                        <span>{vehicle.machine_number}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div className="text-sm text-gray-600">
+              {selectedOfficeId !== "all" || selectedVehicleType !== "all" || selectedMachineNumber !== "all" ? (
+                <div className="flex items-center space-x-2">
+                  <span>フィルター適用中:</span>
+                  {selectedOfficeId !== "all" && (
+                    <Badge variant="secondary">
+                      {allOffices.find((o) => o.id === Number.parseInt(selectedOfficeId))?.office_name}
+                    </Badge>
+                  )}
+                  {selectedVehicleType !== "all" && <Badge variant="secondary">{selectedVehicleType}</Badge>}
+                  {selectedMachineNumber !== "all" && <Badge variant="secondary">{selectedMachineNumber}</Badge>}
+                </div>
+              ) : (
+                <span>全てのデータを表示中</span>
+              )}
+            </div>
+            {(selectedOfficeId !== "all" || selectedVehicleType !== "all" || selectedMachineNumber !== "all") && (
+              <Button variant="outline" size="sm" onClick={resetFilters}>
+                フィルターをリセット
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 運用計画マトリックスチャート（結果表示専用） */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <span>{currentMonth} 運用計画チャート</span>
+            <Badge variant="outline" className={monthInfo.color}>
+              {monthInfo.label}表示
+            </Badge>
+          </CardTitle>
+          <div className="text-sm text-gray-600">
+            運用計画の結果を表示します。水色は留置期間、矢印は移動先を示します。
           </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse text-xs">
               <thead>
                 <tr>
-                  <th className="border p-2 bg-gray-50 text-left min-w-32">機種 / 機械番号</th> {/* ヘッダー変更 */}
-                  <th className="border p-2 bg-gray-50 text-center min-w-20">詳細</th>
-                  {days.map((day) => (
-                    <th key={day} className="border p-1 bg-gray-50 text-center min-w-24 text-sm">
-                      {day}日
+                  <th className="border p-2 bg-gray-50 text-center min-w-16 sticky left-0 z-10">日付</th>
+                  <th className="border p-2 bg-gray-50 text-center min-w-12 sticky left-16 z-10">曜日</th>
+                  <th className="border p-2 bg-blue-50 text-center min-w-20">機種</th>
+                  <th className="border p-2 bg-blue-50 text-center min-w-20">機械番号</th>
+                  {filteredBases.map((base) => (
+                    <th key={base.id} className="border p-2 bg-green-50 text-center min-w-24">
+                      <div className="space-y-1">
+                        <div className="font-medium">{base.base_name}</div>
+                        <div className="text-xs text-gray-600">{base.location}</div>
+                      </div>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {allVehicles.map((vehicle) => {
-                  return (
-                    <tr key={vehicle.id} className="bg-blue-25">
-                      <td className="border p-2 font-medium bg-blue-50">
-                        <div className="text-sm">
-                          <div className="font-semibold">{vehicle.name}</div> {/* 機種を表示 */}
-                          <div className="text-gray-500 text-xs">{vehicle.machine_number}</div> {/* 機械番号を表示 */}
-                        </div>
+                {days.map((day) => {
+                  const dateString = getDateString(day)
+                  const dayOfWeek = new Date(dateString).toLocaleDateString("ja-JP", { weekday: "short" })
+                  const isWeekend = dayOfWeek === "土" || dayOfWeek === "日"
+                  const isToday = dateString === new Date().toISOString().slice(0, 10)
+
+                  // 各日付に対して、機種×機械番号の組み合わせごとに行を作成
+                  const vehicleRows = Object.entries(vehiclesByType).flatMap(([vehicleType, vehicles]) =>
+                    vehicles.map((vehicle, vehicleIndex) => ({
+                      vehicleType,
+                      vehicle,
+                      isFirstOfType: vehicleIndex === 0,
+                      typeCount: vehicles.length,
+                    })),
+                  )
+
+                  return vehicleRows.map((row, rowIndex) => (
+                    <tr key={`${day}-${row.vehicle.id}`} className={isWeekend ? "bg-red-25" : ""}>
+                      {/* 日付セル（最初の車両行のみ表示） */}
+                      {rowIndex === 0 && (
+                        <td
+                          className={`border p-2 text-center font-medium sticky left-0 z-10 ${
+                            isToday ? "bg-yellow-100" : "bg-gray-50"
+                          }`}
+                          rowSpan={vehicleRows.length}
+                        >
+                          {day}
+                        </td>
+                      )}
+
+                      {/* 曜日セル（最初の車両行のみ表示） */}
+                      {rowIndex === 0 && (
+                        <td
+                          className={`border p-2 text-center text-sm sticky left-16 z-10 ${
+                            isWeekend ? "text-red-600 font-medium" : "text-gray-600"
+                          } ${isToday ? "bg-yellow-100" : "bg-gray-50"}`}
+                          rowSpan={vehicleRows.length}
+                        >
+                          {dayOfWeek}
+                        </td>
+                      )}
+
+                      {/* 機種セル */}
+                      {row.isFirstOfType && (
+                        <td className="border p-2 text-center font-medium bg-blue-50" rowSpan={row.typeCount}>
+                          <div className="flex flex-col items-center space-y-1">
+                            <Car className="w-4 h-4 text-blue-600" />
+                            <span className="text-xs font-semibold">{row.vehicleType}</span>
+                          </div>
+                        </td>
+                      )}
+
+                      {/* 機械番号セル */}
+                      <td className="border p-2 text-center font-medium bg-blue-50">
+                        <div className="text-sm font-semibold">{row.vehicle.machine_number}</div>
                       </td>
-                      <td className="border p-2 text-center bg-blue-50 text-blue-700 font-medium text-sm">計画</td>
-                      {days.map((day) => {
-                        const dateString = getDateString(day)
-                        const dailyPlans = getPlansForDate(vehicle.id, dateString)
+
+                      {/* 基地セル（結果表示専用） */}
+                      {filteredBases.map((base) => {
+                        const assignment = getAssignment(dateString, row.vehicle.id, base.id)
+                        const isDetentionPeriod = checkDetentionPeriod(dateString, row.vehicle.id, base.id)
+                        const hasMovement = assignment?.arrival_base_id && assignment.arrival_base_id !== assignment.base_id
+                        const movementFromPrevDay = getMovementInfo(dateString, row.vehicle.id, base.id)
+
                         return (
-                          <td key={`plan-${day}`} className="border p-1">
-                            <div className="space-y-1">
-                              {dailyPlans.map((plan) => (
-                                <div
-                                  key={plan.id}
-                                  className="bg-blue-100 text-blue-800 text-xs p-1 rounded font-medium"
-                                >
-                                  {plan.planned_distance}km
-                                  {(plan.departure_base || plan.arrival_base) && (
-                                    <div className="text-xs text-gray-700 flex items-center mt-1">
-                                      <MapPin className="w-3 h-3 mr-1" />
-                                      {plan.departure_base?.base_name || "不明"}
-                                      {plan.arrival_base && ` → ${plan.arrival_base.base_name}`}
-                                    </div>
-                                  )}
+                          <td 
+                            key={base.id} 
+                            className={`border p-1 ${
+                              isDetentionPeriod ? 'bg-blue-100' : ''
+                            }`}
+                          >
+                            {assignment ? (
+                              <div className="space-y-1">
+                                <div className={`text-xs px-1 py-0.5 rounded ${getShiftTypeColor(assignment.shift_type || "")}`}>
+                                  {assignment.shift_type}
                                 </div>
-                              ))}
-                            </div>
+                                
+                                {/* 移動矢印の表示（基地名のみ） */}
+                                {hasMovement && (
+                                  <div className="text-xs text-blue-600 font-medium">
+                                    <div className="flex items-center space-x-1">
+                                      <ArrowRight className="w-3 h-3" />
+                                      <span>{allBases.find(b => b.id === assignment.arrival_base_id)?.base_name}</span>
+                                    </div>
+                                  </div>
+                                )}
+                                
+                                {/* 留置表示 */}
+                                {assignment.is_detention && (
+                                  <div className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 rounded">
+                                    留置
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                {/* 前日の移動による表示 */}
+                                {movementFromPrevDay && (
+                                  <div className="text-xs text-blue-600 font-medium">
+                                    <div className="flex items-center space-x-1">
+                                      <ArrowRight className="w-3 h-3" />
+                                      <span>{allBases.find(b => b.id === movementFromPrevDay.arrival_base_id)?.base_name}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </td>
                         )
                       })}
                     </tr>
-                  )
+                  ))
                 })}
               </tbody>
             </table>
           </div>
         </CardContent>
       </Card>
-
-      {plans.length === 0 && (
-        <div className="text-center py-12 text-gray-500">運用計画がありません。新しい計画を追加してください。</div>
-      )}
     </div>
-  )
-}
-
-interface OperationPlanFormProps {
-  vehicles: Vehicle[]
-  bases: Base[]
-  onSubmit: (plans: TravelPlan[]) => void
-  onCancel: () => void
-}
-
-function OperationPlanForm({ vehicles, bases, onSubmit, onCancel }: OperationPlanFormProps) {
-  const [formData, setFormData] = useState({
-    plan_date: "",
-    planned_distance: "",
-    departure_base_id: "",
-    arrival_base_id: "",
-  })
-  const [selectedVehicleIds, setSelectedVehicleIds] = useState<number[]>([])
-  const [loading, setLoading] = useState(false)
-  const [showVehicleSelectModal, setShowVehicleSelectModal] = useState(false) // モーダルの状態
-
-  // 車両選択モーダル内のフィルター
-  const [vehicleFilterCategory, setVehicleFilterCategory] = useState<string>("all")
-  const [vehicleFilterBase, setVehicleFilterBase] = useState<string>("all")
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-
-    if (selectedVehicleIds.length === 0) {
-      alert("車両を1つ以上選択してください。")
-      setLoading(false)
-      return
-    }
-
-    const newPlans: TravelPlan[] = []
-    for (const vehicleId of selectedVehicleIds) {
-      try {
-        const response = await fetch("/api/travel-plans", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            vehicle_id: vehicleId,
-            plan_date: formData.plan_date,
-            planned_distance: Number.parseFloat(formData.planned_distance),
-            departure_base_id: formData.departure_base_id ? Number.parseInt(formData.departure_base_id) : null,
-            arrival_base_id: formData.arrival_base_id ? Number.parseInt(formData.arrival_base_id) : null,
-          }),
-        })
-
-        if (response.ok) {
-          const newPlan = await response.json()
-          newPlans.push(newPlan)
-        } else {
-          console.error(`Failed to create plan for vehicle ${vehicleId}`)
-        }
-      } catch (error) {
-        console.error(`Error creating plan for vehicle ${vehicleId}:`, error)
-      }
-    }
-
-    setLoading(false)
-    if (newPlans.length > 0) {
-      onSubmit(newPlans)
-    } else {
-      alert("計画の追加に失敗しました。")
-    }
-  }
-
-  // 車両選択モーダルで表示する車両リスト
-  const filteredVehiclesForModal = useMemo(() => {
-    return vehicles.filter((vehicle) => {
-      // vehicle.name が機種、vehicle.base_location が基地
-      const matchesCategory = vehicleFilterCategory === "all" || vehicle.name === vehicleFilterCategory
-      const matchesBase = vehicleFilterBase === "all" || vehicle.base_location === vehicleFilterBase
-      return matchesCategory && matchesBase
-    })
-  }, [vehicles, vehicleFilterCategory, vehicleFilterBase])
-
-  // ユニークな機種と基地のリストを取得
-  const uniqueCategories = useMemo(() => {
-    const categories = new Set(vehicles.map((v) => v.name)) // nameが機種になった
-    return ["all", ...Array.from(categories)].sort()
-  }, [vehicles])
-
-  const uniqueBases = useMemo(() => {
-    const bases = new Set(vehicles.map((v) => v.base_location))
-    return ["all", ...Array.from(bases)].sort()
-  }, [vehicles])
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>運用計画追加</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>計画日</Label>
-              <Input
-                type="date"
-                value={formData.plan_date}
-                onChange={(e) => setFormData({ ...formData, plan_date: e.target.value })}
-                required
-              />
-            </div>
-            <div>
-              <Label>計画距離 (km)</Label>
-              <Input
-                type="number"
-                step="0.1"
-                value={formData.planned_distance}
-                onChange={(e) => setFormData({ ...formData, planned_distance: e.target.value })}
-                placeholder="25.5"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>出発基地</Label>
-              <Select
-                value={formData.departure_base_id}
-                onValueChange={(value) => setFormData({ ...formData, departure_base_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="基地を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bases.map((base) => (
-                    <SelectItem key={base.id} value={base.id.toString()}>
-                      {base.base_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>帰着基地</Label>
-              <Select
-                value={formData.arrival_base_id}
-                onValueChange={(value) => setFormData({ ...formData, arrival_base_id: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="基地を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {bases.map((base) => (
-                    <SelectItem key={base.id} value={base.id.toString()}>
-                      {base.base_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label>機械の種類 (最大8機種)</Label>
-            <div className="flex flex-wrap items-center gap-2 border rounded-md p-2 min-h-[40px]">
-              {selectedVehicleIds.length === 0 ? (
-                <span className="text-gray-500 text-sm">車両を選択してください</span>
-              ) : (
-                selectedVehicleIds.map((id) => {
-                  const vehicle = vehicles.find((v) => v.id === id)
-                  return (
-                    <Badge key={id} variant="secondary" className="flex items-center gap-1">
-                      {vehicle?.name} ({vehicle?.machine_number}) {/* 機種と機械番号を表示 */}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedVehicleIds(selectedVehicleIds.filter((vid) => vid !== id))}
-                        className="ml-1 text-gray-500 hover:text-gray-700"
-                      >
-                        &times;
-                      </button>
-                    </Badge>
-                  )
-                })
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setVehicleFilterCategory("all")
-                  setVehicleFilterBase("all")
-                  setShowVehicleSelectModal(true)
-                }}
-                className="ml-auto"
-              >
-                <Car className="w-4 h-4 mr-2" />
-                選択
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-2">
-            <Button type="button" variant="outline" onClick={onCancel}>
-              キャンセル
-            </Button>
-            <Button type="submit" disabled={loading || selectedVehicleIds.length === 0}>
-              {loading ? "追加中..." : "追加"}
-            </Button>
-          </div>
-        </form>
-
-        {/* 車両選択モーダル */}
-        <Dialog open={showVehicleSelectModal} onOpenChange={setShowVehicleSelectModal}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>機械の種類を選択 (最大8機種)</DialogTitle>
-            </DialogHeader>
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="vehicleFilterCategory" className="text-sm">
-                  機種: {/* ラベル変更 */}
-                </Label>
-                <Select value={vehicleFilterCategory} onValueChange={setVehicleFilterCategory}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="全て" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {uniqueCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category === "all" ? "全て" : category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="vehicleFilterBase" className="text-sm">
-                  基地:
-                </Label>
-                <Select value={vehicleFilterBase} onValueChange={setVehicleFilterBase}>
-                  <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="全て" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {uniqueBases.map((base) => (
-                      <SelectItem key={base} value={base}>
-                        {base === "all" ? "全て" : base}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-80 overflow-y-auto">
-              {filteredVehiclesForModal.map((vehicle) => (
-                <div key={vehicle.id} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`modal-vehicle-${vehicle.id}`}
-                    checked={selectedVehicleIds.includes(vehicle.id)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        if (selectedVehicleIds.length < 8) {
-                          setSelectedVehicleIds([...selectedVehicleIds, vehicle.id])
-                        }
-                      } else {
-                        setSelectedVehicleIds(selectedVehicleIds.filter((id) => id !== vehicle.id))
-                      }
-                    }}
-                  />
-                  <Label htmlFor={`modal-vehicle-${vehicle.id}`}>
-                    {vehicle.name} ({vehicle.machine_number}) {/* 機種と機械番号を表示 */}
-                  </Label>
-                </div>
-              ))}
-            </div>
-            <DialogFooter>
-              <Button onClick={() => setShowVehicleSelectModal(false)}>選択完了</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
   )
 }

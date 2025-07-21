@@ -30,12 +30,10 @@ export function VehicleForm({ onSubmit, onCancel }: VehicleFormProps) {
     type_approval_conditions: "",
   })
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError(null)
 
     try {
       const response = await fetch("/api/vehicles", {
@@ -54,12 +52,10 @@ export function VehicleForm({ onSubmit, onCancel }: VehicleFormProps) {
         const newVehicle = await response.json()
         onSubmit(newVehicle)
       } else {
-        const errorData = await response.json()
-        setError(errorData.error || "登録に失敗しました")
+        console.error("Failed to create vehicle")
       }
     } catch (error) {
       console.error("Error creating vehicle:", error)
-      setError("ネットワークエラーが発生しました")
     } finally {
       setLoading(false)
     }
@@ -189,12 +185,6 @@ export function VehicleForm({ onSubmit, onCancel }: VehicleFormProps) {
               />
             </div>
           </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
-          )}
 
           <div className="flex justify-end space-x-2">
             <Button type="button" variant="outline" onClick={onCancel}>

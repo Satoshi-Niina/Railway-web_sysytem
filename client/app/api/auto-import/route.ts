@@ -3,6 +3,11 @@ import { createServerClient } from "@/lib/supabase"
 
 // 外部システムからの実績データ自動取り込みAPI
 export async function POST(request: NextRequest) {
+  // 環境変数チェック
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.json({ error: "Database configuration missing" }, { status: 500 })
+  }
+
   const supabase = createServerClient()
 
   try {

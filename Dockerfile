@@ -5,30 +5,43 @@ FROM node:18-alpine AS base
 FROM base AS deps
 WORKDIR /app
 
-# ルートのpackage.jsonとpackage-lock.jsonをコピー
+# package.jsonとpackage-lock.jsonをコピー
 COPY package*.json ./
-COPY client/package*.json ./client/
 
 # 依存関係をインストール
 RUN npm ci --only=production
 
-# ビルドステージ
+# クライアントビルドステージ
 FROM base AS builder
 WORKDIR /app
 
 # 依存関係をコピー
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/client/node_modules ./client/node_modules
 
 # ソースコードをコピー
 COPY . .
 
 # クライアントをビルド
-WORKDIR /app/client
 RUN npm run build
 
-# 本番ステージ
-FROM base AS runner
+# サーバービルドステージ
+FROM base AS server
+WORKDIR /app
+
+# package.jsonとpackage-lock.jsonをコピー
+COPY package*.json ./
+
+# 依存関係をインストール
+RUN npm ci --only=production
+
+# ソースコードをコピー
+COPY . .
+
+# サーバーをビルド
+RUN npm run build
+
+# クライアント本番ステージ
+FROM base AS client-runner
 WORKDIR /app
 
 ENV NODE_ENV=production
@@ -38,9 +51,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # 必要なファイルをコピー
-COPY --from=builder /app/client/public ./client/public
-COPY --from=builder /app/client/.next/standalone ./
-COPY --from=builder /app/client/.next/static ./client/.next/static
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 # 権限を設定
 RUN chown -R nextjs:nodejs /app
@@ -53,4 +66,30 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # アプリケーションを起動
-CMD ["node", "server.js"] 
+CMD ["node", "server.js"]
+
+# サーバー本番ステージ
+FROM base AS server-runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+# 非rootユーザーを作成
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nodejs
+
+# 必要なファイルをコピー
+COPY --from=server /app/dist ./dist
+COPY --from=server /app/node_modules ./node_modules
+
+# 権限を設定
+RUN chown -R nodejs:nodejs /app
+
+USER nodejs
+
+EXPOSE 3001
+
+ENV PORT=3001
+
+# アプリケーションを起動
+CMD ["node", "dist/server.js"] 

@@ -4,15 +4,23 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Wrench } from "lucide-react"
-import type { InspectionPlan, Vehicle, Base } from "@/types" // InspectionPlan をインポート
-import { InspectionPlanForm } from "./inspection-plan-form" // 新しいフォームをインポート
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Plus, Wrench, AlertCircle } from "lucide-react"
+import type { InspectionPlan, Vehicle, Base } from "@/types"
+import { InspectionPlanForm } from "./inspection-plan-form"
+import { apiCall } from "@/lib/api-client"
+
+// データベース設定の確認
+const isDatabaseConfigured = (): boolean => {
+  return !!(process.env.NEXT_PUBLIC_DATABASE_URL || process.env.DATABASE_URL)
+}
 
 export function InspectionPlanList() {
   const [inspectionPlans, setInspectionPlans] = useState<InspectionPlan[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [bases, setBases] = useState<Base[]>([]) // 基地データも取得
+  const [bases, setBases] = useState<Base[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
@@ -21,16 +29,11 @@ export function InspectionPlanList() {
 
   const fetchData = async () => {
     try {
-      const [inspectionPlansRes, vehiclesRes, basesRes] = await Promise.all([
-        fetch("/api/inspection-plans"),
-        fetch("/api/vehicles"),
-        fetch("/api/bases"),
-      ])
-
+      setError(null)
       const [inspectionPlansData, vehiclesData, basesData] = await Promise.all([
-        inspectionPlansRes.json(),
-        vehiclesRes.json(),
-        basesRes.json(),
+        apiCall<InspectionPlan[]>("/api/inspection-plans"),
+        apiCall<Vehicle[]>("/api/vehicles"),
+        apiCall<Base[]>("/api/bases"),
       ])
 
       setInspectionPlans(inspectionPlansData)
@@ -38,6 +41,7 @@ export function InspectionPlanList() {
       setBases(basesData)
     } catch (error) {
       console.error("Error fetching data:", error)
+      setError("データの取得に失敗しました。")
     } finally {
       setLoading(false)
     }
@@ -86,18 +90,34 @@ export function InspectionPlanList() {
 
   return (
     <div className="space-y-6">
+      {!isDatabaseConfigured() && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            データベースが設定されていません。モックデータを表示しています。実際のデータを使用するには、Supabaseの設定を完了してください。
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">検査計画管理</h2> {/* タイトル変更 */}
-        <Button onClick={() => setShowForm(true)}>
+        <h2 className="text-2xl font-bold">検査計画管理</h2>
+        <Button onClick={() => setShowForm(true)} disabled={!isDatabaseConfigured()}>
           <Plus className="w-4 h-4 mr-2" />
-          検査計画追加 {/* ボタンテキスト変更 */}
+          検査計画追加
         </Button>
       </div>
 
       {showForm && (
         <InspectionPlanForm
           vehicles={vehicles}
-          bases={bases} // 基地データをフォームに渡す
+          bases={bases}
           onSubmit={handleInspectionPlanAdded}
           onCancel={() => setShowForm(false)}
         />
@@ -111,8 +131,7 @@ export function InspectionPlanList() {
                 <div>
                   <CardTitle className="text-lg flex items-center">
                     <Wrench className="w-5 h-5 mr-2 text-purple-600" />
-                    {plan.vehicle?.name} ({plan.vehicle?.machine_number}) - {plan.inspection_type}{" "}
-                    {/* 機種と機械番号を表示 */}
+                    {plan.vehicle?.name} ({plan.vehicle?.machine_number}) - {plan.inspection_type}
                   </CardTitle>
                   <div className="text-sm text-gray-600 mt-1">
                     施工予定: {new Date(plan.planned_start_date).toLocaleDateString("ja-JP")}
@@ -150,24 +169,13 @@ export function InspectionPlanList() {
                     <p className="text-sm text-gray-700 mt-1">{plan.notes}</p>
                   </div>
                 )}
-
-                {/* PDFファイルURLはInspectionPlanにはないため削除 */}
-                {/* {plan.pdf_file_url && (
-                  <div className="flex items-center space-x-2">
-                    <FileText className="w-4 h-4" />
-                    <Button variant="outline" size="sm">
-                      <Download className="w-4 h-4 mr-2" />
-                      検査報告書をダウンロード
-                    </Button>
-                  </div>
-                )} */}
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {inspectionPlans.length === 0 && (
+      {inspectionPlans.length === 0 && !loading && (
         <div className="text-center py-12 text-gray-500">検査計画がありません。新しい検査計画を追加してください。</div>
       )}
     </div>

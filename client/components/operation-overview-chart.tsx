@@ -1,44 +1,50 @@
 "use client"
-
-import React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Wrench, History, CalendarDays, Car } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  MapPin,
+  Wrench,
+  History,
+  CalendarDays,
+  AlertCircle,
+} from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
-import type { Vehicle, OperationPlan, OperationRecord, InspectionPlan, Base } from "@/types" // types/enhanced.ts を types/index.ts に統合したため、こちらからインポート
+import type { Vehicle, OperationPlan, OperationRecord, InspectionPlan, Base } from "@/types"
+import { isDatabaseConfigured } from "@/lib/api-client"
 
 export function OperationOverviewChart() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
   const [operationPlans, setOperationPlans] = useState<OperationPlan[]>([])
   const [operationRecords, setOperationRecords] = useState<OperationRecord[]>([])
   const [inspectionPlans, setInspectionPlans] = useState<InspectionPlan[]>([])
-  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([]) // 全車両を保持
-  const [allBases, setAllBases] = useState<Base[]>([]) // 全基地を保持
+  const [allVehicles, setAllVehicles] = useState<Vehicle[]>([])
+  const [allBases, setAllBases] = useState<Base[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // フィルターと選択車両の状態
-  const [selectedVehicleIds, setSelectedVehicleIds] = useState<number[]>([])
-  const [showVehicleSelectModal, setShowVehicleSelectModal] = useState(false)
-  const [filterShiftType, setFilterShiftType] = useState<string>("all") // "all", "day", "night", "day_night"
-  const [filterRecordStatus, setFilterRecordStatus] = useState<string>("all") // "all", "completed", "cancelled"
-  const [filterInspectionCategory, setFilterInspectionCategory] = useState<string>("all") // "all", "臨修", "定検", "乙検", "甲検", "その他"
-
-  // 車両選択モーダル内のフィルター
-  const [vehicleFilterCategory, setVehicleFilterCategory] = useState<string>("all")
-  const [vehicleFilterBase, setVehicleFilterBase] = useState<string>("all")
+  // フィルター状態
+  const [filterShiftType, setFilterShiftType] = useState<string>("all")
+  const [filterRecordStatus, setFilterRecordStatus] = useState<string>("all")
+  const [filterInspectionCategory, setFilterInspectionCategory] = useState<string>("all")
 
   const currentDate = new Date()
   const selectedDate = new Date(currentMonth + "-01")
   const isCurrentMonth = currentMonth === currentDate.toISOString().slice(0, 7)
   const isPastMonth = selectedDate < new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
   const isFutureMonth = selectedDate > new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+
+  // 固定の機種リスト
+  const vehicleTypes = ["モータカー", "鉄トロ（10t）", "鉄トロ（15t）", "箱トロ", "ホッパー車"]
 
   useEffect(() => {
     fetchData()
@@ -47,34 +53,201 @@ export function OperationOverviewChart() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [plansRes, recordsRes, inspectionsRes, vehiclesRes, basesRes] = await Promise.all([
-        fetch(`/api/operation-plans?month=${currentMonth}`),
-        fetch(`/api/operation-records?month=${currentMonth}`),
-        fetch(`/api/inspection-plans?month=${currentMonth}`),
-        fetch("/api/vehicles"),
-        fetch("/api/bases"),
-      ])
+      setError(null)
 
-      const [plansData, recordsData, inspectionsData, vehiclesData, basesData] = await Promise.all([
-        plansRes.json(),
-        recordsRes.json(),
-        inspectionsRes.json(),
-        vehiclesRes.json(),
-        basesRes.json(),
-      ])
+      // モックデータを使用
+      const mockVehicles: Vehicle[] = [
+        {
+          id: 1,
+          name: "モータカー",
+          model: "MC-100",
+          base_location: "本社基地",
+          machine_number: "M001",
+          manufacturer: "日本車両",
+          acquisition_date: "2020-04-01",
+          management_office: "本社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          name: "モータカー",
+          model: "MC-100",
+          base_location: "本社基地",
+          machine_number: "M002",
+          manufacturer: "日本車両",
+          acquisition_date: "2020-05-01",
+          management_office: "本社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 3,
+          name: "鉄トロ（10t）",
+          model: "TT-10",
+          base_location: "北部基地",
+          machine_number: "T001",
+          manufacturer: "川崎重工",
+          acquisition_date: "2019-06-01",
+          management_office: "関西支社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 4,
+          name: "ホッパー車",
+          model: "HP-50",
+          base_location: "南部基地",
+          machine_number: "H001",
+          manufacturer: "日立製作所",
+          acquisition_date: "2021-03-01",
+          management_office: "本社保守事業所",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+        },
+      ]
 
-      setOperationPlans(plansData)
-      setOperationRecords(recordsData)
-      setInspectionPlans(inspectionsData)
-      setAllVehicles(vehiclesData)
-      setAllBases(basesData)
+      const mockBases: Base[] = [
+        {
+          id: 1,
+          base_name: "本社基地",
+          location: "東京",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 2,
+          base_name: "北部基地",
+          location: "埼玉",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+        {
+          id: 3,
+          base_name: "南部基地",
+          location: "神奈川",
+          created_at: "2024-01-01T00:00:00Z",
+        },
+      ]
 
-      // 初回ロード時に全車両を選択状態にする（または最初の8両）
-      if (selectedVehicleIds.length === 0 && vehiclesData.length > 0) {
-        setSelectedVehicleIds(vehiclesData.slice(0, 8).map((v: Vehicle) => v.id))
-      }
+      // サンプル運用計画データ
+      const mockOperationPlans: OperationPlan[] = [
+        {
+          id: 1,
+          vehicle_id: 1,
+          plan_date: `${currentMonth}-15`,
+          shift_type: "day",
+          start_time: "08:00",
+          end_time: "17:00",
+          planned_distance: 50,
+          departure_base_id: 1,
+          arrival_base_id: 2,
+          notes: "定期点検後初回運用",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: mockVehicles[0],
+          departure_base: mockBases[0],
+          arrival_base: mockBases[1],
+        },
+        {
+          id: 2,
+          vehicle_id: 2,
+          plan_date: `${currentMonth}-16`,
+          shift_type: "night",
+          start_time: "22:00",
+          end_time: "06:00",
+          planned_distance: 30,
+          departure_base_id: 2,
+          arrival_base_id: 3,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: mockVehicles[1],
+          departure_base: mockBases[1],
+          arrival_base: mockBases[2],
+        },
+        {
+          id: 3,
+          vehicle_id: 3,
+          plan_date: `${currentMonth}-17`,
+          shift_type: "day_night",
+          start_time: "08:00",
+          end_time: "20:00",
+          planned_distance: 75,
+          departure_base_id: 1,
+          arrival_base_id: 3,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: mockVehicles[2],
+          departure_base: mockBases[0],
+          arrival_base: mockBases[2],
+        },
+      ]
+
+      // サンプル運用実績データ
+      const mockOperationRecords: OperationRecord[] = [
+        {
+          id: 1,
+          vehicle_id: 1,
+          record_date: `${currentMonth}-15`,
+          shift_type: "day",
+          actual_start_time: "08:15",
+          actual_end_time: "17:30",
+          actual_distance: 48,
+          departure_base_id: 1,
+          arrival_base_id: 2,
+          status: "completed",
+          notes: "順調に完了",
+          auto_imported: false,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: mockVehicles[0],
+          departure_base: mockBases[0],
+          arrival_base: mockBases[1],
+        },
+        {
+          id: 2,
+          vehicle_id: 3,
+          record_date: `${currentMonth}-17`,
+          shift_type: "day_night",
+          actual_start_time: "08:00",
+          actual_end_time: "19:45",
+          actual_distance: 72,
+          departure_base_id: 1,
+          arrival_base_id: 3,
+          status: "completed",
+          auto_imported: true,
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: mockVehicles[2],
+          departure_base: mockBases[0],
+          arrival_base: mockBases[2],
+        },
+      ]
+
+      // サンプル検査計画データ
+      const mockInspectionPlans: InspectionPlan[] = [
+        {
+          id: 1,
+          vehicle_id: 4,
+          inspection_type: "乙A検査",
+          planned_start_date: `${currentMonth}-20`,
+          planned_end_date: `${currentMonth}-22`,
+          estimated_duration: 3,
+          inspection_category: "定検",
+          status: "planned",
+          notes: "年次定期検査",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: mockVehicles[3],
+        },
+      ]
+
+      setOperationPlans(mockOperationPlans)
+      setOperationRecords(mockOperationRecords)
+      setInspectionPlans(mockInspectionPlans)
+      setAllVehicles(mockVehicles)
+      setAllBases(mockBases)
     } catch (error) {
       console.error("Error fetching data:", error)
+      setError("データの取得に失敗しました。")
     } finally {
       setLoading(false)
     }
@@ -89,36 +262,35 @@ export function OperationOverviewChart() {
     return `${currentMonth}-${day.toString().padStart(2, "0")}`
   }
 
-  // フィルターを適用した計画データを取得
-  const getFilteredPlansForDate = (vehicleId: number, date: string) => {
-    return operationPlans.filter(
+  // 特定の日付と機種の運用データを取得
+  const getDataForDateAndType = (date: string, vehicleType: string) => {
+    const vehiclesOfType = allVehicles.filter((v) => v.name === vehicleType)
+    const vehicleIds = vehiclesOfType.map((v) => v.id)
+
+    const plans = operationPlans.filter(
       (p) =>
-        p.vehicle_id === vehicleId &&
         p.plan_date === date &&
+        vehicleIds.includes(p.vehicle_id) &&
         (filterShiftType === "all" || p.shift_type === filterShiftType),
     )
-  }
 
-  // フィルターを適用した実績データを取得
-  const getFilteredRecordsForDate = (vehicleId: number, date: string) => {
-    return operationRecords.filter(
+    const records = operationRecords.filter(
       (r) =>
-        r.vehicle_id === vehicleId &&
         r.record_date === date &&
+        vehicleIds.includes(r.vehicle_id) &&
         (filterShiftType === "all" || r.shift_type === filterShiftType) &&
         (filterRecordStatus === "all" || r.status === filterRecordStatus),
     )
-  }
 
-  // フィルターを適用した検査計画データを取得
-  const getFilteredInspectionsForDate = (vehicleId: number, date: string) => {
-    return inspectionPlans.filter(
+    const inspections = inspectionPlans.filter(
       (i) =>
-        i.vehicle_id === vehicleId &&
+        vehicleIds.includes(i.vehicle_id) &&
         date >= i.planned_start_date &&
         date <= i.planned_end_date &&
         (filterInspectionCategory === "all" || i.inspection_category === filterInspectionCategory),
     )
+
+    return { plans, records, inspections, vehicles: vehiclesOfType }
   }
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -173,7 +345,7 @@ export function OperationOverviewChart() {
       case "定検":
         return "bg-green-100 text-green-800"
       case "その他":
-        return "bg-gray-100 text-gray-800" // 'その他' の色を追加
+        return "bg-gray-100 text-gray-800"
       default:
         return "bg-gray-100 text-gray-800"
     }
@@ -210,40 +382,28 @@ export function OperationOverviewChart() {
   const daysInMonth = getDaysInMonth(currentMonth)
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
 
-  // 表示対象の車両をフィルタリング
-  const vehiclesToDisplay = useMemo(() => {
-    if (selectedVehicleIds.length === 0) {
-      return allVehicles.slice(0, 8) // 何も選択されていない場合は最初の8両を表示
-    }
-    return allVehicles.filter((v) => selectedVehicleIds.includes(v.id))
-  }, [allVehicles, selectedVehicleIds])
-
-  // 車両選択モーダルで表示する車両リスト
-  const filteredVehiclesForModal = useMemo(() => {
-    return allVehicles.filter((vehicle) => {
-      const matchesCategory = vehicleFilterCategory === "all" || vehicle.name === vehicleFilterCategory // nameが機種
-      const matchesBase = vehicleFilterBase === "all" || vehicle.base_location === vehicleFilterBase
-      return matchesCategory && matchesBase
-    })
-  }, [allVehicles, vehicleFilterCategory, vehicleFilterBase])
-
-  // ユニークな機種と基地のリストを取得
-  const uniqueCategories = useMemo(() => {
-    const categories = new Set(allVehicles.map((v) => v.name)) // nameが機種
-    return ["all", ...Array.from(categories)].sort()
-  }, [allVehicles])
-
-  const uniqueBases = useMemo(() => {
-    const bases = new Set(allVehicles.map((v) => v.base_location))
-    return ["all", ...Array.from(bases)].sort()
-  }, [allVehicles])
-
   if (loading) {
     return <div className="flex justify-center p-8">読み込み中...</div>
   }
 
   return (
     <div className="space-y-6">
+      {!isDatabaseConfigured() && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            データベースが設定されていません。モックデータを表示しています。実際のデータを使用するには、Supabaseの設定を完了してください。
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h2 className="text-2xl font-bold">運用管理チャート</h2>
@@ -337,21 +497,17 @@ export function OperationOverviewChart() {
                 <Badge className="bg-orange-100 text-orange-800">甲検</Badge>
                 <Badge className="bg-blue-100 text-blue-800">乙検</Badge>
                 <Badge className="bg-green-100 text-green-800">定検</Badge>
-                <Badge className="bg-gray-100 text-gray-800">その他</Badge> {/* その他を追加 */}
+                <Badge className="bg-gray-100 text-gray-800">その他</Badge>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* フィルターと車両選択 */}
+      {/* フィルター */}
       <Card>
         <CardContent className="p-4 space-y-4">
           <div className="flex flex-wrap items-center gap-4">
-            <Button variant="outline" onClick={() => setShowVehicleSelectModal(true)}>
-              <Car className="w-4 h-4 mr-2" />
-              保守用車検索 ({selectedVehicleIds.length} / {allVehicles.length})
-            </Button>
             <div className="flex items-center gap-2">
               <Label htmlFor="filterShiftType" className="text-sm">
                 運用計画:
@@ -397,7 +553,7 @@ export function OperationOverviewChart() {
                   <SelectItem value="定検">定検</SelectItem>
                   <SelectItem value="乙検">乙検</SelectItem>
                   <SelectItem value="甲検">甲検</SelectItem>
-                  <SelectItem value="その他">その他</SelectItem> {/* その他を追加 */}
+                  <SelectItem value="その他">その他</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -425,147 +581,142 @@ export function OperationOverviewChart() {
             <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th className="border p-2 bg-gray-50 text-left min-w-32">機種 / 機械番号</th> {/* ヘッダー変更 */}
-                  {days.map((day) => (
-                    <th key={day} className="border p-1 bg-gray-50 text-center min-w-24 text-sm">
-                      {day}日
+                  <th className="border p-2 bg-gray-50 text-left min-w-20">日付</th>
+                  {vehicleTypes.map((type) => (
+                    <th key={type} className="border p-2 bg-gray-50 text-center min-w-32 text-sm">
+                      {type}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {vehiclesToDisplay.length === 0 && (
-                  <tr>
-                    <td colSpan={days.length + 1} className="text-center py-8 text-gray-500">
-                      表示する車両が選択されていません。
-                    </td>
-                  </tr>
-                )}
-                {vehiclesToDisplay.map((vehicle) => (
-                  <React.Fragment key={vehicle.id}>
-                    {/* 運用計画行 */}
-                    <tr>
-                      <td className="border p-2 font-medium bg-blue-50" rowSpan={3}>
+                {days.map((day) => {
+                  const dateString = getDateString(day)
+                  const dayOfWeek = new Date(dateString).toLocaleDateString("ja-JP", { weekday: "short" })
+                  const isWeekend = dayOfWeek === "土" || dayOfWeek === "日"
+
+                  return (
+                    <tr key={day}>
+                      <td className={`border p-2 font-medium text-center ${isWeekend ? "bg-red-50" : "bg-blue-50"}`}>
                         <div className="text-sm">
-                          <div className="font-semibold">{vehicle.name}</div> {/* 機種を表示 */}
-                          <div className="text-gray-500 text-xs">{vehicle.machine_number}</div> {/* 機械番号を表示 */}
+                          <div className="font-semibold">{day}日</div>
+                          <div className={`text-xs ${isWeekend ? "text-red-600" : "text-gray-500"}`}>({dayOfWeek})</div>
                         </div>
                       </td>
-                      {days.map((day) => {
-                        const dateString = getDateString(day)
-                        const plans = getFilteredPlansForDate(vehicle.id, dateString)
+                      {vehicleTypes.map((vehicleType) => {
+                        const { plans, records, inspections, vehicles } = getDataForDateAndType(dateString, vehicleType)
 
                         return (
-                          <td key={`plan-${day}`} className="border p-1">
+                          <td key={vehicleType} className="border p-1">
                             <div className="space-y-1">
-                              {plans.map((plan) => (
-                                <div key={plan.id} className="space-y-1 p-1 bg-blue-100 rounded">
-                                  <Badge className={`text-xs ${getShiftBadgeColor(plan.shift_type)}`}>
-                                    {plan.shift_type === "day" ? "昼間" : plan.shift_type === "night" ? "夜間" : "昼夜"}
-                                  </Badge>
-                                  <div className="text-xs text-gray-800">{plan.planned_distance}km</div>
-                                  {plan.start_time && (
-                                    <div className="text-xs text-gray-700 flex items-center">
-                                      <Clock className="w-3 h-3 mr-1" />
-                                      {plan.start_time}
+                              {/* 運用計画 */}
+                              {plans.map((plan) => {
+                                const vehicle = vehicles.find((v) => v.id === plan.vehicle_id)
+                                return (
+                                  <div key={`plan-${plan.id}`} className="space-y-1 p-1 bg-blue-100 rounded">
+                                    <div className="flex items-center justify-between">
+                                      <Badge className={`text-xs ${getShiftBadgeColor(plan.shift_type)}`}>
+                                        {plan.shift_type === "day"
+                                          ? "昼間"
+                                          : plan.shift_type === "night"
+                                            ? "夜間"
+                                            : "昼夜"}
+                                      </Badge>
+                                      <div className="text-xs text-gray-600">{vehicle?.machine_number}</div>
                                     </div>
-                                  )}
-                                  {(plan.departure_base || plan.arrival_base) && (
-                                    <div className="text-xs text-gray-700 flex items-center">
-                                      <MapPin className="w-3 h-3 mr-1" />
-                                      {plan.departure_base?.base_name || "不明"}
-                                      {plan.arrival_base && ` → ${plan.arrival_base.base_name}`}
+                                    <div className="text-xs text-gray-800">{plan.planned_distance}km</div>
+                                    {plan.start_time && (
+                                      <div className="text-xs text-gray-700 flex items-center">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {plan.start_time}
+                                      </div>
+                                    )}
+                                    {(plan.departure_base || plan.arrival_base) && (
+                                      <div className="text-xs text-gray-700 flex items-center">
+                                        <MapPin className="w-3 h-3 mr-1" />
+                                        {plan.departure_base?.base_name || "不明"}
+                                        {plan.arrival_base && ` → ${plan.arrival_base.base_name}`}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+
+                              {/* 運用実績 */}
+                              {records.map((record) => {
+                                const vehicle = vehicles.find((v) => v.id === record.vehicle_id)
+                                return (
+                                  <div key={`record-${record.id}`} className="space-y-1 p-1 bg-green-100 rounded">
+                                    <div className="flex items-center justify-between">
+                                      <Badge className={`text-xs ${getShiftBadgeColor(record.shift_type)}`}>
+                                        {record.shift_type === "day"
+                                          ? "昼間"
+                                          : record.shift_type === "night"
+                                            ? "夜間"
+                                            : "昼夜"}
+                                      </Badge>
+                                      <div className="text-xs text-gray-600">{vehicle?.machine_number}</div>
                                     </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                        )
-                      })}
-                    </tr>
+                                    <Badge className={`text-xs ${getStatusBadgeColor(record.status)}`}>
+                                      {record.status === "completed" ? "完了" : "中止"}
+                                    </Badge>
+                                    <div className="text-xs text-gray-800">{record.actual_distance}km</div>
+                                    {record.actual_start_time && (
+                                      <div className="text-xs text-gray-700 flex items-center">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {record.actual_start_time}
+                                      </div>
+                                    )}
+                                    {(record.departure_base || record.arrival_base) && (
+                                      <div className="text-xs text-gray-700 flex items-center">
+                                        <MapPin className="w-3 h-3 mr-1" />
+                                        {record.departure_base?.base_name || "不明"}
+                                        {record.arrival_base && ` → ${record.arrival_base.base_name}`}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
 
-                    {/* 運用実績行 */}
-                    <tr>
-                      {days.map((day) => {
-                        const dateString = getDateString(day)
-                        const records = getFilteredRecordsForDate(vehicle.id, dateString)
-
-                        return (
-                          <td key={`record-${day}`} className="border p-1">
-                            <div className="space-y-1">
-                              {records.map((record) => (
-                                <div key={record.id} className="space-y-1 p-1 bg-green-100 rounded">
-                                  <Badge className={`text-xs ${getShiftBadgeColor(record.shift_type)}`}>
-                                    {record.shift_type === "day"
-                                      ? "昼間"
-                                      : record.shift_type === "night"
-                                        ? "夜間"
-                                        : "昼夜"}
-                                  </Badge>
-                                  <Badge className={`text-xs ${getStatusBadgeColor(record.status)}`}>
-                                    {record.status === "completed" ? "完了" : "中止"}
-                                  </Badge>
-                                  <div className="text-xs text-gray-800">{record.actual_distance}km</div>
-                                  {record.actual_start_time && (
-                                    <div className="text-xs text-gray-700 flex items-center">
-                                      <Clock className="w-3 h-3 mr-1" />
-                                      {record.actual_start_time}
+                              {/* 検査計画 */}
+                              {inspections.map((inspection) => {
+                                const vehicle = vehicles.find((v) => v.id === inspection.vehicle_id)
+                                return (
+                                  <div
+                                    key={`inspection-${inspection.id}`}
+                                    className="space-y-1 p-1 bg-purple-100 rounded"
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center space-x-1">
+                                        <Wrench className="w-3 h-3 text-purple-600" />
+                                        <Badge
+                                          className={`text-xs ${getInspectionCategoryColor(inspection.inspection_category)}`}
+                                        >
+                                          {inspection.inspection_category}
+                                        </Badge>
+                                      </div>
+                                      <div className="text-xs text-gray-600">{vehicle?.machine_number}</div>
                                     </div>
-                                  )}
-                                  {(record.departure_base || record.arrival_base) && (
-                                    <div className="text-xs text-gray-700 flex items-center">
-                                      <MapPin className="w-3 h-3 mr-1" />
-                                      {record.departure_base?.base_name || "不明"}
-                                      {record.arrival_base && ` → ${record.arrival_base.base_name}`}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          </td>
-                        )
-                      })}
-                    </tr>
-
-                    {/* 検査計画行 */}
-                    <tr>
-                      {days.map((day) => {
-                        const dateString = getDateString(day)
-                        const inspections = getFilteredInspectionsForDate(vehicle.id, dateString)
-
-                        return (
-                          <td key={`inspection-${day}`} className="border p-1">
-                            <div className="space-y-1">
-                              {inspections.map((inspection) => (
-                                <div key={inspection.id} className="space-y-1 p-1 bg-purple-100 rounded">
-                                  <div className="flex items-center space-x-1">
-                                    <Wrench className="w-3 h-3 text-purple-600" />
-                                    <Badge
-                                      className={`text-xs ${getInspectionCategoryColor(inspection.inspection_category)}`}
-                                    >
-                                      {inspection.inspection_category}
+                                    <div className="text-xs text-gray-800">{inspection.inspection_type}</div>
+                                    <Badge variant="outline" className="text-xs">
+                                      {inspection.status === "planned"
+                                        ? "予定"
+                                        : inspection.status === "in_progress"
+                                          ? "実施中"
+                                          : inspection.status === "completed"
+                                            ? "完了"
+                                            : "延期"}
                                     </Badge>
                                   </div>
-                                  <div className="text-xs text-gray-800">{inspection.inspection_type}</div>
-                                  <Badge variant="outline" className="text-xs">
-                                    {inspection.status === "planned"
-                                      ? "予定"
-                                      : inspection.status === "in_progress"
-                                        ? "実施中"
-                                        : inspection.status === "completed"
-                                          ? "完了"
-                                          : "延期"}
-                                  </Badge>
-                                </div>
-                              ))}
+                                )
+                              })}
                             </div>
                           </td>
                         )
                       })}
                     </tr>
-                  </React.Fragment>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -573,94 +724,21 @@ export function OperationOverviewChart() {
       </Card>
 
       {/* データが無い場合の表示 */}
-      {vehiclesToDisplay.length > 0 &&
-        operationPlans.length === 0 &&
-        operationRecords.length === 0 &&
-        inspectionPlans.length === 0 && (
-          <Card>
-            <CardContent className="text-center py-12">
-              <div className="text-gray-500">
-                <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-medium mb-2">データがありません</h3>
-                <p className="text-sm">
-                  {isPastMonth && "この月の運用履歴はありません"}
-                  {isFutureMonth && "この月の運用計画はまだ作成されていません"}
-                  {isCurrentMonth && "当月の運用データがまだありません"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-      {/* 車両選択モーダル */}
-      <Dialog open={showVehicleSelectModal} onOpenChange={setShowVehicleSelectModal}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>表示車両の選択 (最大8両)</DialogTitle>
-          </DialogHeader>
-          <div className="flex flex-wrap items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="vehicleFilterCategory" className="text-sm">
-                機種:
-              </Label>
-              <Select value={vehicleFilterCategory} onValueChange={setVehicleFilterCategory}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="全て" />
-                </SelectTrigger>
-                <SelectContent>
-                  {uniqueCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category === "all" ? "全て" : category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+      {operationPlans.length === 0 && operationRecords.length === 0 && inspectionPlans.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-12">
+            <div className="text-gray-500">
+              <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <h3 className="text-lg font-medium mb-2">データがありません</h3>
+              <p className="text-sm">
+                {isPastMonth && "この月の運用履歴はありません"}
+                {isFutureMonth && "この月の運用計画はまだ作成されていません"}
+                {isCurrentMonth && "当月の運用データがまだありません"}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="vehicleFilterBase" className="text-sm">
-                基地:
-              </Label>
-              <Select value={vehicleFilterBase} onValueChange={setVehicleFilterBase}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="全て" />
-                </SelectTrigger>
-                <SelectContent>
-                  {uniqueBases.map((base) => (
-                    <SelectItem key={base} value={base}>
-                      {base === "all" ? "全て" : base}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-80 overflow-y-auto">
-            {filteredVehiclesForModal.map((vehicle) => (
-              <div key={vehicle.id} className="flex items-center space-x-2">
-                <Checkbox
-                  id={`vehicle-${vehicle.id}`}
-                  checked={selectedVehicleIds.includes(vehicle.id)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      if (selectedVehicleIds.length < 8) {
-                        setSelectedVehicleIds([...selectedVehicleIds, vehicle.id])
-                      }
-                    } else {
-                      setSelectedVehicleIds(selectedVehicleIds.filter((id) => id !== vehicle.id))
-                    }
-                  }}
-                />
-                <Label htmlFor={`vehicle-${vehicle.id}`}>
-                  {vehicle.name} ({vehicle.machine_number})
-                </Label>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setShowVehicleSelectModal(false)}>閉じる</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

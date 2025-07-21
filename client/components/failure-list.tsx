@@ -6,17 +6,20 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Plus, AlertTriangle, Wrench, ImageIcon } from "lucide-react"
+import { Plus, AlertTriangle, Wrench, ImageIcon, AlertCircle } from "lucide-react"
 import type { Failure, Vehicle, Repair } from "@/types"
+import { apiCall, isDatabaseConfigured } from "@/lib/api-client"
 
 export function FailureList() {
   const [failures, setFailures] = useState<Failure[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showFailureForm, setShowFailureForm] = useState(false)
   const [showRepairForm, setShowRepairForm] = useState<number | null>(null)
 
@@ -26,14 +29,17 @@ export function FailureList() {
 
   const fetchData = async () => {
     try {
-      const [failuresRes, vehiclesRes] = await Promise.all([fetch("/api/failures"), fetch("/api/vehicles")])
-
-      const [failuresData, vehiclesData] = await Promise.all([failuresRes.json(), vehiclesRes.json()])
+      setError(null)
+      const [failuresData, vehiclesData] = await Promise.all([
+        apiCall<Failure[]>("/api/failures"),
+        apiCall<Vehicle[]>("/api/vehicles"),
+      ])
 
       setFailures(failuresData)
       setVehicles(vehiclesData)
     } catch (error) {
       console.error("Error fetching data:", error)
+      setError("データの取得に失敗しました。")
     } finally {
       setLoading(false)
     }
@@ -59,9 +65,25 @@ export function FailureList() {
 
   return (
     <div className="space-y-6">
+      {!isDatabaseConfigured() && (
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            データベースが設定されていません。モックデータを表示しています。実際のデータを使用するには、Supabaseの設定を完了してください。
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">故障・修繕記録</h2>
-        <Button onClick={() => setShowFailureForm(true)}>
+        <Button onClick={() => setShowFailureForm(true)} disabled={!isDatabaseConfigured()}>
           <Plus className="w-4 h-4 mr-2" />
           故障記録追加
         </Button>
@@ -135,7 +157,12 @@ export function FailureList() {
                 )}
 
                 <div className="flex justify-end">
-                  <Button size="sm" variant="outline" onClick={() => setShowRepairForm(failure.id)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowRepairForm(failure.id)}
+                    disabled={!isDatabaseConfigured()}
+                  >
                     <Wrench className="w-4 h-4 mr-2" />
                     修繕記録追加
                   </Button>
@@ -154,7 +181,9 @@ export function FailureList() {
         ))}
       </div>
 
-      {failures.length === 0 && <div className="text-center py-12 text-gray-500">故障記録がありません。</div>}
+      {failures.length === 0 && !loading && (
+        <div className="text-center py-12 text-gray-500">故障記録がありません。</div>
+      )}
     </div>
   )
 }

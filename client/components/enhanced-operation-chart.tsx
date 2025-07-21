@@ -1,19 +1,17 @@
 "use client"
 
 import React from "react"
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Calendar, ChevronLeft, ChevronRight, Clock, MapPin, Wrench, History, CalendarDays, Car, Plus, CheckCircle } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-import type { Vehicle, OperationPlan, OperationRecord, InspectionPlan, Base } from "@/types"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Calendar, Plus, Clock, MapPin, CheckCircle, Wrench } from "lucide-react"
+import type { Vehicle, Base, OperationPlan, OperationRecord, InspectionPlan } from "@/types/enhanced"
 
 export function EnhancedOperationChart() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -299,7 +297,11 @@ export function EnhancedOperationChart() {
                                     )}
                                   </div>
                                   <Badge className={`text-xs ${getStatusBadgeColor(record.status)}`}>
-                                    {record.status === "completed" ? "完了" : "中止"}
+                                    {record.status === "completed"
+                                      ? "完了"
+                                      : record.status === "partial"
+                                        ? "部分"
+                                        : "中止"}
                                   </Badge>
                                   <div className="text-xs text-gray-600">{record.actual_distance}km</div>
                                 </div>
@@ -326,8 +328,14 @@ export function EnhancedOperationChart() {
                                 <div key={inspection.id} className="space-y-1">
                                   <div className="flex items-center space-x-1">
                                     <Wrench className="w-3 h-3 text-purple-600" />
-                                    <Badge className="text-xs bg-blue-100 text-blue-800">
-                                      {inspection.inspection_category}
+                                    <Badge className={`text-xs ${getPriorityBadgeColor(inspection.priority)}`}>
+                                      {inspection.priority === "urgent"
+                                        ? "緊急"
+                                        : inspection.priority === "high"
+                                          ? "高"
+                                          : inspection.priority === "normal"
+                                            ? "通常"
+                                            : "低"}
                                     </Badge>
                                   </div>
                                   <div className="text-xs text-gray-600">{inspection.inspection_type}</div>

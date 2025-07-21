@@ -1,205 +1,207 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Car, Route, ClipboardCheck, AlertTriangle, Menu, Train, BarChart3, Settings, Database, Users } from "lucide-react"
+import { Menu, X, ChevronDown } from "lucide-react"
 
-const navigation = [
-  {
-    name: "運用管理",
-    href: "/operations",
-    icon: BarChart3,
-  },
+// ナビゲーションアイテムの型定義
+interface NavigationItem {
+  name: string
+  href: string
+  icon: any
+  description: string
+}
+
+// ナビゲーションアイテムの定義
+const navigationItems: NavigationItem[] = [
   {
     name: "運用計画",
-    href: "/travel",
-    icon: Route,
+    href: "/operations",
+    icon: "📋",
+    description: "運用計画を作成・編集します"
+  },
+  {
+    name: "運用管理",
+    href: "/management",
+    icon: "📊",
+    description: "運用計画と実績を統合的に表示・管理します"
   },
   {
     name: "故障・修繕",
     href: "/failures",
-    icon: AlertTriangle,
+    icon: "⚠️",
+    description: "故障日・内容・修繕内容・画像を記録し、故障対応履歴を管理"
   },
 ]
 
-const settingsMenu = [
+const settingsItems: NavigationItem[] = [
   {
-    name: "データベース管理",
-    href: "/settings/database",
-    icon: Database,
-    description: "データベースの接続・バックアップ・復元"
+    name: "事業所マスタ",
+    href: "/settings/offices",
+    icon: "🏢",
+    description: "保守事業所の情報管理"
+  },
+  {
+    name: "保守基地マスタ",
+    href: "/settings/maintenance-bases",
+    icon: "🏢",
+    description: "保守基地の情報管理"
   },
   {
     name: "保守用車マスタ",
     href: "/vehicles",
-    icon: Car,
-    description: "保守用車両の基本情報管理"
-  },
-  {
-    name: "検査計画管理",
-    href: "/inspections",
-    icon: ClipboardCheck,
-    description: "車両検査計画の作成・管理"
+    icon: "🚗",
+    description: "保守用車の種類管理"
   },
   {
     name: "検修周期マスタ",
     href: "/maintenance/cycles",
-    icon: Settings,
+    icon: "⚙️",
     description: "機種ごとに定期点検・乙A検査・甲検査・臨修の周期を設定・管理"
-  },
-  {
-    name: "ユーザー管理",
-    href: "/settings/users",
-    icon: Users,
-    description: "ユーザーアカウントの管理"
   },
 ]
 
-export function Navigation() {
+export default function Navigation() {
+  const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
+
+  // メモ化されたナビゲーションアイテム
+  const memoizedNavigationItems = useMemo(() => navigationItems, [])
+  const memoizedSettingsItems = useMemo(() => settingsItems, [])
+
+  // 現在のパスがアクティブかどうかを判定する関数
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return pathname === "/"
+    }
+    return pathname.startsWith(href)
+  }
 
   return (
-    <>
-      {/* Desktop Navigation */}
-      <nav className="hidden md:flex bg-white border-b border-gray-200 px-8 py-6">
-        <div className="flex items-center space-x-12">
-          <Link href="/" className="flex items-center space-x-3">
-            <Train className="w-10 h-10 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">保守用車管理システム</span>
-          </Link>
-
-          <div className="flex space-x-8">
-            {navigation.map((item) => {
-              const Icon = item.icon
-              const isActive = pathname === item.href
-
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-md text-base font-medium transition-colors ${
-                    isActive ? item.name === "運用管理" 
+    <nav className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          {/* デスクトップナビゲーション */}
+          <div className="hidden md:flex items-center space-x-8">
+            {memoizedNavigationItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  "flex items-center space-x-2 px-3 py-2 rounded-md text-base font-medium transition-colors",
+                  isActive(item.href)
+                    ? item.name === "運用管理" 
                       ? "bg-blue-100 text-blue-700 border-2 border-blue-300 rounded-full"
                       : "bg-blue-100 text-blue-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
-                >
-                  <Icon className="w-6 h-6" />
-                  <span>{item.name}</span>
-                </Link>
-              )
-            })}
-
-            {/* 設定ドロップダウンメニュー */}
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                )}
+              >
+                <span>{item.icon}</span>
+                <span>{item.name}</span>
+              </Link>
+            ))}
+            
+            {/* 設定ドロップダウン */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
-                  className={`flex items-center space-x-3 px-4 py-3 rounded-md text-base font-medium transition-colors ${
-                    pathname.startsWith('/settings') || pathname === '/vehicles' || pathname === '/inspections' || pathname === '/maintenance/cycles' ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                  }`}
+                  className="flex items-center space-x-2 px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                 >
-                  <Settings className="w-6 h-6" />
+                  <span>⚙️</span>
                   <span>設定</span>
+                  <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72">
-                {settingsMenu.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href
-
-                  return (
-                    <DropdownMenuItem key={item.name} asChild>
-                      <Link
-                        href={item.href}
-                        className={`flex items-start space-x-3 p-3 rounded-md transition-colors ${
-                          isActive ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{item.name}</div>
-                          <div className="text-xs text-gray-500 mt-1">{item.description}</div>
-                        </div>
-                      </Link>
-                    </DropdownMenuItem>
-                  )
-                })}
+              <DropdownMenuContent align="end" className="w-56">
+                {memoizedSettingsItems.map((item) => (
+                  <DropdownMenuItem key={item.name} asChild>
+                    <Link
+                      href={item.href}
+                      className="flex items-center space-x-2 px-3 py-2 text-sm"
+                    >
+                      <span>{item.icon}</span>
+                      <div>
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.description}</div>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-      </nav>
 
-      {/* Mobile Navigation */}
-      <nav className="md:hidden bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center space-x-3">
-            <Train className="w-8 h-8 text-blue-600" />
-            <span className="text-xl font-bold text-gray-900">保守用車管理</span>
-          </Link>
-
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-3">
-                <Menu className="w-6 h-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-80">
-              <div className="flex flex-col space-y-6 mt-8">
-                {navigation.map((item) => {
-                  const Icon = item.icon
-                  const isActive = pathname === item.href
-
-                  return (
+          {/* モバイルメニューボタン */}
+          <div className="md:hidden flex items-center">
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Menu className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-80">
+                <div className="flex flex-col space-y-4 mt-8">
+                  {memoizedNavigationItems.map((item) => (
                     <Link
                       key={item.name}
                       href={item.href}
-                      onClick={() => setOpen(false)}
-                      className={`flex items-center space-x-4 px-4 py-3 rounded-md text-base font-medium transition-colors ${
-                        isActive ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                      }`}
+                      onClick={() => setIsOpen(false)}
+                      className={cn(
+                        "flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                        isActive(item.href)
+                          ? "bg-blue-100 text-blue-700"
+                          : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                      )}
                     >
-                      <Icon className="w-6 h-6" />
-                      <span>{item.name}</span>
+                      <span className="text-lg">{item.icon}</span>
+                      <div>
+                        <div className="font-medium">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.description}</div>
+                      </div>
                     </Link>
-                  )
-                })}
-
-                {/* 設定セクション */}
-                <div className="pt-4 border-t border-gray-200">
-                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    設定
-                  </div>
-                  {settingsMenu.map((item) => {
-                    const Icon = item.icon
-                    const isActive = pathname === item.href
-
-                    return (
+                  ))}
+                  
+                  <div className="border-t pt-4">
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      設定
+                    </div>
+                    {memoizedSettingsItems.map((item) => (
                       <Link
                         key={item.name}
                         href={item.href}
-                        onClick={() => setOpen(false)}
-                        className={`flex items-center space-x-4 px-4 py-3 rounded-md text-base font-medium transition-colors ${
-                          isActive ? "bg-blue-100 text-blue-700" : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                        }`}
+                        onClick={() => setIsOpen(false)}
+                        className={cn(
+                          "flex items-center space-x-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                          isActive(item.href)
+                            ? "bg-blue-100 text-blue-700"
+                            : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                        )}
                       >
-                        <Icon className="w-6 h-6" />
-                        <span>{item.name}</span>
+                        <span className="text-lg">{item.icon}</span>
+                        <div>
+                          <div className="font-medium">{item.name}</div>
+                          <div className="text-xs text-gray-500">{item.description}</div>
+                        </div>
                       </Link>
-                    )
-                  })}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
-      </nav>
-    </>
+      </div>
+    </nav>
   )
 }

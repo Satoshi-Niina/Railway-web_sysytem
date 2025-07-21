@@ -1,103 +1,89 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
-import type { InspectionPlan } from "@/types" // 更新された型定義をインポート
+import { getDatabaseType, executeQuery, getSupabaseClient } from "@/lib/database"
+import type { InspectionPlan } from "@/types/database"
 
 export async function GET(request: NextRequest) {
-  const supabase = createServerClient()
-  const { searchParams } = new URL(request.url)
-  const month = searchParams.get("month")
-
   try {
-    let query = supabase
-      .from("inspection_plans")
-      .select(
-        `
-        *,
-        vehicle:vehicles(*)
-      `,
-      )
-      .order("planned_start_date", { ascending: true })
+    const { searchParams } = new URL(request.url)
+    const month = searchParams.get("month")
 
-    if (month) {
-      const startDate = `${month}-01`
-      const endDate = `${month}-31`
-      query = query.or(`planned_start_date.gte.${startDate},planned_end_date.lte.${endDate}`)
+    const dbType = getDatabaseType()
+
+    if (dbType === "postgresql") {
+      let query = `
+        SELECT ip.*, 
+               v.machine_number, v.vehicle_type, v.model
+        FROM inspection_plans ip
+        LEFT JOIN vehicles v ON ip.vehicle_id = v.id
+      `
+      const params: any[] = []
+
+      if (month) {
+        query += ` WHERE (
+          DATE_TRUNC('month', ip.planned_start_date) = DATE_TRUNC('month', $1::date) OR
+          DATE_TRUNC('month', ip.planned_end_date) = DATE_TRUNC('month', $1::date) OR
+          (ip.planned_start_date <= $1::date AND ip.planned_end_date >= LAST_DAY($1::date))
+        )`
+        params.push(`${month}-01`)
+      }
+
+      query += " ORDER BY ip.planned_start_date, v.vehicle_type, v.machine_number"
+
+      const plans = await executeQuery<InspectionPlan>(query, params)
+      return NextResponse.json(plans)
+    } else if (dbType === "supabase") {
+      let queryBuilder = getSupabaseClient()
+        .from("inspection_plans")
+        .select(`
+          *,
+          vehicle:vehicles(*)
+        `)
+
+      if (month) {
+        const startDate = `${month}-01`
+        const endDate = `${month}-31`
+        queryBuilder = queryBuilder.or(
+          `planned_start_date.gte.${startDate},planned_end_date.lte.${endDate},and(planned_start_date.lte.${startDate},planned_end_date.gte.${endDate})`,
+        )
+      }
+
+      const { data, error } = await queryBuilder.order("planned_start_date")
+
+      if (error) throw error
+      return NextResponse.json(data)
+    } else {
+      // モックデータ
+      const currentMonth = month || new Date().toISOString().slice(0, 7)
+      const mockData: InspectionPlan[] = [
+        {
+          id: 1,
+          vehicle_id: 3,
+          inspection_type: "乙A検査",
+          inspection_category: "法定検査",
+          planned_start_date: `${currentMonth}-20`,
+          planned_end_date: `${currentMonth}-22`,
+          status: "planned",
+          created_at: "2024-01-01T00:00:00Z",
+          updated_at: "2024-01-01T00:00:00Z",
+          vehicle: {
+            id: 3,
+            machine_number: "MCR001",
+            vehicle_type: "MCR",
+            model: "MCR-300",
+            manufacturer: "メーカーC",
+            acquisition_date: "2019-06-01",
+            management_office_id: 2,
+            home_base_id: 3,
+            status: "active",
+            created_at: "2024-01-01T00:00:00Z",
+            updated_at: "2024-01-01T00:00:00Z",
+          },
+        },
+      ]
+      return NextResponse.json(mockData)
     }
-
-    const { data, error } = await query
-
-    if (error) throw error
-
-    return NextResponse.json(data)
   } catch (error) {
     console.error("Error fetching inspection plans:", error)
     return NextResponse.json({ error: "Failed to fetch inspection plans" }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  const supabase = createServerClient()
-
-  try {
-    const body = await request.json()
-    const {
-      vehicle_id,
-      inspection_type, // 新しい詳細な検査種別
-      planned_start_date,
-      planned_end_date,
-      estimated_duration,
-      status = "planned", // デフォルト値を設定
-      notes,
-    } = body
-
-    // inspection_type から inspection_category を導出
-    let inspection_category: InspectionPlan["inspection_category"]
-    switch (inspection_type) {
-      case "臨時修繕":
-        inspection_category = "臨修"
-        break
-      case "定期点検":
-        inspection_category = "定検"
-        break
-      case "乙A検査":
-      case "乙B検査":
-        inspection_category = "乙検"
-        break
-      case "甲A検査":
-      case "甲B検査":
-        inspection_category = "甲検"
-        break
-      default:
-        inspection_category = "その他"
-    }
-
-    const { data, error } = await supabase
-      .from("inspection_plans")
-      .insert([
-        {
-          vehicle_id,
-          inspection_type,
-          planned_start_date,
-          planned_end_date,
-          estimated_duration,
-          inspection_category, // 導出したカテゴリを使用
-          status,
-          notes,
-        },
-      ])
-      .select(
-        `
-        *,
-        vehicle:vehicles(*)
-      `,
-      )
-      .single()
-
-    if (error) throw error
-
-    return NextResponse.json(data, { status: 201 })
-  } catch (error) {
-    console.error("Error creating inspection plan:", error)
-    return NextResponse.json({ error: "Failed to create inspection plan" }, { status: 500 })
   }
 }
