@@ -7,7 +7,8 @@ export function getPool() {
     const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
 
     if (!databaseUrl) {
-      throw new Error("DATABASE_URL or POSTGRES_URL environment variable is required")
+      console.log("DATABASE_URL or POSTGRES_URL environment variable is not set, using mock mode")
+      return null
     }
 
     pool = new Pool({
@@ -30,6 +31,11 @@ export function getPool() {
 
 export async function query(text: string, params?: any[]) {
   const pool = getPool()
+  
+  if (!pool) {
+    throw new Error("Database not configured")
+  }
+  
   const client = await pool.connect()
 
   try {
@@ -42,6 +48,11 @@ export async function query(text: string, params?: any[]) {
 
 export async function transaction(callback: (client: any) => Promise<any>) {
   const pool = getPool()
+  
+  if (!pool) {
+    throw new Error("Database not configured")
+  }
+  
   const client = await pool.connect()
 
   try {
@@ -91,12 +102,18 @@ export function getDatabaseType(): string {
 // 汎用クエリ実行関数
 export async function executeQuery(sql: string, params: any[] = []): Promise<any> {
   try {
+    console.log("Executing query:", sql, "with params:", params)
     const result = await query(sql, params)
+    console.log("Query result:", result.rows)
     return result.rows
   } catch (error) {
     console.error("Query execution failed:", error)
+    console.error("Error details:", {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    })
     // データベース接続エラーの場合はモックモードにフォールバック
-    if (error instanceof Error && error.message.includes("DATABASE_URL")) {
+    if (error instanceof Error && (error.message.includes("DATABASE_URL") || error.message.includes("Database not configured"))) {
       console.log("Database not configured, falling back to mock mode")
       return []
     }

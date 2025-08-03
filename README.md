@@ -39,54 +39,62 @@ vehicles (1) ←→ (N) failures
 failures (1) ←→ (N) repairs
 ```
 
-## 🐳 クラウドデプロイ
+## 🚀 開発・デプロイ
 
 ### 前提条件
-- Docker & Docker Compose
 - PostgreSQL 15+
 - Node.js 18+
 
-### 1. 環境設定
+### 1. 開発環境のセットアップ
 
 ```bash
-# 本番環境用の環境変数ファイルをコピー
-cp env.production .env.production
+# 依存関係のインストール
+npm run install:all
 
-# 環境変数を編集
-nano .env.production
+# 環境変数の設定
+cp env.example .env.local
+# .env.localを編集してデータベース接続情報を設定
+
+# データベースのセットアップ
+npm run db:setup
+npm run master:setup
 ```
 
-### 2. デプロイ実行
+### 2. 開発サーバーの起動
 
 ```bash
-# 本番環境にデプロイ
-npm run deploy:production
+# 開発サーバーを起動
+npm run dev
 
-# または直接実行
-./deploy.sh production
+# または個別に起動
+npm run dev:client  # Next.jsアプリケーション
+npm run dev:server  # Express.jsサーバー
 ```
 
-### 3. 手動デプロイ
+### 3. データベース管理
 
 ```bash
-# Dockerイメージをビルド
-npm run docker:build
+# データベース構造の確認
+npm run db:check
 
-# コンテナを起動
-npm run docker:up
+# データベース接続テスト
+npm run test:db
 
-# ログを確認
-npm run docker:logs
+# バックアップ作成
+npm run db:backup
+
+# バックアップ復元
+npm run db:restore
 ```
 
-### 4. ヘルスチェック
+### 4. 本番ビルド
 
 ```bash
-# アプリケーションの状態確認
-curl http://localhost:3000/api/health
+# 本番用ビルド
+npm run build
 
-# データベース接続確認
-docker-compose -f docker-compose.prod.yml exec postgres pg_isready -U postgres
+# 本番サーバー起動
+npm run start
 ```
 
 ## 🛠️ 開発環境
@@ -148,8 +156,7 @@ npm run db:restore
 - **バックエンド**: Next.js API Routes
 - **データベース**: PostgreSQL 15
 - **UI**: Tailwind CSS, Radix UI
-- **コンテナ**: Docker, Docker Compose
-- **リバースプロキシ**: Nginx
+- **開発環境**: Node.js, npm
 
 ## 📁 プロジェクト構造
 

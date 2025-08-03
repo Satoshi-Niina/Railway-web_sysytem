@@ -75,17 +75,82 @@ export function OperationPlanning() {
     setLoading(true)
     try {
       setError(null)
-      const [plansData, vehiclesData, basesData, officesData] = await Promise.all([
-        apiCall<OperationPlan[]>(`/api/operation-plans?month=${currentMonth}`),
-        apiCall<Vehicle[]>("/api/vehicles"),
-        apiCall<Base[]>("/api/bases"),
-        apiCall<Office[]>("/api/offices"),
-      ])
+      
+      // 各APIを個別に呼び出してエラーハンドリング
+      let plansData: OperationPlan[] = []
+      let vehiclesData: Vehicle[] = []
+      let basesData: Base[] = []
+      let officesData: Office[] = []
 
-      setOperationPlans(plansData)
-      setAllVehicles(vehiclesData)
-      setAllBases(basesData)
-      setAllOffices(officesData)
+      // 運用計画データの取得
+      try {
+        plansData = await apiCall<OperationPlan[]>(`/api/operation-plans?month=${currentMonth}`)
+      } catch (error) {
+        console.error("運用計画データの取得エラー:", error)
+        // 運用計画は必須ではないので空配列のまま
+      }
+
+      // 車両データの取得
+      try {
+        vehiclesData = await apiCall<Vehicle[]>("/api/vehicles")
+      } catch (error) {
+        console.error("車両データの取得エラー:", error)
+        // モックデータを使用
+        vehiclesData = [
+          { id: 1, name: "モータカー", model: "MC-100", base_location: "東京基地", machine_number: "MC001", manufacturer: "日立", acquisition_date: "2020-01-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 2, name: "MCR", model: "MC-150", base_location: "東京基地", machine_number: "MC002", manufacturer: "日立", acquisition_date: "2020-02-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 3, name: "鉄トロ（10t）", model: "TT-200", base_location: "大阪基地", machine_number: "TT001", manufacturer: "川崎", acquisition_date: "2020-03-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 4, name: "鉄トロ（15t）", model: "TT-250", base_location: "大阪基地", machine_number: "TT002", manufacturer: "川崎", acquisition_date: "2020-04-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 5, name: "箱トロ", model: "HP-300", base_location: "名古屋基地", machine_number: "HP001", manufacturer: "三菱", acquisition_date: "2020-05-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 6, name: "ホッパー車", model: "HP-350", base_location: "名古屋基地", machine_number: "HP002", manufacturer: "三菱", acquisition_date: "2020-06-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        ]
+        setError("車両データの取得に失敗しました。モックデータを表示しています。")
+      }
+
+      // 基地データの取得
+      try {
+        basesData = await apiCall<Base[]>("/api/bases")
+      } catch (error) {
+        console.error("基地データの取得エラー:", error)
+        // モックデータを使用
+        basesData = [
+          { id: 1, base_name: "東京基地", location: "東京都", office_id: 1, created_at: new Date().toISOString() },
+          { id: 2, base_name: "大阪基地", location: "大阪府", office_id: 2, created_at: new Date().toISOString() },
+          { id: 3, base_name: "名古屋基地", location: "愛知県", office_id: 1, created_at: new Date().toISOString() }
+        ]
+        setError("基地データの取得に失敗しました。モックデータを表示しています。")
+      }
+
+      // 事業所データの取得
+      try {
+        officesData = await apiCall<Office[]>("/api/offices")
+      } catch (error) {
+        console.error("事業所データの取得エラー:", error)
+        // モックデータを使用
+        officesData = [
+          { id: 1, office_name: "東京事業所", office_code: "OFF001", station_1: "東京駅", station_2: "新宿駅", station_3: "渋谷駅", station_4: "池袋駅", station_5: "上野駅", station_6: "品川駅" },
+          { id: 2, office_name: "大阪事業所", office_code: "OFF002", station_1: "大阪駅", station_2: "梅田駅", station_3: "難波駅", station_4: "天王寺駅", station_5: "新大阪駅", station_6: "京橋駅" }
+        ]
+        setError("事業所データの取得に失敗しました。モックデータを表示しています。")
+      }
+
+      // データが取得できた場合のみ状態を更新
+      if (vehiclesData.length > 0 || basesData.length > 0 || officesData.length > 0) {
+        setOperationPlans(plansData)
+        setAllVehicles(vehiclesData)
+        setAllBases(basesData)
+        setAllOffices(officesData)
+        
+        // デバッグ情報を出力
+        console.log("データ取得結果:", {
+          plans: plansData.length,
+          vehicles: vehiclesData.length,
+          bases: basesData.length,
+          offices: officesData.length
+        })
+      } else {
+        setError("マスタデータが取得できませんでした。データベース接続とデータの存在を確認してください。")
+      }
     } catch (error) {
       console.error("Error fetching data:", error)
       setError("データの取得に失敗しました。")

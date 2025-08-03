@@ -19,22 +19,6 @@ export default function HomePage() {
 
       {/* メインカードセクション */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* 運用管理 */}
-        <Card className="hover:shadow-lg transition-shadow">
-          <CardHeader>
-            <div className="flex items-center space-x-2">
-              <BarChart3 className="w-6 h-6 text-blue-600" />
-              <CardTitle>運用管理</CardTitle>
-            </div>
-            <CardDescription>基地別・機種別の運用状況を日単位で統合的に表示・管理します。</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/operations">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700">管理画面へ</Button>
-            </Link>
-          </CardContent>
-        </Card>
-
         {/* 運用計画 */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
@@ -47,7 +31,23 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/travel">
+            <Link href="/operations">
+              <Button className="w-full bg-blue-600 hover:bg-blue-700">管理画面へ</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* 運用管理 */}
+        <Card className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <BarChart3 className="w-6 h-6 text-blue-600" />
+              <CardTitle>運用管理</CardTitle>
+            </div>
+            <CardDescription>基地別・機種別の運用状況を日単位で統合的に表示・管理します。</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/management">
               <Button className="w-full bg-blue-600 hover:bg-blue-700">管理画面へ</Button>
             </Link>
           </CardContent>
@@ -69,17 +69,17 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 検修周期マスタ */}
+        {/* 設定 */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <div className="flex items-center space-x-2">
               <Settings className="w-6 h-6 text-green-600" />
-              <CardTitle>検修周期マスタ</CardTitle>
+              <CardTitle>設定</CardTitle>
             </div>
-            <CardDescription>機種ごとに定期点検・乙A検査・甲検査・臨修の周期を設定・管理します。</CardDescription>
+            <CardDescription>事業所、保守基地、車両情報、データベース設定などの各種マスタデータを管理します。</CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/maintenance/cycles">
+            <Link href="/settings">
               <Button className="w-full bg-blue-600 hover:bg-blue-700">管理画面へ</Button>
             </Link>
           </CardContent>

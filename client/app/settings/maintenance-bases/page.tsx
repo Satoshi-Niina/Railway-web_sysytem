@@ -10,25 +10,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/components/ui/use-toast"
 import { Plus, Edit, Trash2, Search, Building, MapPin, ExternalLink } from "lucide-react"
-import type { MaintenanceBase, ManagementOffice } from "@/types/database"
+import type { Base, ManagementOffice } from "@/types/database"
 
 // 静的生成を無効化
 export const dynamic = 'force-dynamic'
 
 interface BaseFormData {
   base_name: string
-  base_code: string
+  base_type: string
   management_office_id: number
   location: string
   address: string
 }
 
 export default function MaintenanceBasesPage() {
-  const [bases, setBases] = useState<MaintenanceBase[]>([])
+  const [bases, setBases] = useState<Base[]>([])
   const [offices, setOffices] = useState<ManagementOffice[]>([])
-  const [filteredBases, setFilteredBases] = useState<MaintenanceBase[]>([])
+  const [filteredBases, setFilteredBases] = useState<Base[]>([])
   const [isFormOpen, setIsFormOpen] = useState(false)
-  const [editingBase, setEditingBase] = useState<MaintenanceBase | null>(null)
+  const [editingBase, setEditingBase] = useState<Base | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
 
   const [filterOffice, setFilterOffice] = useState("all")
@@ -37,7 +37,7 @@ export default function MaintenanceBasesPage() {
 
   const [formData, setFormData] = useState<BaseFormData>({
     base_name: "",
-    base_code: "",
+    base_type: "maintenance",
     management_office_id: 0,
     location: "",
     address: "",
@@ -51,7 +51,7 @@ export default function MaintenanceBasesPage() {
     let filtered = bases.filter(
       (base) =>
         base.base_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        base.base_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (base.base_code && base.base_code.toLowerCase().includes(searchTerm.toLowerCase())) ||
         base.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         base.management_office?.office_code?.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -67,18 +67,35 @@ export default function MaintenanceBasesPage() {
 
   const fetchData = async () => {
     try {
+      console.log("Fetching data...")
+      
       // 保守基地データの取得
-      const basesResponse = await fetch('/api/maintenance-bases')
+      const basesResponse = await fetch('/api/bases')
+      console.log("Bases response status:", basesResponse.status)
       if (basesResponse.ok) {
         const basesData = await basesResponse.json()
+        console.log("Bases data:", basesData)
         setBases(basesData)
+      } else {
+        console.error("Failed to fetch bases:", basesResponse.statusText)
       }
 
       // 事業所データの取得
       const officesResponse = await fetch('/api/management-offices')
+      console.log("Offices response status:", officesResponse.status)
       if (officesResponse.ok) {
         const officesData = await officesResponse.json()
+        console.log("Offices data:", officesData)
         setOffices(officesData)
+      } else {
+        console.error("Failed to fetch offices:", officesResponse.statusText)
+        console.error("Failed to fetch offices:", officesResponse.statusText)
+        const errorData = await officesResponse.json().catch(() => ({}))
+        toast({
+          title: "エラー",
+          description: errorData.error || "事業所データの取得に失敗しました",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('データの取得に失敗:', error)
@@ -95,6 +112,18 @@ export default function MaintenanceBasesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    console.log("Form submission started with data:", formData)
+
+    // バリデーション
+    if (!formData.base_name.trim()) {
+      toast({
+        title: "エラー",
+        description: "基地名を入力してください",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (formData.management_office_id === 0) {
       toast({
         title: "エラー",
@@ -107,7 +136,7 @@ export default function MaintenanceBasesPage() {
     try {
       if (editingBase) {
         // 更新
-        const response = await fetch(`/api/maintenance-bases/${editingBase.id}`, {
+        const response = await fetch(`/api/bases/${editingBase.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData)
@@ -123,25 +152,51 @@ export default function MaintenanceBasesPage() {
             description: "保守基地情報を更新しました",
           })
         } else {
-          throw new Error('更新に失敗しました')
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
         }
       } else {
         // 新規作成
-        const response = await fetch('/api/maintenance-bases', {
+        console.log("Creating new base with data:", formData)
+        
+        const requestBody = {
+          ...formData,
+          management_office_id: formData.management_office_id || null
+        }
+        
+        console.log("Request body to send:", requestBody)
+        
+        const response = await fetch('/api/bases', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
+          body: JSON.stringify(requestBody)
         })
+
+        console.log("Response status:", response.status)
+        console.log("Response ok:", response.ok)
 
         if (response.ok) {
           const newBase = await response.json()
+          console.log("Created base:", newBase)
           setBases(prev => [...prev, newBase])
           toast({
             title: "作成完了",
             description: "保守基地を新規作成しました",
           })
         } else {
-          throw new Error('作成に失敗しました')
+          let errorData = {}
+          try {
+            errorData = await response.json()
+          } catch (parseError) {
+            console.error("Failed to parse error response:", parseError)
+            errorData = { error: "レスポンスの解析に失敗しました" }
+          }
+          
+          console.error("Error response:", errorData)
+          console.error("Response status:", response.status)
+          console.error("Response statusText:", response.statusText)
+          
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
         }
       }
 
@@ -150,6 +205,16 @@ export default function MaintenanceBasesPage() {
       resetForm()
     } catch (error) {
       console.error('保守基地の保存に失敗:', error)
+      
+      // エラーの詳細をログに出力
+      if (error instanceof Error) {
+        console.error("Error details:", {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        })
+      }
+      
       toast({
         title: "エラー",
         description: error instanceof Error ? error.message : "保守基地の保存に失敗しました",
@@ -158,12 +223,12 @@ export default function MaintenanceBasesPage() {
     }
   }
 
-  const handleEdit = (base: MaintenanceBase) => {
+  const handleEdit = (base: Base) => {
     setEditingBase(base)
     setFormData({
       base_name: base.base_name,
-      base_code: base.base_code,
-      management_office_id: base.management_office_id,
+      base_type: base.base_type,
+      management_office_id: base.management_office_id || 0,
       location: base.location || "",
       address: base.address || "",
     })
@@ -174,7 +239,7 @@ export default function MaintenanceBasesPage() {
     if (!confirm('この保守基地を削除しますか？')) return
 
     try {
-      const response = await fetch(`/api/maintenance-bases/${id}`, {
+              const response = await fetch(`/api/bases/${id}`, {
         method: 'DELETE'
       })
 
@@ -185,7 +250,8 @@ export default function MaintenanceBasesPage() {
           description: "保守基地を削除しました",
         })
       } else {
-        throw new Error('削除に失敗しました')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
       }
     } catch (error) {
       console.error('保守基地の削除に失敗:', error)
@@ -200,7 +266,7 @@ export default function MaintenanceBasesPage() {
   const resetForm = () => {
     setFormData({
       base_name: "",
-      base_code: "",
+      base_type: "maintenance",
       management_office_id: 0,
       location: "",
       address: "",
@@ -213,6 +279,20 @@ export default function MaintenanceBasesPage() {
       title: "事業所マスタ",
       description: `${officeCode}の詳細を表示します`,
     })
+  }
+
+  // 基地タイプの表示名を取得
+  const getBaseTypeLabel = (baseType: string) => {
+    switch (baseType) {
+      case 'maintenance':
+        return '保守基地'
+      case 'material':
+        return '保線材料線'
+      case 'crossover':
+        return '横取り'
+      default:
+        return baseType
+    }
   }
 
   if (loading) {
@@ -231,9 +311,13 @@ export default function MaintenanceBasesPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">保守基地マスタ</h1>
-          <p className="text-gray-600 mt-2">保守基地の情報を管理します</p>
+          <p className="text-gray-600 mt-2">保守基地の情報を管理します（基地コードは自動採番）</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+        <Button onClick={() => {
+          setEditingBase(null)
+          resetForm()
+          setIsFormOpen(true)
+        }} className="bg-blue-600 hover:bg-blue-700">
           <Plus className="w-4 h-4 mr-2" />
           新規保守基地登録
         </Button>
@@ -292,31 +376,58 @@ export default function MaintenanceBasesPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="base_code">基地コード *</Label>
-                  <Input
-                    id="base_code"
-                    value={formData.base_code}
-                    onChange={(e) => setFormData({ ...formData, base_code: e.target.value })}
-                    required
-                  />
+                  <Label htmlFor="base_type">基地タイプ *</Label>
+                  <Select
+                    value={formData.base_type}
+                    onValueChange={(value) => setFormData({ ...formData, base_type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="基地タイプを選択" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="maintenance">{getBaseTypeLabel('maintenance')}</SelectItem>
+                      <SelectItem value="material">{getBaseTypeLabel('material')}</SelectItem>
+                      <SelectItem value="crossover">{getBaseTypeLabel('crossover')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="base_code">基地コード</Label>
+                  <div className="p-2 bg-gray-50 rounded border text-sm text-gray-600">
+                    {editingBase ? (editingBase.base_code || `BASE${String(editingBase.id).padStart(3, '0')}`) : "自動採番されます"}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="management_office_id">管理事業所 *</Label>
                   <Select
                     value={formData.management_office_id.toString()}
-                    onValueChange={(value) => setFormData({ ...formData, management_office_id: parseInt(value) })}
+                    onValueChange={(value) => {
+                      console.log("Selected office ID:", value)
+                      setFormData({ ...formData, management_office_id: parseInt(value) })
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="管理事業所を選択" />
                     </SelectTrigger>
                     <SelectContent>
-                      {offices.map((office) => (
-                        <SelectItem key={office.id} value={office.id.toString()}>
-                          {office.office_code} - {office.office_name}
+                      {offices.length > 0 ? (
+                        offices.map((office) => (
+                          <SelectItem key={office.id} value={office.id.toString()}>
+                            {office.office_code} - {office.office_name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-data" disabled>
+                          事業所データがありません
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
+                  {offices.length === 0 && (
+                    <p className="text-sm text-red-600 mt-1">
+                      事業所データが読み込まれていません。ページを再読み込みしてください。
+                    </p>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="location">所在地</Label>
@@ -352,6 +463,16 @@ export default function MaintenanceBasesPage() {
                   キャンセル
                 </Button>
               </div>
+              
+              {/* デバッグ情報 */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-4 p-3 bg-gray-100 rounded text-xs">
+                  <p><strong>デバッグ情報:</strong></p>
+                  <p>フォームデータ: {JSON.stringify(formData)}</p>
+                  <p>事業所数: {offices.length}</p>
+                  <p>選択中の事業所ID: {formData.management_office_id}</p>
+                </div>
+              )}
             </form>
           </CardContent>
         </Card>
@@ -368,6 +489,7 @@ export default function MaintenanceBasesPage() {
                 <tr className="bg-gray-50">
                   <th className="border border-gray-300 px-4 py-2 text-left">基地コード</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">基地名</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">基地タイプ</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">管理事業所</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">所在地</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">操作</th>
@@ -376,12 +498,17 @@ export default function MaintenanceBasesPage() {
               <tbody>
                 {filteredBases.map((base) => (
                   <tr key={base.id} className="hover:bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-2 font-medium">{base.base_code}</td>
+                    <td className="border border-gray-300 px-4 py-2 font-medium">{base.base_code || `BASE${String(base.id).padStart(3, '0')}`}</td>
                     <td className="border border-gray-300 px-4 py-2">
                       <div className="flex items-center space-x-2">
                         <Building className="w-4 h-4 text-blue-600" />
                         <span>{base.base_name}</span>
                       </div>
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2">
+                      <Badge variant="outline">
+                        {getBaseTypeLabel(base.base_type)}
+                      </Badge>
                     </td>
                     <td className="border border-gray-300 px-4 py-2">
                       {base.management_office?.office_code ? (

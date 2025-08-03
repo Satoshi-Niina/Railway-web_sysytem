@@ -7,28 +7,31 @@
     "server"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev": "cd client && npm run dev",
     "dev:client": "cd client && npm run dev",
     "dev:server": "cd server && npm run dev",
-    "build": "npm run build:client && npm run build:server",
+    "build": "cd client && npm run build",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
-    "start": "concurrently \"npm run start:client\" \"npm run start:server\"",
+    "start": "cd client && npm run start",
     "start:client": "cd client && npm run start",
     "start:server": "cd server && npm run start",
     "install:all": "npm install && cd client && npm install && cd ../server && npm install",
-    "deploy:production": "chmod +x deploy.sh && ./deploy.sh production",
-    "deploy:staging": "chmod +x deploy.sh && ./deploy.sh staging",
     "db:setup": "node scripts/setup-database.js",
     "db:migrate": "node scripts/migrate-database.js",
     "db:backup": "node scripts/backup-database.js",
     "db:restore": "node scripts/restore-database.js",
-    "docker:build": "docker-compose -f docker-compose.prod.yml build",
-    "docker:up": "docker-compose -f docker-compose.prod.yml up -d",
-    "docker:down": "docker-compose -f docker-compose.prod.yml down",
-    "docker:logs": "docker-compose -f docker-compose.prod.yml logs -f"
+    "db:check": "node scripts/check-database-structure.js",
+    "maintenance:setup": "node scripts/setup-maintenance-system.js",
+    "basecode:setup": "node scripts/setup-base-code-system.js",
+    "master:setup": "node scripts/setup-master-tables.js",
+    "test:db": "node scripts/test-database-connection.js",
+    "setup": "node scripts/setup-development.js"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.0"
   }
-} 
+}

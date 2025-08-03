@@ -7,6 +7,7 @@ export interface Vehicle {
   manufacturer: string
   acquisition_date: string
   management_office: string
+  management_office_id?: number
   created_at: string
   updated_at: string
 }
@@ -15,6 +16,7 @@ export interface Base {
   id: number
   base_name: string
   location: string
+  management_office_id?: number
   created_at: string
 }
 

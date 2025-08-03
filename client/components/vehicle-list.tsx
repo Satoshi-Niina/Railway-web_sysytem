@@ -21,8 +21,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Car, Plus, Search, Edit, Trash2, Building, MapPin, AlertCircle, Filter, Download, Upload } from "lucide-react"
 
-import type { Vehicle, ManagementOffice, Base, VehicleFormData } from "@/types/database"
+import type { Vehicle, ManagementOffice, Base } from "@/types/database"
 import { apiCall, isDatabaseConfigured } from "@/lib/api-client"
+import { VehicleForm } from "./vehicle-form"
 
 export function VehicleList() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -40,16 +41,6 @@ export function VehicleList() {
   // フォーム状態
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
-  const [formData, setFormData] = useState<VehicleFormData>({
-    machine_number: "",
-    vehicle_type: "",
-    model: "",
-    manufacturer: "",
-    acquisition_date: "",
-    management_office_id: undefined,
-    home_base_id: undefined,
-    status: "active",
-  })
 
   // 車種リスト
   const vehicleTypes = ["モータカー", "MCR", "鉄トロ（10t）", "鉄トロ（15t）", "箱トロ", "ホッパー車"]
@@ -73,6 +64,21 @@ export function VehicleList() {
         apiCall<ManagementOffice[]>("/api/management-offices"),
         apiCall<Base[]>("/api/bases"),
       ])
+
+      console.log('Fetched vehicles data:', vehiclesData)
+      console.log('Fetched offices data:', officesData)
+      console.log('Fetched bases data:', basesData)
+
+      // 車両データの管理事業所情報を詳細確認
+      vehiclesData.forEach((vehicle, index) => {
+        console.log(`Vehicle ${index + 1}:`, {
+          id: vehicle.id,
+          machine_number: vehicle.machine_number,
+          management_office_id: vehicle.management_office_id,
+          office_name: vehicle.office_name,
+          office_code: vehicle.office_code
+        })
+      })
 
       setVehicles(vehiclesData)
       setManagementOffices(officesData)
@@ -98,39 +104,12 @@ export function VehicleList() {
 
   // フォームリセット
   const resetForm = () => {
-    setFormData({
-      machine_number: "",
-      vehicle_type: "",
-      model: "",
-      manufacturer: "",
-      acquisition_date: "",
-      management_office_id: undefined,
-      home_base_id: undefined,
-      status: "active",
-    })
     setEditingVehicle(null)
   }
 
   // 車両追加・編集
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (vehicle: Vehicle) => {
     try {
-      if (editingVehicle) {
-        // 編集
-        await apiCall(`/api/vehicles`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingVehicle.id, ...formData }),
-        })
-      } else {
-        // 新規追加
-        await apiCall("/api/vehicles", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        })
-      }
-
       setIsFormOpen(false)
       resetForm()
       fetchData()
@@ -158,16 +137,6 @@ export function VehicleList() {
   // 編集開始
   const startEdit = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle)
-    setFormData({
-      machine_number: vehicle.machine_number,
-      vehicle_type: vehicle.vehicle_type,
-      model: vehicle.model || "",
-      manufacturer: vehicle.manufacturer || "",
-      acquisition_date: vehicle.acquisition_date || "",
-      management_office_id: vehicle.management_office_id,
-      home_base_id: vehicle.home_base_id,
-      status: vehicle.status,
-    })
     setIsFormOpen(true)
   }
 
@@ -242,147 +211,12 @@ export function VehicleList() {
                 車両追加
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>{editingVehicle ? "車両編集" : "車両追加"}</DialogTitle>
-                <DialogDescription>
-                  {editingVehicle ? "車両情報を編集します。" : "新しい車両を追加します。"}
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="machine_number">機械番号 *</Label>
-                    <Input
-                      id="machine_number"
-                      value={formData.machine_number}
-                      onChange={(e) => setFormData({ ...formData, machine_number: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="vehicle_type">車種 *</Label>
-                    <Select
-                      value={formData.vehicle_type}
-                      onValueChange={(value) => setFormData({ ...formData, vehicle_type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="車種を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {vehicleTypes.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="model">型式</Label>
-                    <Input
-                      id="model"
-                      value={formData.model}
-                      onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="manufacturer">製造者</Label>
-                    <Input
-                      id="manufacturer"
-                      value={formData.manufacturer}
-                      onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="acquisition_date">取得年月日</Label>
-                    <Input
-                      id="acquisition_date"
-                      type="date"
-                      value={formData.acquisition_date}
-                      onChange={(e) => setFormData({ ...formData, acquisition_date: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="status">状態</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value) => setFormData({ ...formData, status: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">稼働中</SelectItem>
-                        <SelectItem value="maintenance">整備中</SelectItem>
-                        <SelectItem value="retired">廃車</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="management_office_id">管理箇所</Label>
-                    <Select
-                      value={formData.management_office_id?.toString() || ""}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, management_office_id: value ? Number.parseInt(value) : undefined })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="管理箇所を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {managementOffices.map((office) => (
-                          <SelectItem key={office.id} value={office.id.toString()}>
-                            {office.office_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="home_base_id">所属基地</Label>
-                    <Select
-                      value={formData.home_base_id?.toString() || ""}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, home_base_id: value ? Number.parseInt(value) : undefined })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="所属基地を選択" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {bases
-                          .filter((base) =>
-                            formData.management_office_id
-                              ? base.management_office_id === formData.management_office_id
-                              : true,
-                          )
-                          .map((base) => (
-                            <SelectItem key={base.id} value={base.id.toString()}>
-                              {base.base_name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
-                    キャンセル
-                  </Button>
-                  <Button type="submit">{editingVehicle ? "更新" : "追加"}</Button>
-                </div>
-              </form>
+            <DialogContent className="max-w-4xl">
+              <VehicleForm
+                onSubmit={handleSubmit}
+                onCancel={() => setIsFormOpen(false)}
+                editingVehicle={editingVehicle}
+              />
             </DialogContent>
           </Dialog>
         </div>
@@ -480,7 +314,7 @@ export function VehicleList() {
                 <TableHead>管理箇所</TableHead>
                 <TableHead>所属基地</TableHead>
                 <TableHead>状態</TableHead>
-                <TableHead>取得年月日</TableHead>
+                <TableHead>取得年月</TableHead>
                 <TableHead className="text-right">操作</TableHead>
               </TableRow>
             </TableHeader>
@@ -504,20 +338,22 @@ export function VehicleList() {
                     <TableCell>{vehicle.model || "-"}</TableCell>
                     <TableCell>{vehicle.manufacturer || "-"}</TableCell>
                     <TableCell>
-                      {vehicle.management_office ? (
+                      {vehicle.office_name ? (
                         <div className="flex items-center space-x-2">
                           <Building className="w-4 h-4 text-gray-600" />
-                          <span>{vehicle.management_office.office_name}</span>
+                          <span>{vehicle.office_name}</span>
                         </div>
                       ) : (
-                        "-"
+                        <div className="text-red-500">
+                          - (ID: {vehicle.management_office_id || 'null'})
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
-                      {vehicle.home_base ? (
+                      {vehicle.base_name ? (
                         <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-gray-600" />
-                          <span>{vehicle.home_base.base_name}</span>
+                          <span>{vehicle.base_name}</span>
                         </div>
                       ) : (
                         "-"

@@ -85,14 +85,7 @@ export default function OfficesPage() {
     fetchOffices()
   }, [fetchOffices])
 
-  // 自動採番で事業所コードを生成
-  const generateOfficeCode = useCallback(() => {
-    const maxCode = offices.reduce((max, office) => {
-      const codeNum = parseInt(office.office_code.replace(/\D/g, '')) || 0
-      return Math.max(max, codeNum)
-    }, 0)
-    return `OFF${String(maxCode + 1).padStart(3, '0')}`
-  }, [offices])
+
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,7 +93,7 @@ export default function OfficesPage() {
     try {
       const submitData = {
         ...formData,
-        office_code: editingOffice ? formData.office_code : generateOfficeCode()
+        office_code: editingOffice ? formData.office_code : "" // 新規作成時は空文字で送信、APIで自動生成
       }
 
       if (editingOffice) {
@@ -126,14 +119,19 @@ export default function OfficesPage() {
         }
       } else {
         // 新規作成
+        console.log("Submitting new office data:", submitData)
         const response = await fetch('/api/management-offices', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(submitData)
         })
 
+        console.log("Response status:", response.status)
+        console.log("Response headers:", Object.fromEntries(response.headers.entries()))
+
         if (response.ok) {
           const newOffice = await response.json()
+          console.log("New office created:", newOffice)
           setOffices(prev => [...prev, newOffice])
           await invalidateCache() // キャッシュをクリア
           toast({
@@ -141,7 +139,9 @@ export default function OfficesPage() {
             description: "事業所を新規作成しました",
           })
         } else {
-          throw new Error('作成に失敗しました')
+          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+          console.error("Server error response:", errorData)
+          throw new Error(errorData.details || errorData.error || '作成に失敗しました')
         }
       }
 
@@ -156,7 +156,7 @@ export default function OfficesPage() {
         variant: "destructive",
       })
     }
-  }, [formData, editingOffice, toast, generateOfficeCode])
+  }, [formData, editingOffice, toast])
 
   const handleEdit = useCallback((office: ManagementOffice) => {
     setEditingOffice(office)
@@ -217,12 +217,8 @@ export default function OfficesPage() {
   const handleNewOffice = useCallback(() => {
     setEditingOffice(null)
     resetForm()
-    setFormData(prev => ({
-      ...prev,
-      office_code: generateOfficeCode()
-    }))
     setIsFormOpen(true)
-  }, [resetForm, generateOfficeCode])
+  }, [resetForm])
 
   if (loading) {
     return (
@@ -294,10 +290,11 @@ export default function OfficesPage() {
                     onChange={(e) => setFormData({ ...formData, office_code: e.target.value })}
                     readOnly={!editingOffice}
                     className={!editingOffice ? "bg-gray-100" : ""}
+                    placeholder={!editingOffice ? "自動採番されます" : ""}
                     required
                   />
                   {!editingOffice && (
-                    <p className="text-xs text-gray-500 mt-1">自動採番されます</p>
+                    <p className="text-xs text-gray-500 mt-1">新規作成時は自動採番されます</p>
                   )}
                 </div>
               </div>

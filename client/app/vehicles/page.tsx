@@ -15,14 +15,24 @@ import { Plus, Edit, Trash2, Search, Download, Upload, FileSpreadsheet, FileText
 import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import { saveAs } from 'file-saver'
+import { VehicleForm } from "@/components/vehicle-form"
 
 interface Vehicle {
-  id: string // 保守用車ID（自動採番）
-  vehicle_type: string // 機種
-  machine_number: string // 機械番号
-  management_office_code: string // 管理事業所コード
+  id: number
+  machine_number: string
+  vehicle_type: string
+  model?: string
+  manufacturer?: string
+  acquisition_date?: string
+  type_approval_start_date?: string
+  type_approval_duration?: number
+  special_notes?: string
+  management_office_id: number
+  status: string
   created_at: string
   updated_at: string
+  office_name?: string
+  office_code?: string
 }
 
 interface ManagementOffice {
@@ -61,35 +71,26 @@ export default function VehiclesPage() {
   })
 
   useEffect(() => {
-    // モックデータの読み込み
-    const mockVehicles: Vehicle[] = [
-      {
-        id: "V001",
-        vehicle_type: "モータカー",
-        machine_number: "MC-001",
-        management_office_code: "HQ001",
-        created_at: "2024-01-01T00:00:00Z",
-        updated_at: "2024-01-01T00:00:00Z",
-      },
-      {
-        id: "V002",
-        vehicle_type: "鉄トロ",
-        machine_number: "TT-001",
-        management_office_code: "KS001",
-        created_at: "2024-01-01T00:00:00Z",
-        updated_at: "2024-01-01T00:00:00Z",
-      },
-      {
-        id: "V003",
-        vehicle_type: "ホッパー",
-        machine_number: "HP-001",
-        management_office_code: "HQ001",
-        created_at: "2024-01-01T00:00:00Z",
-        updated_at: "2024-01-01T00:00:00Z",
-      },
-    ]
-    setVehicles(mockVehicles)
-    setFilteredVehicles(mockVehicles)
+    // 車両データを取得
+    const fetchVehicles = async () => {
+      try {
+        const response = await fetch('/api/vehicles')
+        if (response.ok) {
+          const vehiclesData = await response.json()
+          setVehicles(vehiclesData)
+          setFilteredVehicles(vehiclesData)
+        }
+      } catch (error) {
+        console.error('車両データの取得に失敗:', error)
+        toast({
+          title: "エラー",
+          description: "車両データの取得に失敗しました",
+          variant: "destructive",
+        })
+      }
+    }
+    
+    fetchVehicles()
 
     // 事業所データを取得
     const fetchOffices = async () => {
@@ -140,12 +141,22 @@ export default function VehiclesPage() {
     setFilteredVehicles(filtered)
   }, [vehicles, searchTerm, filterType])
 
-  const generateVehicleId = () => {
+  const generateVehicleId = (vehicleType: string) => {
+    const typeMap: { [key: string]: string } = {
+      'MC-100': 'MC',
+      'MC-150': 'MC',
+      'TT-200': 'TT',
+      'TT-250': 'TT',
+      'HP-300': 'HP',
+      'HP-350': 'HP'
+    }
+
+    const prefix = typeMap[vehicleType] || 'XX'
     const maxId = vehicles.reduce((max, vehicle) => {
-      const idNum = parseInt(vehicle.id.replace(/\D/g, '')) || 0
+      const idNum = parseInt(vehicle.id.toString().replace(/\D/g, '')) || 0
       return Math.max(max, idNum)
     }, 0)
-    return `V${String(maxId + 1).padStart(3, '0')}`
+    return maxId + 1
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -159,7 +170,7 @@ export default function VehiclesPage() {
       setEditingVehicle(null)
     } else {
       const newVehicle: Vehicle = {
-        id: generateVehicleId(),
+        id: generateVehicleId(formData.vehicle_type),
         ...formData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -177,50 +188,63 @@ export default function VehiclesPage() {
 
   const handleEdit = (vehicle: Vehicle) => {
     setEditingVehicle(vehicle)
-    setFormData({
-      vehicle_type: vehicle.vehicle_type,
-      machine_number: vehicle.machine_number,
-      management_office_code: vehicle.management_office_code,
-    })
     setIsFormOpen(true)
   }
 
-  const handleDelete = (id: string) => {
-    setVehicles((vehicles) => vehicles.filter((vehicle) => vehicle.id !== id))
+  const handleDelete = async (id: number) => {
+    if (!confirm('この車両を削除しますか？')) return
+
+    try {
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setVehicles(prev => prev.filter(vehicle => vehicle.id !== id))
+        toast({
+          title: "削除完了",
+          description: "車両を削除しました",
+        })
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        console.error("Delete error response:", errorData)
+        console.error("Response status:", response.status)
+        toast({
+          title: "削除エラー",
+          description: errorData.details || errorData.error || "車両の削除に失敗しました",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('車両の削除に失敗:', error)
+      toast({
+        title: "エラー",
+        description: "車両の削除に失敗しました",
+        variant: "destructive",
+      })
+    }
   }
 
   // エクスポート機能
-  const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(
-      filteredVehicles.map((vehicle) => ({
-        "保守用車ID": vehicle.id,
-        "機種": vehicle.vehicle_type,
-        "機械番号": vehicle.machine_number,
-        "管理事業所コード": vehicle.management_office_code,
-        "作成日": new Date(vehicle.created_at).toLocaleDateString("ja-JP"),
-        "更新日": new Date(vehicle.updated_at).toLocaleDateString("ja-JP"),
-      })),
-    )
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, "保守用車マスタ")
-    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" })
-    const data = new Blob([excelBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" })
-    saveAs(data, "保守用車マスタ.xlsx")
-  }
+
 
   const exportToCSV = () => {
     const csvData = filteredVehicles.map((vehicle) => ({
-      "保守用車ID": vehicle.id,
+      "ID": vehicle.id,
       "機種": vehicle.vehicle_type,
       "機械番号": vehicle.machine_number,
-      "管理事業所コード": vehicle.management_office_code,
-      "作成日": new Date(vehicle.created_at).toLocaleDateString("ja-JP"),
-      "更新日": new Date(vehicle.updated_at).toLocaleDateString("ja-JP"),
+      "型式": vehicle.model || "",
+      "製造メーカー": vehicle.manufacturer || "",
+      "取得年月": vehicle.acquisition_date || "",
+      "型式認定有効起算日": vehicle.type_approval_start_date || "",
+      "型式認定有効期間（月数）": vehicle.type_approval_duration || "",
+      "特記事項": vehicle.special_notes || "",
+      "管理事業所": vehicle.office_name || "",
     }))
 
     const csv = Papa.unparse(csvData)
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
-    saveAs(blob, "保守用車マスタ.csv")
+    saveAs(blob, `保守用車マスタ_${new Date().toISOString().split("T")[0]}.csv`)
   }
 
   // インポート機能
@@ -290,8 +314,8 @@ export default function VehiclesPage() {
     data.forEach((row, index) => {
       try {
         // 必須フィールドのチェック
-        if (!row['機種'] || !row['機械番号'] || !row['管理事業所コード']) {
-          errors.push(`行${index + 1}: 必須フィールドが不足しています`)
+        if (!row['機種'] || !row['機械番号']) {
+          errors.push(`行${index + 1}: 必須フィールド（機種、機械番号）が不足しています`)
           failed++
           return
         }
@@ -304,27 +328,26 @@ export default function VehiclesPage() {
         }
 
         // 機種の検証
-        const validTypes = ['モータカー', '鉄トロ', 'ホッパー', 'MCR', '箱トロ']
+        const validTypes = ['MC-100', 'MC-150', 'TT-200', 'TT-250', 'HP-300', 'HP-350']
         if (!validTypes.includes(row['機種'])) {
           errors.push(`行${index + 1}: 無効な機種「${row['機種']}」です。有効な機種: ${validTypes.join(', ')}`)
           failed++
           return
         }
 
-        // 管理事業所コードの検証
-        const validOfficeCodes = offices.map(office => office.office_code)
-        if (!validOfficeCodes.includes(row['管理事業所コード'])) {
-          errors.push(`行${index + 1}: 無効な管理事業所コード「${row['管理事業所コード']}」です。有効なコード: ${validOfficeCodes.join(', ')}`)
-          failed++
-          return
-        }
-
         // 新しい車両を作成
         const newVehicle: Vehicle = {
-          id: generateVehicleId(),
+          id: Math.floor(Math.random() * 1000) + 1,
           vehicle_type: row['機種'],
           machine_number: row['機械番号'],
-          management_office_code: row['管理事業所コード'],
+          model: row['型式'] || "",
+          manufacturer: row['製造メーカー'] || "",
+                      acquisition_date: row['取得年月'] || null,
+          type_approval_start_date: row['型式認定有効起算日'] || null,
+          type_approval_duration: row['型式認定有効期間（月数）'] ? parseInt(row['型式認定有効期間（月数）']) : 12,
+          special_notes: row['特記事項'] || "",
+                      management_office_id: 1, // デフォルト値
+          status: "active",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         }
@@ -356,28 +379,40 @@ export default function VehiclesPage() {
     try {
       const templateData = [
         {
-          '保守用車ID': 'V001',
-          '機種': 'モータカー',
-          '機械番号': 'MC-001',
-          '管理事業所コード': 'HQ001',
-          '作成日': '2024-01-01',
-          '更新日': '2024-01-01'
+          'ID': '1',
+          '機種': 'MC-100',
+          '機械番号': 'MC001',
+          '型式': 'MC-100A',
+          '製造メーカー': '鉄道車両製造株式会社',
+          '取得年月': '2020-01',
+          '型式認定有効起算日': '2020-01',
+          '型式認定有効期間（月数）': '12',
+          '特記事項': '特になし',
+          '管理事業所': '本社保守事業所'
         },
         {
-          '保守用車ID': 'V002',
-          '機種': '鉄トロ',
-          '機械番号': 'TT-001',
-          '管理事業所コード': 'KS001',
-          '作成日': '2024-01-01',
-          '更新日': '2024-01-01'
+          'ID': '2',
+          '機種': 'TT-200',
+          '機械番号': 'TT001',
+          '型式': 'TT-200A',
+          '製造メーカー': '鉄道車両製造株式会社',
+          '取得年月': '2021-03',
+          '型式認定有効起算日': '2021-03',
+          '型式認定有効期間（月数）': '12',
+          '特記事項': '特になし',
+          '管理事業所': '関西支社保守事業所'
         },
         {
-          '保守用車ID': 'V003',
-          '機種': 'ホッパー',
-          '機械番号': 'HP-001',
-          '管理事業所コード': 'HQ001',
-          '作成日': '2024-01-01',
-          '更新日': '2024-01-01'
+          'ID': '3',
+          '機種': 'HP-300',
+          '機械番号': 'HP001',
+          '型式': 'HP-300A',
+          '製造メーカー': '鉄道車両製造株式会社',
+          '取得年月': '2022-06',
+          '型式認定有効起算日': '2022-06',
+          '型式認定有効期間（月数）': '12',
+          '特記事項': '特になし',
+          '管理事業所': '本社保守事業所'
         }
       ]
 
@@ -415,10 +450,6 @@ export default function VehiclesPage() {
           <Button onClick={() => setIsFormOpen(true)} className="bg-blue-600 hover:bg-blue-700">
             <Plus className="w-4 h-4 mr-2" />
             新規車両追加
-          </Button>
-          <Button onClick={exportToExcel} variant="outline">
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Excel出力
           </Button>
           <Button onClick={exportToCSV} variant="outline">
             <FileText className="w-4 h-4 mr-2" />
@@ -552,101 +583,40 @@ export default function VehiclesPage() {
       </Card>
 
       {isFormOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingVehicle ? "保守用車情報編集" : "新規保守用車登録"}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="vehicle_type">機種 *</Label>
-                  <Select
-                    value={formData.vehicle_type}
-                    onValueChange={(value) => setFormData({ ...formData, vehicle_type: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="機種を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="モータカー">モータカー</SelectItem>
-                      <SelectItem value="鉄トロ">鉄トロ</SelectItem>
-                      <SelectItem value="ホッパー">ホッパー</SelectItem>
-                      <SelectItem value="MCR">MCR</SelectItem>
-                      <SelectItem value="箱トロ">箱トロ</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="machine_number">機械番号 *</Label>
-                  <Input
-                    id="machine_number"
-                    value={formData.machine_number}
-                    onChange={(e) => setFormData({ ...formData, machine_number: e.target.value })}
-                    placeholder="例: MC-001"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="management_office_code">管理事業所コード *</Label>
-                  <Select
-                    value={formData.management_office_code}
-                    onValueChange={(value) => setFormData({ ...formData, management_office_code: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="管理事業所を選択" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {offices.map((office) => (
-                        <SelectItem key={office.id} value={office.office_code}>
-                          {office.office_name} ({office.office_code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                  {editingVehicle ? "更新" : "登録"}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setIsFormOpen(false)
-                    setEditingVehicle(null)
-                    setFormData({
-                      vehicle_type: "",
-                      machine_number: "",
-                      management_office_code: "",
-                    })
-                  }}
-                >
-                  キャンセル
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+        <VehicleForm
+          onSubmit={(vehicle) => {
+            if (editingVehicle) {
+              setVehicles(prev => prev.map(v => v.id === vehicle.id ? vehicle : v))
+              setFilteredVehicles(prev => prev.map(v => v.id === vehicle.id ? vehicle : v))
+            } else {
+              setVehicles(prev => [...prev, vehicle])
+              setFilteredVehicles(prev => [...prev, vehicle])
+            }
+            setIsFormOpen(false)
+            setEditingVehicle(null)
+            toast({
+              title: editingVehicle ? "更新完了" : "作成完了",
+              description: editingVehicle ? "車両情報を更新しました" : "車両を新規作成しました",
+            })
+          }}
+          onCancel={() => {
+            setIsFormOpen(false)
+            setEditingVehicle(null)
+          }}
+          editingVehicle={editingVehicle}
+        />
       )}
 
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>車両一覧</CardTitle>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={exportToExcel}>
-                <FileSpreadsheet className="w-4 h-4 mr-2" />
-                Excel出力
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportToCSV}>
-                <FileText className="w-4 h-4 mr-2" />
-                CSV出力
-              </Button>
-            </div>
+                      <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={exportToCSV}>
+              <FileText className="w-4 h-4 mr-2" />
+              CSV出力
+            </Button>
+          </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -654,10 +624,15 @@ export default function VehiclesPage() {
             <table className="w-full border-collapse border border-gray-300">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="border border-gray-300 px-4 py-2 text-left">保守用車ID</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">ID</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">機種</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">機械番号</th>
-                  <th className="border border-gray-300 px-4 py-2 text-left">管理事業所コード</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">型式</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">製造メーカー</th>
+                                      <th className="border border-gray-300 px-4 py-2 text-left">取得年月</th>
+                                      <th className="border border-gray-300 px-4 py-2 text-left">型式認定有効起算日（年月）</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">型式認定有効期間（月）</th>
+                  <th className="border border-gray-300 px-4 py-2 text-left">管理事業所</th>
                   <th className="border border-gray-300 px-4 py-2 text-left">操作</th>
                 </tr>
               </thead>
@@ -667,13 +642,24 @@ export default function VehiclesPage() {
                     <td className="border border-gray-300 px-4 py-2 font-medium">{vehicle.id}</td>
                     <td className="border border-gray-300 px-4 py-2">{vehicle.vehicle_type}</td>
                     <td className="border border-gray-300 px-4 py-2">{vehicle.machine_number}</td>
-                    <td className="border border-gray-300 px-4 py-2">{vehicle.management_office_code}</td>
+                    <td className="border border-gray-300 px-4 py-2">{vehicle.model || "-"}</td>
+                    <td className="border border-gray-300 px-4 py-2">{vehicle.manufacturer || "-"}</td>
+                    <td className="border border-gray-300 px-4 py-2">
+                      {vehicle.acquisition_date ? vehicle.acquisition_date : "-"}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2">
+                      {vehicle.type_approval_start_date || "-"}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2">
+                      {vehicle.type_approval_duration ? `${vehicle.type_approval_duration}ヶ月` : "-"}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2">{vehicle.office_name || "-"}</td>
                     <td className="border border-gray-300 px-4 py-2">
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => handleEdit(vehicle)}>
                           <Edit className="w-4 h-4" />
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => handleDelete(vehicle.id)}>
+                        <Button size="sm" variant="outline" onClick={() => handleDelete(vehicle.id.toString())}>
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>

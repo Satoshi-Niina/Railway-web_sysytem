@@ -28,13 +28,17 @@ export interface MaintenanceBase {
 export interface Base {
   id: number
   base_name: string
+  base_code?: string
   base_type: string
   location?: string
-  management_office_id: number
+  management_office_id?: number
   is_active: boolean
   created_at: string
   updated_at: string
   management_office?: ManagementOffice
+  // APIレスポンス用フィールド
+  office_name?: string
+  office_code?: string
 }
 
 export interface VehicleType {
@@ -51,15 +55,20 @@ export interface Vehicle {
   vehicle_type: string
   model?: string
   manufacturer?: string
-  acquisition_date?: string
-  management_office_id: number
-  home_base_id: number
+  acquisition_date?: string // YYYY-MM形式（年月）
+  type_approval_start_date?: string // YYYY-MM形式（年月）
+  type_approval_duration?: number // 月数
+  special_notes?: string
+  management_office_id?: number
+  home_base_id?: number
   status: string
   created_at: string
   updated_at: string
   management_office?: ManagementOffice
-  home_base?: Base
-  maintenance_base?: MaintenanceBase
+  // APIレスポンス用フィールド
+  office_name?: string
+  office_code?: string
+  base_name?: string
 }
 
 export interface InspectionType {
@@ -85,6 +94,15 @@ export interface OperationPlan {
   notes?: string
   created_at: string
   updated_at: string
+  // 事業所情報（APIレスポンス用）
+  office_name?: string
+  office_code?: string
+  station_1?: string
+  station_2?: string
+  station_3?: string
+  station_4?: string
+  station_5?: string
+  station_6?: string
   vehicle?: Vehicle
   departure_base?: Base
   arrival_base?: Base
@@ -104,6 +122,15 @@ export interface OperationRecord {
   auto_imported: boolean
   created_at: string
   updated_at: string
+  // 事業所情報（APIレスポンス用）
+  office_name?: string
+  office_code?: string
+  station_1?: string
+  station_2?: string
+  station_3?: string
+  station_4?: string
+  station_5?: string
+  station_6?: string
   vehicle?: Vehicle
   departure_base?: Base
   arrival_base?: Base

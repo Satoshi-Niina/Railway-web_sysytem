@@ -69,3 +69,88 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch bases" }, { status: 500 })
   }
 }
+
+export async function POST(request: Request) {
+  try {
+    console.log("POST /api/bases called")
+    
+    const body = await request.json()
+    console.log("Request body:", body)
+
+    // バリデーション
+    if (!body.base_name || !body.base_type) {
+      console.error("Validation failed: missing required fields")
+      return NextResponse.json(
+        { error: "基地名と基地タイプは必須です" },
+        { status: 400 }
+      )
+    }
+
+    const dbType = getDatabaseType()
+
+    if (dbType === "postgresql") {
+      try {
+        const result = await executeQuery(`
+          INSERT INTO bases (
+            base_name, base_type, location, management_office_id, is_active
+          )
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *
+        `, [
+          body.base_name,
+          body.base_type,
+          body.location || null,
+          body.management_office_id || null,
+          body.is_active !== false // デフォルトはtrue
+        ])
+
+        if (result.length > 0) {
+          console.log("Successfully saved to PostgreSQL:", result[0])
+          return NextResponse.json(result[0])
+        } else {
+          console.error("PostgreSQL insertion failed or no rows returned")
+          return NextResponse.json(
+            { error: "基地の作成に失敗しました" },
+            { status: 500 }
+          )
+        }
+      } catch (error) {
+        console.error("Database insertion failed:", error)
+        return NextResponse.json(
+          { error: "データベース接続エラーが発生しました" },
+          { status: 500 }
+        )
+      }
+    } else if (dbType === "supabase") {
+      const supabase = getSupabaseClient()
+      const { data, error } = await supabase
+        .from("bases")
+        .insert({
+          base_name: body.base_name,
+          base_type: body.base_type,
+          location: body.location,
+          management_office_id: body.management_office_id,
+          is_active: body.is_active !== false
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+      return NextResponse.json(data)
+    } else {
+      return NextResponse.json(
+        { error: "データベースが設定されていません" },
+        { status: 500 }
+      )
+    }
+  } catch (error) {
+    console.error("Unexpected error in POST /api/bases:", error)
+    
+    return NextResponse.json(
+      { 
+        error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`
+      },
+      { status: 500 }
+    )
+  }
+}

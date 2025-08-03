@@ -62,140 +62,143 @@ export function OperationPlanChart() {
     try {
       setError(null)
 
-      // モックデータ
-      const mockVehicles: Vehicle[] = [
-        {
-          id: 1,
-          name: "モータカー",
-          model: "MC-100",
-          base_location: "本社基地",
-          machine_number: "M001",
-          manufacturer: "メーカーA",
-          acquisition_date: "2020-04-01",
-          management_office: "本社保守事業所",
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: 2,
-          name: "モータカー",
-          model: "MC-100",
-          base_location: "本社基地",
-          machine_number: "M002",
-          manufacturer: "メーカーA",
-          acquisition_date: "2020-05-01",
-          management_office: "本社保守事業所",
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: 3,
-          name: "MCR",
-          model: "MCR-200",
-          base_location: "本社基地",
-          machine_number: "MCR001",
-          manufacturer: "メーカーB",
-          acquisition_date: "2019-06-01",
-          management_office: "本社保守事業所",
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z",
-        },
-      ]
+      // データベースから基地を読み込み
+      let bases: any[] = []
+      try {
+        const basesResponse = await fetch("/api/maintenance-bases")
+        if (basesResponse.ok) {
+          const maintenanceBases = await basesResponse.json()
+          const bases = maintenanceBases.map((base: any) => ({
+            id: base.id,
+            base_name: base.base_name,
+            location: base.location || "",
+            management_office_id: base.management_office_id,
+            created_at: base.created_at,
+          }))
+        } else {
+          console.error("基地の取得に失敗しました:", basesResponse.status, basesResponse.statusText)
+          // モックデータを使用
+          bases = [
+            { id: 1, base_name: "東京基地", location: "東京都", management_office_id: 1, created_at: new Date().toISOString() },
+            { id: 2, base_name: "大阪基地", location: "大阪府", management_office_id: 2, created_at: new Date().toISOString() },
+            { id: 3, base_name: "名古屋基地", location: "愛知県", management_office_id: 1, created_at: new Date().toISOString() }
+          ]
+          setError("基地データの取得に失敗しました。モックデータを表示しています。")
+        }
+      } catch (error) {
+        console.error("基地データの取得エラー:", error)
+        // モックデータを使用
+        bases = [
+          { id: 1, base_name: "東京基地", location: "東京都", management_office_id: 1, created_at: new Date().toISOString() },
+          { id: 2, base_name: "大阪基地", location: "大阪府", management_office_id: 2, created_at: new Date().toISOString() },
+          { id: 3, base_name: "名古屋基地", location: "愛知県", management_office_id: 1, created_at: new Date().toISOString() }
+        ]
+        setError("基地データの取得に失敗しました。モックデータを表示しています。")
+      }
 
-      const mockBases: Base[] = [
-        {
-          id: 1,
-          base_name: "本社基地",
-          location: "東京",
-          created_at: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: 2,
-          base_name: "関西保守基地",
-          location: "大阪",
-          created_at: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: 3,
-          base_name: "九州基地",
-          location: "福岡",
-          created_at: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: 4,
-          base_name: "北海道基地",
-          location: "札幌",
-          created_at: "2024-01-01T00:00:00Z",
-        },
-      ]
+      // データベースから事業所を読み込み
+      let offices: any[] = []
+      try {
+        const officesResponse = await fetch("/api/management-offices")
+        if (officesResponse.ok) {
+          offices = await officesResponse.json()
+        } else {
+          console.error("事業所の取得に失敗しました:", officesResponse.status, officesResponse.statusText)
+          // モックデータを使用
+          offices = [
+            { id: 1, office_name: "東京事業所", office_code: "OFF001", station_1: "東京駅", station_2: "新宿駅", station_3: "渋谷駅", station_4: "池袋駅", station_5: "上野駅", station_6: "品川駅" },
+            { id: 2, office_name: "大阪事業所", office_code: "OFF002", station_1: "大阪駅", station_2: "梅田駅", station_3: "難波駅", station_4: "天王寺駅", station_5: "新大阪駅", station_6: "京橋駅" }
+          ]
+          setError("事業所データの取得に失敗しました。モックデータを表示しています。")
+        }
+      } catch (error) {
+        console.error("事業所データの取得エラー:", error)
+        // モックデータを使用
+        offices = [
+          { id: 1, office_name: "東京事業所", office_code: "OFF001", station_1: "東京駅", station_2: "新宿駅", station_3: "渋谷駅", station_4: "池袋駅", station_5: "上野駅", station_6: "品川駅" },
+          { id: 2, office_name: "大阪事業所", office_code: "OFF002", station_1: "大阪駅", station_2: "梅田駅", station_3: "難波駅", station_4: "天王寺駅", station_5: "新大阪駅", station_6: "京橋駅" }
+        ]
+        setError("事業所データの取得に失敗しました。モックデータを表示しています。")
+      }
 
-      const mockOffices: ManagementOffice[] = [
-        {
-          id: 1,
-          office_name: "本社保守事業所",
-          location: "東京",
-          created_at: "2024-01-01T00:00:00Z",
-        },
-        {
-          id: 2,
-          office_name: "関西支社保守事業所",
-          location: "大阪",
-          created_at: "2024-01-01T00:00:00Z",
-        },
-      ]
+      // データベースから車両を読み込み
+      let vehicles: any[] = []
+      try {
+        const vehiclesResponse = await fetch("/api/vehicles")
+        if (vehiclesResponse.ok) {
+          const vehicleData = await vehiclesResponse.json()
+          const vehicles = vehicleData.map((vehicle: any) => ({
+            id: vehicle.id,
+            name: vehicle.vehicle_type,
+            model: vehicle.model,
+            base_location: vehicle.base_location || vehicle.base_name || "",
+            machine_number: vehicle.machine_number,
+            manufacturer: vehicle.manufacturer,
+            acquisition_date: vehicle.acquisition_date,
+            management_office: vehicle.office_name || vehicle.management_office,
+            management_office_id: vehicle.management_office_id,
+            created_at: vehicle.created_at,
+            updated_at: vehicle.updated_at,
+          }))
+        } else {
+          console.error("車両の取得に失敗しました:", vehiclesResponse.status, vehiclesResponse.statusText)
+          // モックデータを使用
+          vehicles = [
+            { id: 1, name: "モータカー", model: "MC-100", base_location: "東京基地", machine_number: "MC001", manufacturer: "日立", acquisition_date: "2020-01-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+            { id: 2, name: "MCR", model: "MC-150", base_location: "東京基地", machine_number: "MC002", manufacturer: "日立", acquisition_date: "2020-02-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+            { id: 3, name: "鉄トロ（10t）", model: "TT-200", base_location: "大阪基地", machine_number: "TT001", manufacturer: "川崎", acquisition_date: "2020-03-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+            { id: 4, name: "鉄トロ（15t）", model: "TT-250", base_location: "大阪基地", machine_number: "TT002", manufacturer: "川崎", acquisition_date: "2020-04-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+            { id: 5, name: "箱トロ", model: "HP-300", base_location: "名古屋基地", machine_number: "HP001", manufacturer: "三菱", acquisition_date: "2020-05-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+            { id: 6, name: "ホッパー車", model: "HP-350", base_location: "名古屋基地", machine_number: "HP002", manufacturer: "三菱", acquisition_date: "2020-06-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+          ]
+          setError("車両データの取得に失敗しました。モックデータを表示しています。")
+        }
+      } catch (error) {
+        console.error("車両データの取得エラー:", error)
+        // モックデータを使用
+        vehicles = [
+          { id: 1, name: "モータカー", model: "MC-100", base_location: "東京基地", machine_number: "MC001", manufacturer: "日立", acquisition_date: "2020-01-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 2, name: "MCR", model: "MC-150", base_location: "東京基地", machine_number: "MC002", manufacturer: "日立", acquisition_date: "2020-02-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 3, name: "鉄トロ（10t）", model: "TT-200", base_location: "大阪基地", machine_number: "TT001", manufacturer: "川崎", acquisition_date: "2020-03-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 4, name: "鉄トロ（15t）", model: "TT-250", base_location: "大阪基地", machine_number: "TT002", manufacturer: "川崎", acquisition_date: "2020-04-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 5, name: "箱トロ", model: "HP-300", base_location: "名古屋基地", machine_number: "HP001", manufacturer: "三菱", acquisition_date: "2020-05-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+          { id: 6, name: "ホッパー車", model: "HP-350", base_location: "名古屋基地", machine_number: "HP002", manufacturer: "三菱", acquisition_date: "2020-06-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        ]
+        setError("車両データの取得に失敗しました。モックデータを表示しています。")
+      }
 
-      // サンプル運用割り当てデータ（結果表示用）
-      const mockOperationAssignments: OperationAssignment[] = [
-        {
-          id: 1,
-          date: `${currentMonth}-01`,
-          vehicle_id: 1,
-          base_id: 1,
-          shift_type: "昼間",
-          departure_base_id: 1,
-          arrival_base_id: 1,
-          is_detention: false,
-          movement_destination: null,
-        },
-        {
-          id: 2,
-          date: `${currentMonth}-02`,
-          vehicle_id: 1,
-          base_id: 1,
-          shift_type: "夜間",
-          departure_base_id: 1,
-          arrival_base_id: 2,
-          is_detention: false,
-          movement_destination: "関西保守基地",
-        },
-        {
-          id: 3,
-          date: `${currentMonth}-03`,
-          vehicle_id: 1,
-          base_id: 2,
-          shift_type: "昼間",
-          departure_base_id: 2,
-          arrival_base_id: 2,
-          is_detention: true,
-          movement_destination: null,
-        },
-        {
-          id: 4,
-          date: `${currentMonth}-10`,
-          vehicle_id: 1,
-          base_id: 2,
-          shift_type: "昼間",
-          departure_base_id: 2,
-          arrival_base_id: 2,
-          is_detention: false,
-          movement_destination: null,
-        },
-      ]
+      // データベースから運用計画を読み込み
+      let operationPlans: any[] = []
+      try {
+        const plansResponse = await fetch(`/api/operation-plans?month=${currentMonth}`)
+        if (plansResponse.ok) {
+          operationPlans = await plansResponse.json()
+        } else {
+          console.error("運用計画の取得に失敗しました:", plansResponse.status, plansResponse.statusText)
+          // 運用計画は必須ではないのでエラーを設定しない
+        }
+      } catch (error) {
+        console.error("運用計画データの取得エラー:", error)
+        // 運用計画は必須ではないのでエラーを設定しない
+      }
 
-      setAllVehicles(mockVehicles)
-      setAllBases(mockBases)
-      setAllOffices(mockOffices)
-      setOperationAssignments(mockOperationAssignments)
+      // データが取得できた場合のみ状態を更新
+      if (bases.length > 0 || offices.length > 0 || vehicles.length > 0) {
+        setAllVehicles(vehicles)
+        setAllBases(bases)
+        setAllOffices(offices)
+        setOperationAssignments(operationPlans)
+        
+        // デバッグ情報を出力
+        console.log("データ取得結果:", {
+          bases: bases.length,
+          offices: offices.length,
+          vehicles: vehicles.length,
+          operationPlans: operationPlans.length
+        })
+      } else {
+        setError("マスタデータが取得できませんでした。データベース接続とデータの存在を確認してください。")
+      }
     } catch (error) {
       console.error("Error fetching data:", error)
       setError("データの取得に失敗しました。")
@@ -219,8 +222,8 @@ export function OperationPlanChart() {
 
     // 事業所でフィルタリング
     if (selectedOfficeId !== "all") {
-      const officeName = allOffices.find((o) => o.id === Number.parseInt(selectedOfficeId))?.office_name
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office === officeName)
+      const officeId = Number.parseInt(selectedOfficeId)
+      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === officeId)
     }
 
     // 機種でフィルタリング
@@ -234,31 +237,20 @@ export function OperationPlanChart() {
     }
 
     return vehicles
-  }, [allVehicles, selectedOfficeId, selectedVehicleType, selectedMachineNumber, allOffices])
+  }, [allVehicles, selectedOfficeId, selectedVehicleType, selectedMachineNumber])
 
   // 事業所でフィルタリングされた基地を取得
   const filteredBases = useMemo(() => {
     let bases = allBases
 
-    // 事業所でフィルタリング（簡易版 - 実際は基地と事業所の関連付けが必要）
+    // 事業所でフィルタリング
     if (selectedOfficeId !== "all") {
-      // ここでは簡易的に事業所名に基づいてフィルタリング
-      const officeName = allOffices.find((o) => o.id === Number.parseInt(selectedOfficeId))?.office_name
-      if (officeName?.includes("本社")) {
-        bases = bases.filter(
-          (base) =>
-            base.location === "東京" ||
-            base.location === "福岡" ||
-            base.location === "札幌" ||
-            base.location === "仙台",
-        )
-      } else if (officeName?.includes("関西")) {
-        bases = bases.filter((base) => base.location === "大阪")
-      }
+      const officeId = Number.parseInt(selectedOfficeId)
+      bases = bases.filter((base) => base.management_office_id === officeId)
     }
 
     return bases
-  }, [allBases, selectedOfficeId, allOffices])
+  }, [allBases, selectedOfficeId])
 
   // 機種別にグループ化された車両を取得（固定順序）
   const vehiclesByType = useMemo(() => {

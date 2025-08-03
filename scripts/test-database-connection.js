@@ -31,6 +31,30 @@ async function testDatabaseConnection() {
       });
     }
     
+    // 重要なテーブルの存在確認
+    const importantTables = ['management_offices', 'maintenance_bases', 'vehicles', 'operation_plans'];
+    console.log('\n🔍 重要なテーブルの確認:');
+    
+    for (const tableName of importantTables) {
+      const exists = tablesResult.rows.some(row => row.table_name === tableName);
+      if (exists) {
+        try {
+          const countResult = await client.query(`SELECT COUNT(*) FROM ${tableName}`);
+          console.log(`   ✅ ${tableName}: ${countResult.rows[0].count} 件`);
+          
+          // データの内容も確認
+          if (countResult.rows[0].count > 0) {
+            const dataResult = await client.query(`SELECT * FROM ${tableName} LIMIT 3`);
+            console.log(`     サンプルデータ:`, dataResult.rows);
+          }
+        } catch (error) {
+          console.log(`   ❌ ${tableName}: エラー (${error.message})`);
+        }
+      } else {
+        console.log(`   ❌ ${tableName}: テーブルが存在しません`);
+      }
+    }
+    
     // 各テーブルのレコード数を確認
     if (tablesResult.rows.length > 0) {
       console.log('\n📊 各テーブルのレコード数:');

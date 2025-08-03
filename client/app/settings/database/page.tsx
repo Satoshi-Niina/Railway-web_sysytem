@@ -242,6 +242,7 @@ export default function DatabaseManagementPage() {
         <TabsList>
           <TabsTrigger value="status">接続状態</TabsTrigger>
           <TabsTrigger value="backup">バックアップ</TabsTrigger>
+          <TabsTrigger value="storage">ストレージ</TabsTrigger>
           <TabsTrigger value="settings">設定</TabsTrigger>
         </TabsList>
 
@@ -413,6 +414,84 @@ export default function DatabaseManagementPage() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ストレージタブ */}
+        <TabsContent value="storage" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <HardDrive className="w-5 h-5" />
+                <span>クラウドストレージ管理</span>
+              </CardTitle>
+              <CardDescription>
+                故障画像、修繕画像、検査画像、文書類をクラウドストレージで管理します
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-2xl">📸</span>
+                    <span className="font-medium">故障画像</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    フォルダ: /failures
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    用途: 故障時の写真・動画
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-2xl">🔧</span>
+                    <span className="font-medium">修繕画像</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    フォルダ: /repairs
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    用途: 修繕作業の写真・動画
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-2xl">📋</span>
+                    <span className="font-medium">検査画像</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    フォルダ: /inspections
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    用途: 検査時の写真・動画
+                  </div>
+                </div>
+                
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-2xl">📄</span>
+                    <span className="font-medium">文書類</span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    フォルダ: /documents
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    用途: PDF・Excel等の文書
+                  </div>
+                </div>
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  クラウドストレージ（AWS S3）を使用して画像・文書を安全に保存します。
+                  環境変数 AWS_S3_BUCKET_NAME で指定したバケットに自動的にアップロードされます。
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </TabsContent>
