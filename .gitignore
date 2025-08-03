@@ -93,3 +93,51 @@ temp/
 
 # Docker
 .dockerignore
+
+# SSL Certificates
+ssl/
+*.pem
+*.key
+*.crt
+
+# Docker volumes
+postgres_data/
+nginx_logs/
+
+# Docker build cache
+.docker/
+
+# Environment specific files
+.env.production
+.env.staging
+.env.local
+
+# IDE specific
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Log files
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Backup files
+*.bak
+*.backup
+*.sql.bak
