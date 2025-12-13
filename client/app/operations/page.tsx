@@ -1,6 +1,6 @@
 "use client"
 
-import { OperationPlanningChart } from "@/components/operation-planning-chart"
+import { OperationPlanning } from "@/components/operation-planning"
 
 // 静的生成を無効化
 export const dynamic = 'force-dynamic'
@@ -13,7 +13,7 @@ export default function OperationsPage() {
         <p className="text-gray-600 mt-2">運用計画を作成・編集します</p>
       </div>
 
-      <OperationPlanningChart />
+      <OperationPlanning />
     </div>
   )
 }

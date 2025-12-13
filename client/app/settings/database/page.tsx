@@ -34,6 +34,13 @@ interface DatabaseStatus {
   uptime?: string
   connections?: number
   size?: string
+  diskUsagePercent?: string
+  tableSizes?: Array<{
+    schema: string
+    table: string
+    size: string
+    sizeBytes: number
+  }>
 }
 
 interface BackupInfo {
@@ -68,10 +75,12 @@ export default function DatabaseManagementPage() {
         status: data.database === "connected" ? "connected" : "disconnected",
         message: data.database === "connected" ? "データベースに正常に接続されています" : "データベースに接続できません",
         timestamp: data.timestamp,
-        version: "PostgreSQL 15.0",
-        uptime: "7日 3時間 45分",
-        connections: 12,
-        size: "2.4 GB"
+        version: data.databaseInfo?.version || "PostgreSQL (バージョン不明)",
+        uptime: data.databaseInfo?.uptime || "不明",
+        connections: data.databaseInfo?.connections || 0,
+        size: data.databaseInfo?.size || "不明",
+        diskUsagePercent: data.databaseInfo?.diskUsagePercent || "0",
+        tableSizes: data.databaseInfo?.tableSizes || []
       })
     } catch (error) {
       setDbStatus({
@@ -180,6 +189,173 @@ export default function DatabaseManagementPage() {
       })
     } finally {
       setRestoreLoading(false)
+    }
+  }
+
+  // データベース全データエクスポート
+  const handleDatabaseExport = async (format: 'json' | 'sql', destination: 'download' | 'storage') => {
+    try {
+      const response = await fetch('/api/database/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ format, destination })
+      })
+
+      if (destination === 'download') {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `database_export_${new Date().toISOString().replace(/[:.]/g, '-')}.${format}`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        
+        toast({
+          title: "成功",
+          description: `データベースのエクスポートが完了しました（${format.toUpperCase()}形式）`,
+        })
+      } else {
+        const data = await response.json()
+        toast({
+          title: "成功",
+          description: `ストレージにエクスポートしました: ${data.fileName}`,
+        })
+      }
+    } catch (error) {
+      console.error('エクスポートエラー:', error)
+      toast({
+        title: "エラー",
+        description: "エクスポートに失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // データベース全データインポート
+  const handleDatabaseImport = async (event: React.ChangeEvent<HTMLInputElement>, format: 'json' | 'sql') => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('format', format)
+
+    try {
+      const response = await fetch('/api/database/import', {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "成功",
+          description: data.message || "データのインポートが完了しました",
+        })
+        // データベース状態を更新
+        await fetchDatabaseStatus()
+      } else {
+        throw new Error(data.error || 'インポートに失敗しました')
+      }
+    } catch (error) {
+      console.error('インポートエラー:', error)
+      toast({
+        title: "エラー",
+        description: error instanceof Error ? error.message : "インポートに失敗しました",
+        variant: "destructive",
+      })
+    }
+    
+    // ファイル入力をリセット
+    event.target.value = ''
+  }
+
+  // ストレージファイルエクスポート
+  const handleStorageExport = async () => {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked')
+    const folders = Array.from(checkboxes).map((cb: any) => cb.value)
+
+    if (folders.length === 0) {
+      toast({
+        title: "警告",
+        description: "エクスポートするフォルダを選択してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/storage/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folders, destination: 'download' })
+      })
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `storage_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.zip`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "成功",
+        description: "ストレージファイルのエクスポートが完了しました",
+      })
+    } catch (error) {
+      console.error('エクスポートエラー:', error)
+      toast({
+        title: "エラー",
+        description: "エクスポートに失敗しました",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // ストレージファイルを外部ストレージにエクスポート
+  const handleStorageExportToExternal = async () => {
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]:checked')
+    const folders = Array.from(checkboxes).map((cb: any) => cb.value)
+
+    if (folders.length === 0) {
+      toast({
+        title: "警告",
+        description: "エクスポートするフォルダを選択してください",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/storage/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folders, destination: 'external-storage' })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast({
+          title: "成功",
+          description: `外部ストレージにエクスポートしました: ${data.fileName}`,
+        })
+      } else {
+        throw new Error(data.error || 'エクスポートに失敗しました')
+      }
+    } catch (error) {
+      console.error('エクスポートエラー:', error)
+      toast({
+        title: "エラー",
+        description: "外部ストレージへのエクスポートに失敗しました",
+        variant: "destructive",
+      })
     }
   }
 
@@ -307,52 +483,176 @@ export default function DatabaseManagementPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span>CPU使用率</span>
-                    <span>45%</span>
+                    <span>ディスク使用率（実測値）</span>
+                    <span>{dbStatus?.diskUsagePercent || "0"}%</span>
                   </div>
-                  <Progress value={45} className="h-2" />
+                  <Progress value={parseFloat(dbStatus?.diskUsagePercent || "0")} className="h-2" />
                 </div>
                 
                 <div>
                   <div className="flex justify-between text-sm mb-2">
-                    <span>メモリ使用率</span>
-                    <span>62%</span>
-                  </div>
-                  <Progress value={62} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>ディスク使用率</span>
-                    <span>78%</span>
-                  </div>
-                  <Progress value={78} className="h-2" />
-                </div>
-                
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>データベースサイズ</span>
+                    <span>データベースサイズ（実測値）</span>
                     <span>{dbStatus?.size || "不明"}</span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full">
-                    <div className="h-2 bg-blue-500 rounded-full" style={{ width: '78%' }}></div>
+                    <div className="h-2 bg-blue-500 rounded-full" style={{ width: `${dbStatus?.diskUsagePercent || 0}%` }}></div>
+                  </div>
+                </div>
+                
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>接続数</span>
+                    <span>{dbStatus?.connections || 0}</span>
+                  </div>
+                  <Progress value={Math.min(100, (dbStatus?.connections || 0) * 10)} className="h-2" />
+                </div>
+                
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span>稼働時間</span>
+                    <span>{dbStatus?.uptime || "不明"}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    バージョン: {dbStatus?.version || "不明"}
                   </div>
                 </div>
               </div>
+
+              {/* テーブルサイズトップ10 */}
+              {dbStatus?.tableSizes && dbStatus.tableSizes.length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-sm font-semibold mb-3">テーブルサイズ（実測値・上位10件）</h3>
+                  <div className="space-y-2">
+                    {dbStatus.tableSizes.map((table, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded">
+                        <span className="font-mono text-xs">
+                          {table.schema}.{table.table}
+                        </span>
+                        <span className="font-medium">{table.size}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
         {/* バックアップタブ */}
         <TabsContent value="backup" className="space-y-6">
+          {/* データベース全データエクスポート/インポート */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Database className="w-5 h-5" />
+                <span>データベース全データ エクスポート/インポート</span>
+              </CardTitle>
+              <CardDescription>
+                全データを外部で編集可能な形式でエクスポート・インポートします（システム障害時の退避にも使用）
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* エクスポート */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold flex items-center space-x-2">
+                    <Download className="w-4 h-4" />
+                    <span>エクスポート</span>
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    全テーブルのデータを外部編集可能な形式で出力
+                  </p>
+                  <div className="space-y-2">
+                    <Button 
+                      onClick={() => handleDatabaseExport('json', 'download')} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      JSON形式でダウンロード
+                    </Button>
+                    <Button 
+                      onClick={() => handleDatabaseExport('json', 'storage')} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      JSON形式でストレージに保存
+                    </Button>
+                    <Button 
+                      onClick={() => handleDatabaseExport('sql', 'download')} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      SQL形式でダウンロード
+                    </Button>
+                    <Button 
+                      onClick={() => handleDatabaseExport('sql', 'storage')} 
+                      variant="outline" 
+                      className="w-full"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      SQL形式でストレージに保存
+                    </Button>
+                  </div>
+                </div>
+
+                {/* インポート */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <h3 className="font-semibold flex items-center space-x-2">
+                    <Upload className="w-4 h-4" />
+                    <span>インポート</span>
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    外部で編集したデータを取り込み
+                  </p>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        JSONファイルを選択
+                      </label>
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => handleDatabaseImport(e, 'json')}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        SQLファイルを選択
+                      </label>
+                      <input
+                        type="file"
+                        accept=".sql"
+                        onChange={(e) => handleDatabaseImport(e, 'sql')}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  エクスポートしたファイルは外部のツール（Excel、テキストエディタなど）で編集できます。
+                  インポート時は既存データに上書き・追加されます。
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+
+          {/* 従来のバックアップ */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <HardDrive className="w-5 h-5" />
-                <span>バックアップ管理</span>
+                <span>スナップショット バックアップ</span>
               </CardTitle>
               <CardDescription>
-                データベースのバックアップを作成、復元、管理します
+                データベースのスナップショットを作成、復元、管理します
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -366,7 +666,7 @@ export default function DatabaseManagementPage() {
                   ) : (
                     <>
                       <Download className="w-4 h-4 mr-2" />
-                      バックアップ作成
+                      スナップショット作成
                     </>
                   )}
                 </Button>
@@ -485,11 +785,71 @@ export default function DatabaseManagementPage() {
                 </div>
               </div>
 
+              <div className="p-4 border rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <span className="text-2xl">💾</span>
+                  <span className="font-medium">バックアップ</span>
+                </div>
+                <div className="text-sm text-gray-600">
+                  フォルダ: /backups
+                </div>
+                <div className="text-sm text-gray-600">
+                  用途: データベースバックアップファイル
+                </div>
+              </div>
+
+              {/* ストレージファイルのエクスポート */}
+              <div className="mt-6 border-t pt-6">
+                <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
+                  <Download className="w-5 h-5" />
+                  <span>ストレージファイル一括エクスポート</span>
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  選択したフォルダのファイルを、フォルダ構造を維持したまま外部ストレージにエクスポートします
+                </p>
+                
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" value="failures" className="rounded" />
+                      <span>故障画像</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" value="repairs" className="rounded" />
+                      <span>修繕画像</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" value="inspections" className="rounded" />
+                      <span>検査画像</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" value="documents" className="rounded" />
+                      <span>文書類</span>
+                    </label>
+                    <label className="flex items-center space-x-2">
+                      <input type="checkbox" value="backups" className="rounded" />
+                      <span>バックアップ</span>
+                    </label>
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <Button onClick={handleStorageExport} variant="outline">
+                      <Download className="w-4 h-4 mr-2" />
+                      ZIPでダウンロード
+                    </Button>
+                    <Button onClick={handleStorageExportToExternal} variant="outline">
+                      <Upload className="w-4 h-4 mr-2" />
+                      外部ストレージにエクスポート
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  クラウドストレージ（AWS S3）を使用して画像・文書を安全に保存します。
-                  環境変数 AWS_S3_BUCKET_NAME で指定したバケットに自動的にアップロードされます。
+                  クラウドストレージを使用して画像・文書・バックアップを安全に保存します。
+                  環境変数 STORAGE_TYPE で使用するストレージサービスを選択できます（local, aws-s3, azure-blob, gcp-storage）。
                 </AlertDescription>
               </Alert>
             </CardContent>

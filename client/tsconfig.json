@@ -1,27 +1,66 @@
 {
   "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "allowJs": true,
-    "target": "ES6",
-    "skipLibCheck": true,
+    // Node.js 20 + TypeScript ESM最適化
+    "target": "ES2023",
+    "lib": ["dom", "dom.iterable", "ES2023"],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "moduleDetection": "force",
+    
+    // JSX設定
+    "jsx": "preserve",
+    "jsxImportSource": "react",
+    
+    // 型チェック
     "strict": true,
+    "skipLibCheck": true,
     "noEmit": true,
+    "incremental": true,
+    "allowJs": true,
+    "checkJs": false,
+    
+    // ESM互換性
     "esModuleInterop": true,
-    "module": "esnext",
-    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
-    "incremental": true,
+    "verbatimModuleSyntax": true,
+    
+    // パス解決
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    
+    // 最適化
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    
+    // Next.js Plugin
     "plugins": [
       {
         "name": "next"
       }
-    ],
-    "paths": {
-      "@/*": ["./*"]
-    }
+    ]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.js",
+    "**/*.jsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "build"
+  ]
 }

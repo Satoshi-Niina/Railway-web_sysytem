@@ -17,34 +17,47 @@ function generateVehicleId(vehicleType: string): number {
   return randomNum
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    console.log("=== Vehicles API GET called ===")
+    console.log("Request method:", request.method)
+    console.log("Request URL:", request.url)
+    
     const dbType = getDatabaseType()
+    console.log("Database type:", dbType)
 
     if (dbType === "postgresql") {
       try {
+        console.log("Executing vehicles query...")
         const vehicles = await executeQuery(`
           SELECT v.*, 
                mo.office_name, mo.office_code,
                b.base_name
-          FROM vehicles v
-          LEFT JOIN management_offices mo ON v.management_office_id = mo.id
-          LEFT JOIN bases b ON v.home_base_id = b.id
+          FROM master_data.vehicles v
+          LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
+          LEFT JOIN master_data.bases b ON v.home_base_id = b.id
           WHERE v.status = 'active'
           ORDER BY v.vehicle_type, v.machine_number
         `)
-        console.log("PostgreSQL query result:", vehicles)
+        console.log("PostgreSQL query result:", vehicles.length, "vehicles found")
         return NextResponse.json(vehicles)
       } catch (error) {
         console.error("Database query failed:", error)
+        console.error("Error message:", error instanceof Error ? error.message : String(error))
+        console.error("Error code:", (error as any).code)
         return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
+          { 
+            error: "データベース接続エラーが発生しました",
+            details: error instanceof Error ? error.message : String(error),
+            code: (error as any).code
+          },
           { status: 500 }
         )
       }
     } else {
+      console.log("Database not configured, returning error")
       return NextResponse.json(
-        { error: "データベースが設定されていません" },
+        { error: "データベースが設定されていません", dbType },
         { status: 500 }
       )
     }
@@ -79,12 +92,11 @@ export async function POST(request: Request) {
       try {
         // まず車両を挿入
         const insertResult = await executeQuery(`
-          INSERT INTO vehicles (
+          INSERT INTO master_data.vehicles (
             machine_number, vehicle_type, model, manufacturer, acquisition_date, 
-            type_approval_start_date, type_approval_duration, special_notes, 
-            management_office_id, status
+            management_office_id, home_base_id, status
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING *
         `, [
           body.machine_number,
@@ -92,10 +104,8 @@ export async function POST(request: Request) {
           body.model || null,
           body.manufacturer || null,
           body.acquisition_date || null,
-          body.type_approval_start_date || null,
-          body.type_approval_duration || null,
-          body.special_notes || null,
           body.management_office_id || null,
+          body.home_base_id || null,
           'active'
         ])
 
@@ -106,8 +116,8 @@ export async function POST(request: Request) {
           // 管理事業所情報を含めて取得
           const result = await executeQuery(`
             SELECT v.*, mo.office_name, mo.office_code
-            FROM vehicles v
-            LEFT JOIN management_offices mo ON v.management_office_id = mo.id
+            FROM master_data.vehicles v
+            LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
             WHERE v.id = $1
           `, [vehicleId])
           

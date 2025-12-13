@@ -6,7 +6,7 @@ async function generateOfficeCode(): Promise<string> {
   try {
     console.log("Generating office code...")
     // 既存の事業所コードを取得して最大番号を計算
-    const existingOffices = await executeQuery("SELECT office_code FROM management_offices ORDER BY office_code")
+    const existingOffices = await executeQuery("SELECT office_code FROM master_data.management_offices ORDER BY office_code")
     console.log("Existing offices:", existingOffices)
     
     let maxCode = 0
@@ -35,28 +35,36 @@ async function generateOfficeCode(): Promise<string> {
 
 export async function GET() {
   try {
+    console.log("=== GET /api/management-offices ===")
+    console.log("DATABASE_URL:", process.env.DATABASE_URL ? "✅ Set" : "❌ Not set")
+    
     const dbType = getDatabaseType()
+    console.log("Database type:", dbType)
 
     if (dbType === "postgresql") {
       try {
-        const offices = await executeQuery("SELECT * FROM management_offices ORDER BY office_name")
-        console.log("PostgreSQL query result:", offices)
+        const offices = await executeQuery("SELECT * FROM master_data.management_offices ORDER BY office_name")
+        console.log("✅ Query successful, rows:", offices.length)
         return NextResponse.json(offices)
       } catch (error) {
-        console.error("Database query failed:", error)
+        console.error("❌ Database query failed:", error)
         return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
+          { 
+            error: "データベース接続エラーが発生しました",
+            details: error instanceof Error ? error.message : String(error)
+          },
           { status: 500 }
         )
       }
     } else {
+      console.error("❌ Database type is not postgresql:", dbType)
       return NextResponse.json(
         { error: "データベースが設定されていません" },
         { status: 500 }
       )
     }
   } catch (error) {
-    console.error("Error fetching management offices:", error)
+    console.error("❌ Unexpected error:", error)
     return NextResponse.json(
       { error: "サーバーエラーが発生しました" },
       { status: 500 }
@@ -91,18 +99,13 @@ export async function POST(request: Request) {
         console.log("Generated office_code:", officeCode)
 
         const result = await executeQuery(`
-          INSERT INTO management_offices (office_name, office_code, station_1, station_2, station_3, station_4, station_5, station_6)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          INSERT INTO master_data.management_offices (office_name, office_code, responsible_area)
+          VALUES ($1, $2, $3)
           RETURNING *
         `, [
           body.office_name, 
           officeCode, 
-          body.station_1 || null,
-          body.station_2 || null,
-          body.station_3 || null,
-          body.station_4 || null,
-          body.station_5 || null,
-          body.station_6 || null
+          body.responsible_area || null
         ])
 
         if (result.length > 0) {

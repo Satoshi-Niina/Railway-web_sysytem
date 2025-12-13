@@ -148,8 +148,8 @@ GRANT ALL PRIVILEGES ON DATABASE railway_maintenance TO railway_user;
 
 ```bash
 # ローカル環境
-npm run db:setup
-npm run master:setup
+pnpm db:setup
+pnpm master:setup
 
 # 本番環境（Docker）
 docker-compose exec app node scripts/setup-database.js
@@ -160,10 +160,10 @@ docker-compose exec app node scripts/setup-master-tables.js
 
 ```bash
 # 基本データのセットアップ
-npm run basecode:setup
+pnpm basecode:setup
 
 # 保守システムのセットアップ
-npm run maintenance:setup
+pnpm maintenance:setup
 ```
 
 ## 🔍 トラブルシューティング
@@ -173,7 +173,7 @@ npm run maintenance:setup
 #### 1. データベース接続エラー
 ```bash
 # 接続テスト
-npm run test:db
+pnpm test:db
 
 # ログ確認
 docker-compose logs postgres
@@ -189,8 +189,8 @@ echo $NEXT_PUBLIC_SUPABASE_URL
 #### 3. ビルドエラー
 ```bash
 # 依存関係の再インストール
-rm -rf node_modules package-lock.json
-npm install
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
 ```
 
 #### 4. ポート競合

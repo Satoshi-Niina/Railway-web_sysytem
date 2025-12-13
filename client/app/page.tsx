@@ -37,12 +37,12 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* 運用管理 */}
+        {/* 運用実績管理 */}
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader>
             <div className="flex items-center space-x-2">
               <BarChart3 className="w-6 h-6 text-blue-600" />
-              <CardTitle>運用管理</CardTitle>
+              <CardTitle>運用実績管理</CardTitle>
             </div>
             <CardDescription>基地別・機種別の運用状況を日単位で統合的に表示・管理します。</CardDescription>
           </CardHeader>

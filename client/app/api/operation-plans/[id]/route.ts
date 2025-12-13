@@ -13,16 +13,34 @@ export async function PUT(
 
     if (dbType === "postgresql") {
       const result = await executeQuery<OperationPlan>(
-        `UPDATE operation_plans SET 
-          vehicle_id = $1, plan_date = $2, shift_type = $3, start_time = $4, end_time = $5,
-          planned_distance = $6, departure_base_id = $7, arrival_base_id = $8, notes = $9, updated_at = NOW()
-        WHERE id = $10 RETURNING *`,
+        `UPDATE operations.operation_plans SET 
+          vehicle_id = $1, plan_date = $2::date, end_date = $3::date, shift_type = $4, start_time = $5, end_time = $6,
+          planned_distance = $7, departure_base_id = $8, arrival_base_id = $9, notes = $10, updated_at = NOW()
+        WHERE id = $11 RETURNING *`,
         [
-          body.vehicle_id, body.plan_date, body.shift_type, body.start_time, body.end_time,
+          body.vehicle_id, body.plan_date, body.end_date || body.plan_date, body.shift_type, body.start_time, body.end_time,
           body.planned_distance, body.departure_base_id, body.arrival_base_id, body.notes, params.id
         ]
       )
-      return NextResponse.json(result[0])
+      // 日付を正規化（ローカルタイムゾーン対応）
+      const formatDate = (date: any) => {
+        if (date instanceof Date) {
+          const year = date.getFullYear()
+          const month = String(date.getMonth() + 1).padStart(2, '0')
+          const day = String(date.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        } else if (typeof date === 'string' && date.includes('T')) {
+          return date.split('T')[0]
+        }
+        return date
+      }
+      
+      const normalizedResult = {
+        ...result[0],
+        plan_date: formatDate(result[0].plan_date),
+        end_date: formatDate(result[0].end_date)
+      }
+      return NextResponse.json(normalizedResult)
     } else if (dbType === "supabase") {
       const supabase = getSupabaseClient()
       if (!supabase) {
@@ -34,6 +52,7 @@ export async function PUT(
         .update({
           vehicle_id: body.vehicle_id,
           plan_date: body.plan_date,
+          end_date: body.end_date || body.plan_date,
           shift_type: body.shift_type,
           start_time: body.start_time,
           end_time: body.end_time,
@@ -68,7 +87,7 @@ export async function DELETE(
     const dbType = getDatabaseType()
 
     if (dbType === "postgresql") {
-      await executeQuery("DELETE FROM operation_plans WHERE id = $1", [params.id])
+      await executeQuery("DELETE FROM operations.operation_plans WHERE id = $1", [params.id])
       return NextResponse.json({ success: true })
     } else if (dbType === "supabase") {
       const supabase = getSupabaseClient()

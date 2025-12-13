@@ -1,26 +1,32 @@
 {
   "name": "railway-server",
-  "version": "1.0.0",
-  "main": "server.ts",
+  "version": "2.0.0",
+  "type": "module",
+  "packageManager": "pnpm@9.15.3",
+  "main": "server.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "dev": "node --watch server.js",
+    "build": "echo 'No build needed for ESM'",
+    "start": "node server.js",
+    "lint": "eslint ."
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "pnpm": ">=9.0.0"
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^16.0.3",
-    "express": "^4.18.2",
-    "pg": "^8.8.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "better-sqlite3": "^11.8.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.13",
-    "@types/node": "^18.0.0",
-    "@types/pg": "^8.15.4",
-    "ts-node-dev": "^2.0.0",
-    "typescript": "^5.0.0"
+    "@types/express": "^5.0.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "eslint": "^9.17.0"
   }
 }

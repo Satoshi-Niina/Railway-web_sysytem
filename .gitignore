@@ -12,11 +12,17 @@ build/
 dist/
 
 # Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# ローカル開発用の.env（シークレット情報含む）は除外
+.env.development
+
+# Client環境変数（本番用.env.production.localのみ除外）
+
+# Server環境変数（本番用.env.production.localのみ除外）
+
+# 以下はGitに含める（テンプレートファイル）:
+# - .env.development (ローカル開発用テンプレート)
+# - client/.env.production (Client本番用テンプレート)
+# - server/.env.production (Server本番用テンプレート)
 
 # Vercel
 .vercel
@@ -107,10 +113,13 @@ nginx_logs/
 # Docker build cache
 .docker/
 
-# Environment specific files
-.env.production
-.env.staging
-.env.local
+# Storage directory (local file storage)
+storage/
+uploads/
+
+# Data directory (images, documents, uploads)
+data/
+!data/.gitkeep
 
 # IDE specific
 .vscode/

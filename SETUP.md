@@ -3,9 +3,9 @@
 ## 🚀 クイックスタート
 
 ### 1. 前提条件
-- **Node.js 18+** がインストールされている
+- **Node.js 20+** がインストールされている
 - **PostgreSQL 15+** がインストールされている
-- **npm** が利用可能
+- **pnpm 9+** が利用可能
 
 ### 2. 自動セットアップ（推奨）
 
@@ -15,14 +15,14 @@ git clone <repository-url>
 cd railway-maintenance-system
 
 # 自動セットアップを実行
-npm run setup
+pnpm setup
 ```
 
 ### 3. 手動セットアップ
 
 #### 3.1 依存関係のインストール
 ```bash
-npm run install:all
+pnpm install
 ```
 
 #### 3.2 PostgreSQLのセットアップ
@@ -50,17 +50,17 @@ echo "DATABASE_URL=postgresql://postgres:password@localhost:5432/railway_mainten
 #### 3.4 データベースの初期化
 ```bash
 # データベース接続テスト
-npm run test:db
+pnpm test:db
 
 # マスタテーブルの作成
-npm run master:setup
+pnpm master:setup
 ```
 
 ### 4. 開発サーバーの起動
 
 ```bash
 # 開発サーバーを起動
-npm run dev
+pnpm dev
 ```
 
 ブラウザで http://localhost:3000 にアクセス
@@ -70,28 +70,28 @@ npm run dev
 ### データベース管理
 ```bash
 # データベース接続テスト
-npm run test:db
+pnpm test:db
 
 # データベース構造確認
-npm run db:check
+pnpm db:check
 
 # バックアップ作成
-npm run db:backup
+pnpm db:backup
 
 # バックアップ復元
-npm run db:restore
+pnpm db:restore
 ```
 
 ### アプリケーション管理
 ```bash
 # 開発サーバー起動
-npm run dev
+pnpm dev
 
 # 本番ビルド
-npm run build
+pnpm build
 
 # 本番サーバー起動
-npm run start
+pnpm start
 ```
 
 ## 🐛 トラブルシューティング

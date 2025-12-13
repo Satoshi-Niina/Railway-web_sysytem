@@ -24,25 +24,35 @@ export async function PUT(
 
     if (dbType === "postgresql") {
       try {
-        const result = await executeQuery(`
-          UPDATE bases 
+        const updateResult = await executeQuery(`
+          UPDATE master_data.bases 
           SET 
             base_name = $1,
             base_type = $2,
             location = $3,
             management_office_id = $4,
+            is_active = $5,
             updated_at = CURRENT_TIMESTAMP
-          WHERE id = $5
+          WHERE id = $6
           RETURNING *
         `, [
           body.base_name,
           body.base_type,
           body.location || null,
           body.management_office_id || null,
+          body.is_active !== false,
           parseInt(params.id)
         ])
 
-        if (result.length > 0) {
+        if (updateResult.length > 0) {
+          // 更新後に事業所情報を含めて再取得
+          const result = await executeQuery(`
+            SELECT b.*, mo.office_name, mo.office_code, mo.responsible_area
+            FROM master_data.bases b
+            LEFT JOIN master_data.management_offices mo ON b.management_office_id = mo.id
+            WHERE b.id = $1
+          `, [parseInt(params.id)])
+          
           console.log("Successfully updated in PostgreSQL:", result[0])
           return NextResponse.json(result[0])
         } else {

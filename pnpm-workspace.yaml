@@ -1,0 +1,5 @@
+# pnpm workspace configuration
+packages:
+  - 'client'
+  - 'server'
+  - 'scripts'

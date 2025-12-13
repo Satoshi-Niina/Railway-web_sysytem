@@ -124,7 +124,7 @@ export function VehicleList() {
     if (!confirm(`車両 ${vehicle.machine_number} を削除しますか？`)) return
 
     try {
-      await apiCall(`/api/vehicles?id=${vehicle.id}`, {
+      await apiCall(`vehicles/${vehicle.id}`, {
         method: "DELETE",
       })
       fetchData()

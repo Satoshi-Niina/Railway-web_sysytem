@@ -19,24 +19,32 @@ export async function GET(request: NextRequest) {
 
     if (dbType === "postgresql") {
       try {
+        // 当月の開始日と終了日を計算
+        const [year, monthNum] = month.split('-').map(Number)
+        const monthStart = `${year}-${String(monthNum).padStart(2, '0')}-01`
+        const nextMonth = monthNum === 12 ? 1 : monthNum + 1
+        const nextYear = monthNum === 12 ? year + 1 : year
+        const monthEnd = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01`
+        
         let query = `
           SELECT op.*, 
                  v.machine_number, v.vehicle_type, v.model, v.manufacturer,
-                 v.acquisition_date, v.management_office_id, v.home_base_id,
+                 v.acquisition_date, v.management_office_id,
                  v.status as vehicle_status, v.created_at as vehicle_created_at,
                  v.updated_at as vehicle_updated_at,
                  db.base_name as departure_base_name, db.location as departure_base_location,
                  ab.base_name as arrival_base_name, ab.location as arrival_base_location
-          FROM operation_plans op
-          LEFT JOIN vehicles v ON op.vehicle_id = v.id
-          LEFT JOIN bases db ON op.departure_base_id = db.id
-          LEFT JOIN bases ab ON op.arrival_base_id = ab.id
-          WHERE op.plan_date LIKE $1
+          FROM operations.operation_plans op
+          LEFT JOIN master_data.vehicles v ON op.vehicle_id = v.id
+          LEFT JOIN master_data.bases db ON op.departure_base_id = db.id
+          LEFT JOIN master_data.bases ab ON op.arrival_base_id = ab.id
+          WHERE (op.plan_date >= $1::date AND op.plan_date < $2::date)
+             OR (COALESCE(op.end_date, op.plan_date) >= $1::date AND op.plan_date < $2::date)
         `
-        const params = [`${month}%`]
+        const params: (string | number)[] = [monthStart, monthEnd]
 
         if (officeId && officeId !== "all") {
-          query += " AND v.management_office_id = $2"
+          query += ` AND v.management_office_id = $${params.length + 1}`
           params.push(officeId)
         }
 
@@ -48,11 +56,36 @@ export async function GET(request: NextRequest) {
         query += " ORDER BY op.plan_date, op.vehicle_id"
 
         const plans = await executeQuery(query, params)
-        return NextResponse.json(plans)
+        
+        // 日付をYYYY-MM-DD形式に正規化（タイムゾーンのずれを防ぐ）
+        const normalizedPlans = plans.map(plan => {
+          // Dateオブジェクトの場合、ローカルタイムゾーンで日付を取得
+          const formatDate = (date: any) => {
+            if (date instanceof Date) {
+              const year = date.getFullYear()
+              const month = String(date.getMonth() + 1).padStart(2, '0')
+              const day = String(date.getDate()).padStart(2, '0')
+              return `${year}-${month}-${day}`
+            } else if (typeof date === 'string' && date.includes('T')) {
+              return date.split('T')[0]
+            }
+            return date
+          }
+          
+          return {
+            ...plan,
+            plan_date: formatDate(plan.plan_date),
+            end_date: formatDate(plan.end_date)
+          }
+        })
+        
+        return NextResponse.json(normalizedPlans)
       } catch (error) {
         console.error("PostgreSQL query failed:", error)
+        console.error("Query:", query)
+        console.error("Params:", params)
         return NextResponse.json(
-          { error: "データベースの取得に失敗しました" },
+          { error: "データベースの取得に失敗しました", details: error instanceof Error ? error.message : String(error) },
           { status: 500 }
         )
       }
@@ -78,17 +111,45 @@ export async function POST(request: NextRequest) {
     const dbType = getDatabaseType()
 
     if (dbType === "postgresql") {
-      const result = await executeQuery(
-        `INSERT INTO operation_plans (
-          vehicle_id, plan_date, shift_type, start_time, end_time, 
-          planned_distance, departure_base_id, arrival_base_id, notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-        [
-          body.vehicle_id, body.plan_date, body.shift_type, body.start_time, body.end_time,
-          body.planned_distance, body.departure_base_id, body.arrival_base_id, body.notes, "planned"
-        ]
-      )
-      return NextResponse.json(result[0])
+      try {
+        console.log("Creating operation plan:", body)
+        const result = await executeQuery(
+          `INSERT INTO operations.operation_plans (
+            vehicle_id, plan_date, end_date, shift_type, start_time, end_time, 
+            planned_distance, departure_base_id, arrival_base_id, notes, status
+          ) VALUES ($1, $2::date, $3::date, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+          [
+            body.vehicle_id, body.plan_date, body.end_date || body.plan_date, body.shift_type, body.start_time, body.end_time,
+            body.planned_distance, body.departure_base_id, body.arrival_base_id, body.notes, "planned"
+          ]
+        )
+        // 日付を正規化（ローカルタイムゾーン対応）
+        const formatDate = (date: any) => {
+          if (date instanceof Date) {
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+          } else if (typeof date === 'string' && date.includes('T')) {
+            return date.split('T')[0]
+          }
+          return date
+        }
+        
+        const normalizedResult = {
+          ...result[0],
+          plan_date: formatDate(result[0].plan_date),
+          end_date: formatDate(result[0].end_date)
+        }
+        console.log("Created operation plan:", normalizedResult)
+        return NextResponse.json(normalizedResult)
+      } catch (error) {
+        console.error("Failed to insert operation plan:", error)
+        return NextResponse.json(
+          { error: "Failed to create operation plan", details: error instanceof Error ? error.message : String(error) },
+          { status: 500 }
+        )
+      }
     } else {
       // モックモード
       console.log("=== Creating new operation plan ===")

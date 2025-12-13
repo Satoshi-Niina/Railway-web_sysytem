@@ -1,11 +1,33 @@
+// 環境変数からAPIベースURLを取得
+// 開発環境: /api (Next.js API routes)
+// 本番環境: 環境変数 NEXT_PUBLIC_API_URL で指定
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
 
 // 汎用API呼び出し関数
+// endpoint: エンドポイント名のみを指定 (例: "vehicles", "operation-plans")
+// 自動的に API_BASE_URL とマージされます
 export async function apiCall<T = any>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`
+  // 絶対URLの場合はそのまま使用
+  if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+    console.log('API Call (absolute):', endpoint)
+    const response = await fetch(endpoint, {
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      ...options,
+    })
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`)
+    }
+    return response.json()
+  }
+
+  // エンドポイントの正規化: 先頭の/を削除し、API_BASE_URLと結合
+  const cleanEndpoint = endpoint.replace(/^\/+/, '') // 先頭のスラッシュを削除
+  const url = `${API_BASE_URL}/${cleanEndpoint}`
+  
+  console.log('API Call:', url, '(base:', API_BASE_URL, 'endpoint:', cleanEndpoint, ')')
   
   const defaultOptions: RequestInit = {
     headers: {
@@ -19,8 +41,18 @@ export async function apiCall<T = any>(
     ...options,
   })
 
+  console.log('API Response:', response.status, response.statusText)
+
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`)
+    let errorMessage = `API Error: ${response.status} ${response.statusText}`
+    try {
+      const errorData = await response.json()
+      console.error('API Error Details:', errorData)
+      errorMessage = errorData.details || errorData.error || errorMessage
+    } catch (e) {
+      // JSONパースエラーを無視
+    }
+    throw new Error(errorMessage)
   }
 
   return response.json()

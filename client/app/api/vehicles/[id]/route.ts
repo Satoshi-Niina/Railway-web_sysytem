@@ -24,8 +24,8 @@ export async function PUT(
 
     if (dbType === "postgresql") {
       try {
-        const result = await executeQuery(`
-          UPDATE vehicles 
+        const updateResult = await executeQuery(`
+          UPDATE master_data.vehicles 
           SET 
             machine_number = $1,
             vehicle_type = $2,
@@ -36,8 +36,10 @@ export async function PUT(
             type_approval_duration = $7,
             special_notes = $8,
             management_office_id = $9,
+            home_base_id = $10,
+            status = $11,
             updated_at = CURRENT_TIMESTAMP
-          WHERE id = $10
+          WHERE id = $12
           RETURNING *
         `, [
           body.machine_number,
@@ -49,10 +51,23 @@ export async function PUT(
           body.type_approval_duration || null,
           body.special_notes || null,
           body.management_office_id || null,
+          body.home_base_id || null,
+          body.status || 'active',
           parseInt(params.id)
         ])
 
-        if (result.length > 0) {
+        if (updateResult.length > 0) {
+          // 更新後に事業所情報を含めて再取得
+          const result = await executeQuery(`
+            SELECT v.*, 
+                   mo.office_name, mo.office_code,
+                   b.base_name
+            FROM master_data.vehicles v
+            LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
+            LEFT JOIN master_data.bases b ON v.home_base_id = b.id
+            WHERE v.id = $1
+          `, [parseInt(params.id)])
+          
           console.log("Successfully updated in PostgreSQL:", result[0])
           return NextResponse.json(result[0])
         } else {
@@ -107,7 +122,7 @@ export async function DELETE(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery(`
-          UPDATE vehicles 
+          UPDATE master_data.vehicles 
           SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
           WHERE id = $1
           RETURNING *

@@ -1,16 +1,22 @@
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
-// S3クライアントの初期化
-const s3Client = new S3Client({
+// ストレージタイプの判定
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local'
+
+// S3クライアントの初期化（STORAGE_TYPE=aws-s3の場合）
+const s3Client = STORAGE_TYPE === 'aws-s3' ? new S3Client({
   region: process.env.AWS_REGION || 'ap-northeast-1',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
   },
-})
+}) : null
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME || 'railway-maintenance-storage'
+const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME || 
+                    process.env.AZURE_STORAGE_CONTAINER_NAME || 
+                    process.env.GCP_BUCKET_NAME || 
+                    'railway-maintenance-storage'
 
 // フォルダ構造の定義
 export const STORAGE_FOLDERS = {
@@ -18,6 +24,7 @@ export const STORAGE_FOLDERS = {
   REPAIRS: 'repairs',      // 修繕画像
   INSPECTIONS: 'inspections', // 検査画像
   DOCUMENTS: 'documents',  // 文書類
+  BACKUPS: 'backups',      // データベースバックアップ
 } as const
 
 export type StorageFolder = typeof STORAGE_FOLDERS[keyof typeof STORAGE_FOLDERS]

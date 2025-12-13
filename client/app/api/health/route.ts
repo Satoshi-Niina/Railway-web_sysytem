@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server"
-import { testConnection } from "@/lib/database"
+import { testConnection, getDatabaseInfo } from "@/lib/database"
 
 export async function GET() {
   try {
     const dbConnected = await testConnection()
+    const dbInfo = await getDatabaseInfo()
     
     return NextResponse.json({
       status: "healthy",
       timestamp: new Date().toISOString(),
       database: dbConnected ? "connected" : "disconnected",
       environment: process.env.NODE_ENV || "development",
-      version: process.env.npm_package_version || "1.0.0"
+      version: process.env.npm_package_version || "1.0.0",
+      databaseInfo: dbInfo
     })
   } catch (error) {
     console.error("Health check failed:", error)

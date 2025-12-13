@@ -81,8 +81,8 @@ export async function GET() {
       try {
         const bases = await executeQuery(`
           SELECT mb.*, mo.office_name, mo.office_code
-          FROM maintenance_bases mb
-          LEFT JOIN management_offices mo ON mb.management_office_id = mo.id
+          FROM master_data.bases mb
+          LEFT JOIN master_data.management_offices mo ON mb.management_office_id = mo.id
           ORDER BY mb.base_name
         `)
         console.log("PostgreSQL query result:", bases)
@@ -140,10 +140,10 @@ export async function POST(request: Request) {
         console.log("Generated base_code:", baseCode)
 
         const result = await executeQuery(`
-          INSERT INTO maintenance_bases (base_name, base_code, location, address, management_office_id)
+          INSERT INTO master_data.bases (base_name, base_type, location, management_office_id, is_active)
           VALUES ($1, $2, $3, $4, $5)
           RETURNING *
-        `, [body.base_name, baseCode, body.location || null, body.address || null, body.management_office_id])
+        `, [body.base_name, body.base_type || 'maintenance', body.location || null, body.management_office_id, true])
 
         if (result.length > 0) {
           console.log("Successfully saved to PostgreSQL:", result[0])

@@ -456,31 +456,60 @@ export function OperationPlanningChart() {
     try {
       if (editingPlan) {
         // 既存計画の更新
-        const updatedPlan = { ...editingPlan, ...planData }
+        const response = await fetch(`/api/operation-plans/${editingPlan.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            vehicle_id: editingPlan.vehicle_id,
+            plan_date: editingPlan.plan_date,
+            shift_type: planData.shift_type || editingPlan.shift_type,
+            start_time: planData.start_time || editingPlan.start_time || "08:00",
+            end_time: planData.end_time || editingPlan.end_time || "17:00",
+            planned_distance: planData.planned_distance || editingPlan.planned_distance || 0,
+            departure_base_id: planData.departure_base_id ? Number.parseInt(planData.departure_base_id.toString()) : editingPlan.departure_base_id,
+            arrival_base_id: planData.arrival_base_id ? Number.parseInt(planData.arrival_base_id.toString()) : editingPlan.arrival_base_id,
+            notes: planData.notes !== undefined ? planData.notes : editingPlan.notes,
+          }),
+        })
         
-        // 基地変更があった場合、到着基地を最終留置個所として設定
-        if (planData.arrival_base_id && planData.arrival_base_id !== editingPlan.arrival_base_id) {
-          updatedPlan.arrival_base_id = planData.arrival_base_id
+        if (!response.ok) {
+          throw new Error(`更新に失敗しました: ${response.statusText}`)
         }
         
+        const updatedPlan = await response.json()
         setOperationPlans(operationPlans.map(p => p.id === editingPlan.id ? updatedPlan : p))
+        console.log("運用計画を更新しました:", updatedPlan)
       } else {
         // 新規計画の作成
-        const newPlan: OperationPlan = {
-          id: Date.now(), // 仮のID
+        const newPlanData = {
           vehicle_id: selectedVehicle!.id,
           plan_date: selectedDate,
           shift_type: planData.shift_type || "day",
-          start_time: "08:00",
-          end_time: "17:00",
-          planned_distance: 0,
+          start_time: planData.start_time || "08:00",
+          end_time: planData.end_time || "17:00",
+          planned_distance: planData.planned_distance || 0,
           departure_base_id: planData.departure_base_id ? Number.parseInt(planData.departure_base_id.toString()) : selectedBase!.id,
           arrival_base_id: planData.arrival_base_id ? Number.parseInt(planData.arrival_base_id.toString()) : selectedBase!.id,
           notes: planData.notes || "",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
         }
-        setOperationPlans([...operationPlans, newPlan])
+        
+        const response = await fetch('/api/operation-plans', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(newPlanData),
+        })
+        
+        if (!response.ok) {
+          throw new Error(`作成に失敗しました: ${response.statusText}`)
+        }
+        
+        const createdPlan = await response.json()
+        setOperationPlans([...operationPlans, createdPlan])
+        console.log("運用計画を作成しました:", createdPlan)
       }
       
       setShowPlanModal(false)
@@ -490,20 +519,31 @@ export function OperationPlanningChart() {
       setSelectedBase(null)
     } catch (error) {
       console.error("Error saving plan:", error)
+      setError(`運用計画の保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
   }
 
   // 計画削除処理
   const handleDeletePlan = async (planId: number) => {
     try {
+      const response = await fetch(`/api/operation-plans/${planId}`, {
+        method: 'DELETE',
+      })
+      
+      if (!response.ok) {
+        throw new Error(`削除に失敗しました: ${response.statusText}`)
+      }
+      
       setOperationPlans(operationPlans.filter(p => p.id !== planId))
       setShowPlanModal(false)
       setEditingPlan(null)
       setSelectedVehicle(null)
       setSelectedDate("")
       setSelectedBase(null)
+      console.log("運用計画を削除しました:", planId)
     } catch (error) {
       console.error("Error deleting plan:", error)
+      setError(`運用計画の削除に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     }
   }
 

@@ -7,14 +7,22 @@ export async function GET() {
     const dbType = getDatabaseType()
 
     if (dbType === "postgresql") {
-      const bases = await executeQuery<Base>(
-        `SELECT b.*, mo.office_name, mo.office_code, mo.responsible_area
-         FROM bases b
-         LEFT JOIN management_offices mo ON b.management_office_id = mo.id
-         WHERE b.is_active = true
-         ORDER BY b.base_name`,
-      )
-      return NextResponse.json(bases)
+      try {
+        const bases = await executeQuery(
+          `SELECT b.*, mo.office_name, mo.office_code, mo.responsible_area
+           FROM master_data.bases b
+           LEFT JOIN master_data.management_offices mo ON b.management_office_id = mo.id
+           WHERE b.is_active = true
+           ORDER BY b.base_name`
+        )
+        return NextResponse.json(bases)
+      } catch (error) {
+        console.error("Database query failed:", error)
+        return NextResponse.json(
+          { error: "データベース接続エラーが発生しました" },
+          { status: 500 }
+        )
+      }
     } else if (dbType === "supabase") {
       const supabase = getSupabaseClient()
       const { data, error } = await supabase
@@ -91,7 +99,7 @@ export async function POST(request: Request) {
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery(`
-          INSERT INTO bases (
+          INSERT INTO master_data.bases (
             base_name, base_type, location, management_office_id, is_active
           )
           VALUES ($1, $2, $3, $4, $5)

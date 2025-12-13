@@ -1,0 +1,118 @@
+name: Node.jsバージョンの監視
+
+on:
+  schedule:
+    # 毎月1日の深夜3時に実行
+    - cron: '0 18 1 * *'  # UTC 18:00 = JST 03:00
+  workflow_dispatch:
+
+jobs:
+  check-node-version:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: 最新のNode.js LTSバージョンを取得
+        id: node-version
+        run: |
+          LATEST_LTS=$(curl -s https://nodejs.org/dist/index.json | jq -r '[.[] | select(.lts != false)] | .[0].version' | sed 's/v//')
+          CURRENT_VERSION=$(cat package.json | jq -r '.engines.node' | sed 's/>=//;s/\.0\.0$//')
+          
+          echo "latest_lts=$LATEST_LTS" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # メジャーバージョンを比較
+          LATEST_MAJOR=$(echo $LATEST_LTS | cut -d. -f1)
+          CURRENT_MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          
+          echo "latest_major=$LATEST_MAJOR" >> $GITHUB_OUTPUT
+          echo "current_major=$CURRENT_MAJOR" >> $GITHUB_OUTPUT
+
+      - name: バージョンが古い場合はIssueを作成
+        if: steps.node-version.outputs.latest_major > steps.node-version.outputs.current_major
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const latestLTS = '${{ steps.node-version.outputs.latest_lts }}';
+            const currentVersion = '${{ steps.node-version.outputs.current_version }}';
+            
+            const issueBody = `# 🚀 Node.jsの新しいLTSバージョンが利用可能です
+            
+            **現在のバージョン**: ${currentVersion}  
+            **最新のLTSバージョン**: ${latestLTS}
+            
+            ## 📋 更新手順
+            
+            ### 1. ローカル環境でNode.jsを更新
+            \`\`\`bash
+            # nvmを使用している場合
+            nvm install ${latestLTS}
+            nvm use ${latestLTS}
+            nvm alias default ${latestLTS}
+            
+            # または公式サイトからインストーラーをダウンロード
+            # https://nodejs.org/
+            \`\`\`
+            
+            ### 2. package.jsonのenginesを更新
+            \`\`\`json
+            {
+              "engines": {
+                "node": ">=${latestLTS.split('.')[0]}.0.0",
+                "npm": ">=10.0.0"
+              }
+            }
+            \`\`\`
+            
+            ### 3. 依存関係の再インストールとテスト
+            \`\`\`bash
+            # 既存のnode_modulesを削除
+            rm -rf node_modules client/node_modules server/node_modules
+            rm package-lock.json client/package-lock.json server/package-lock.json
+            
+            # 再インストール
+            npm install
+            cd client && npm install
+            cd ../server && npm install
+            
+            # 動作確認
+            npm run dev
+            \`\`\`
+            
+            ### 4. デプロイ環境の更新
+            - サーバーのNode.jsバージョンを更新
+            - CI/CDパイプラインの設定を更新
+            - Dockerfileのベースイメージを更新（使用する場合）
+            
+            ## ⚠️ 注意事項
+            - 互換性のない変更がある可能性があります
+            - 本番環境への適用前に十分なテストを実施してください
+            - 関連するパッケージも更新が必要な場合があります
+            
+            ## 🔗 参考リンク
+            - [Node.js ${latestLTS} リリースノート](https://nodejs.org/en/blog/release/)
+            - [Node.js LTS スケジュール](https://github.com/nodejs/release#release-schedule)
+            `;
+            
+            // 既存のNode.js更新Issueを検索
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['node.js', 'upgrade'],
+              state: 'open'
+            });
+            
+            if (issues.data.length === 0) {
+              // 新しいIssueを作成
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🚀 Node.js ${latestLTS} LTSへのアップグレード`,
+                body: issueBody,
+                labels: ['node.js', 'upgrade', 'enhancement']
+              });
+            }

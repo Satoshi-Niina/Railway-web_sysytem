@@ -16,14 +16,13 @@ export async function GET(request: NextRequest) {
         SELECT or_table.*, 
                v.machine_number, v.vehicle_type, v.model,
                mo.office_name, mo.office_code,
-               mo.station_1, mo.station_2, mo.station_3, mo.station_4, mo.station_5, mo.station_6,
                db.base_name as departure_base_name, db.location as departure_location,
                ab.base_name as arrival_base_name, ab.location as arrival_location
-        FROM operation_records or_table
-        LEFT JOIN vehicles v ON or_table.vehicle_id = v.id
-        LEFT JOIN management_offices mo ON v.management_office_id = mo.id
-        LEFT JOIN bases db ON or_table.departure_base_id = db.id
-        LEFT JOIN bases ab ON or_table.arrival_base_id = ab.id
+        FROM operations.operation_records or_table
+        LEFT JOIN master_data.vehicles v ON or_table.vehicle_id = v.id
+        LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
+        LEFT JOIN master_data.bases db ON or_table.departure_base_id = db.id
+        LEFT JOIN master_data.bases ab ON or_table.arrival_base_id = ab.id
       `
       const params: any[] = []
       let paramIndex = 1
@@ -255,5 +254,82 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Error fetching operation records:", error)
     return NextResponse.json({ error: "Failed to fetch operation records" }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const {
+      vehicle_id,
+      record_date,
+      shift_type,
+      start_time,
+      end_time,
+      actual_distance,
+      departure_base_id,
+      arrival_base_id,
+      status,
+      notes,
+    } = body
+
+    const dbType = getDatabaseType()
+
+    if (dbType === "postgresql") {
+      const query = `
+        INSERT INTO operations.operation_records (
+          vehicle_id,
+          record_date,
+          shift_type,
+          start_time,
+          end_time,
+          actual_distance,
+          departure_base_id,
+          arrival_base_id,
+          status,
+          notes
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *
+      `
+      const params = [
+        vehicle_id,
+        record_date,
+        shift_type,
+        start_time,
+        end_time,
+        actual_distance,
+        departure_base_id,
+        arrival_base_id,
+        status,
+        notes,
+      ]
+
+      const result = await executeQuery(query, params)
+      return NextResponse.json(result[0], { status: 201 })
+    } else if (dbType === "supabase") {
+      const { data, error } = await getSupabaseClient()
+        .from("operation_records")
+        .insert([body])
+        .select()
+        .single()
+
+      if (error) throw error
+      return NextResponse.json(data, { status: 201 })
+    } else {
+      // モックデータの場合
+      const newRecord = {
+        id: Date.now(),
+        ...body,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+      return NextResponse.json(newRecord, { status: 201 })
+    }
+  } catch (error) {
+    console.error("Error creating operation record:", error)
+    return NextResponse.json(
+      { error: "Failed to create operation record", details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    )
   }
 }

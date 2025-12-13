@@ -1,22 +1,32 @@
 {
   "name": "railway-maintenance-system-workspace",
-  "version": "1.0.0",
+  "version": "2.0.0",
+  "type": "module",
   "private": true,
-  "workspaces": [
-    "client",
-    "server"
-  ],
+  "packageManager": "pnpm@9.15.3",
+  "engines": {
+    "node": ">=20.19.0",
+    "pnpm": ">=9.0.0"
+  },
   "scripts": {
-    "dev": "cd client && npm run dev",
-    "dev:client": "cd client && npm run dev",
-    "dev:server": "cd server && npm run dev",
-    "build": "cd client && npm run build",
-    "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm run build",
-    "start": "cd client && npm run start",
-    "start:client": "cd client && npm run start",
-    "start:server": "cd server && npm run start",
-    "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+    "dev": "concurrently \"cd client && pnpm dev\" \"cd server && pnpm dev\" --names \"client,server\" --prefix-colors \"cyan,magenta\"",
+    "dev:client": "cd client && pnpm dev",
+    "dev:server": "cd server && pnpm dev",
+    "dev:client-only": "cd client && pnpm dev",
+    "dev:server-only": "cd server && pnpm dev",
+    "build": "cd server && pnpm build && cd ../client && pnpm build",
+    "build:client": "cd client && pnpm build",
+    "build:server": "cd server && pnpm build",
+    "start": "concurrently \"cd client && pnpm start\" \"cd server && pnpm start\" --names \"client,server\" --prefix-colors \"cyan,magenta\"",
+    "start:client": "cd client && pnpm start",
+    "start:server": "cd server && pnpm start",
+    "check-updates": "pnpm -r exec npm-check-updates",
+    "check-updates:all": "pnpm -r exec npm-check-updates",
+    "check-outdated": "pnpm -r outdated",
+    "update:interactive": "pnpm -r exec npm-check-updates --interactive",
+    "update:all": "pnpm -r exec npm-check-updates -u && pnpm install",
+    "audit": "pnpm audit",
+    "audit:fix": "pnpm audit --fix",
     "db:setup": "node scripts/setup-database.js",
     "db:migrate": "node scripts/migrate-database.js",
     "db:backup": "node scripts/backup-database.js",
@@ -29,9 +39,10 @@
     "setup": "node scripts/setup-development.js"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.1.0",
+    "npm-check-updates": "^17.1.11"
   },
   "dependencies": {
-    "dotenv": "^17.2.0"
+    "dotenv": "^16.4.7"
   }
 }

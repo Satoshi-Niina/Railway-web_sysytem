@@ -106,10 +106,8 @@ export default function OfficesPage() {
 
         if (response.ok) {
           const updatedOffice = await response.json()
-          setOffices(prev => prev.map(office => 
-            office.id === editingOffice.id ? updatedOffice : office
-          ))
           await invalidateCache() // キャッシュをクリア
+          await fetchOffices() // サーバーから最新データを再取得
           toast({
             title: "更新完了",
             description: "事業所情報を更新しました",
@@ -132,24 +130,35 @@ export default function OfficesPage() {
         if (response.ok) {
           const newOffice = await response.json()
           console.log("New office created:", newOffice)
-          setOffices(prev => [...prev, newOffice])
           await invalidateCache() // キャッシュをクリア
+          await fetchOffices() // サーバーから最新データを再取得
           toast({
             title: "作成完了",
             description: "事業所を新規作成しました",
           })
+          setIsFormOpen(false)
+          setEditingOffice(null)
+          resetForm()
         } else {
-          const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-          console.error("Server error response:", errorData)
+          const errorText = await response.text()
+          console.error("Server error response (raw):", errorText)
+          let errorData
+          try {
+            errorData = JSON.parse(errorText)
+          } catch {
+            errorData = { error: errorText || 'Unknown error' }
+          }
+          console.error("Server error response (parsed):", errorData)
           throw new Error(errorData.details || errorData.error || '作成に失敗しました')
         }
       }
-
-      setIsFormOpen(false)
-      setEditingOffice(null)
-      resetForm()
     } catch (error) {
       console.error('事業所の保存に失敗:', error)
+      console.error('Error details:', {
+        name: error instanceof Error ? error.name : 'Unknown',
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      })
       toast({
         title: "エラー",
         description: error instanceof Error ? error.message : "事業所の保存に失敗しました",
@@ -182,8 +191,8 @@ export default function OfficesPage() {
       })
 
       if (response.ok) {
-        setOffices(prev => prev.filter(office => office.id !== id))
         await invalidateCache() // キャッシュをクリア
+        await fetchOffices() // サーバーから最新データを再取得
         toast({
           title: "削除完了",
           description: "事業所を削除しました",

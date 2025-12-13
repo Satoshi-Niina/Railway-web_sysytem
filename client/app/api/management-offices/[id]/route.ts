@@ -12,7 +12,7 @@ export async function GET(
 
     if (dbType === "postgresql") {
       const offices = await executeQuery<ManagementOffice>(
-        "SELECT * FROM management_offices WHERE id = $1",
+        "SELECT * FROM master_data.management_offices WHERE id = $1",
         [id]
       )
       
@@ -55,13 +55,7 @@ export async function PUT(
     const body = await request.json()
     const { 
       office_name, 
-      office_code, 
-      station_1,
-      station_2,
-      station_3,
-      station_4,
-      station_5,
-      station_6
+      office_code
     } = body
 
     const dbType = getDatabaseType()
@@ -69,13 +63,12 @@ export async function PUT(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery<ManagementOffice>(
-          `UPDATE management_offices SET 
-            office_name = $1, office_code = $2, station_1 = $3, station_2 = $4, 
-            station_3 = $5, station_4 = $6, station_5 = $7, station_6 = $8, 
+          `UPDATE master_data.management_offices SET 
+            office_name = $1, office_code = $2, responsible_area = $3, 
             updated_at = NOW()
-           WHERE id = $9 RETURNING *`,
+           WHERE id = $4 RETURNING *`,
           [
-            office_name, office_code, station_1, station_2, station_3, station_4, station_5, station_6, id
+            office_name, office_code, body.responsible_area || null, id
           ],
         )
         
@@ -144,7 +137,7 @@ export async function DELETE(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery<ManagementOffice>(
-          "DELETE FROM management_offices WHERE id = $1 RETURNING *",
+          "DELETE FROM master_data.management_offices WHERE id = $1 RETURNING *",
           [id]
         )
         

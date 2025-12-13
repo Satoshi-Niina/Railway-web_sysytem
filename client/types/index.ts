@@ -1,6 +1,7 @@
 export interface Vehicle {
   id: number
   name: string
+  vehicle_type: string
   model: string
   base_location: string
   machine_number: string
@@ -31,6 +32,7 @@ export interface OperationPlan {
   id: number
   vehicle_id: number
   plan_date: string
+  end_date?: string
   shift_type: string
   departure_base_id: number | null
   arrival_base_id: number | null
@@ -57,6 +59,7 @@ export interface OperationRecord {
   end_time: string
   status: string
   notes?: string
+  is_as_planned?: boolean
   created_at: string
   updated_at: string
   vehicle?: Vehicle
@@ -165,4 +168,75 @@ export interface Repair {
   image_urls?: string[]
   created_at?: string
   updated_at?: string
+}
+
+// 検査サイクル順序
+export interface InspectionCycleOrder {
+  id: number
+  vehicle_type: string
+  inspection_type: string
+  cycle_order: number
+  cycle_months: number
+  warning_months: number
+  description?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// 車両別検修計画
+export interface VehicleInspectionPlan {
+  id: number
+  vehicle_id: number
+  inspection_type: string
+  planned_date: string
+  cycle_order?: number
+  base_id?: number
+  status: 'planned' | 'completed' | 'cancelled'
+  notes?: string
+  created_at: string
+  updated_at: string
+  vehicle?: Vehicle
+  base?: Base
+}
+
+// 車両別検修実績
+export interface VehicleInspectionRecord {
+  id: number
+  vehicle_id: number
+  inspection_type: string
+  inspection_date: string
+  cycle_order?: number
+  base_id?: number
+  inspector_name?: string
+  result: 'pass' | 'fail' | 'conditional'
+  findings?: string
+  next_inspection_date?: string
+  notes?: string
+  created_at: string
+  updated_at: string
+  vehicle?: Vehicle
+  base?: Base
+  machine_number?: string
+  vehicle_type?: string
+  base_name?: string
+}
+
+// 車両の検査スケジュール（運用計画表示用）
+export interface VehicleInspectionSchedule {
+  vehicle_id: number
+  machine_number: string
+  vehicle_type: string
+  last_inspection_type: string
+  last_inspection_date: string
+  last_cycle_order: number
+  next_inspection_type: string
+  next_cycle_order: number
+  cycle_months: number
+  warning_months: number
+  next_inspection_date: string
+  warning_start_date: string
+  is_warning: boolean
+  is_in_period: boolean
+  days_until_inspection: number
 }

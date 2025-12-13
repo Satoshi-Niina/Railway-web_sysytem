@@ -70,26 +70,26 @@ export default function VehiclesPage() {
     management_office_code: "",
   })
 
-  useEffect(() => {
-    // 車両データを取得
-    const fetchVehicles = async () => {
-      try {
-        const response = await fetch('/api/vehicles')
-        if (response.ok) {
-          const vehiclesData = await response.json()
-          setVehicles(vehiclesData)
-          setFilteredVehicles(vehiclesData)
-        }
-      } catch (error) {
-        console.error('車両データの取得に失敗:', error)
-        toast({
-          title: "エラー",
-          description: "車両データの取得に失敗しました",
-          variant: "destructive",
-        })
+  // 車両データを取得する関数を外部化
+  const fetchVehicles = async () => {
+    try {
+      const response = await fetch('/api/vehicles')
+      if (response.ok) {
+        const vehiclesData = await response.json()
+        setVehicles(vehiclesData)
+        setFilteredVehicles(vehiclesData)
       }
+    } catch (error) {
+      console.error('車両データの取得に失敗:', error)
+      toast({
+        title: "エラー",
+        description: "車両データの取得に失敗しました",
+        variant: "destructive",
+      })
     }
-    
+  }
+
+  useEffect(() => {
     fetchVehicles()
 
     // 事業所データを取得
@@ -200,7 +200,8 @@ export default function VehiclesPage() {
       })
 
       if (response.ok) {
-        setVehicles(prev => prev.filter(vehicle => vehicle.id !== id))
+        // サーバーから最新データを再取得
+        await fetchVehicles()
         toast({
           title: "削除完了",
           description: "車両を削除しました",
@@ -584,14 +585,9 @@ export default function VehiclesPage() {
 
       {isFormOpen && (
         <VehicleForm
-          onSubmit={(vehicle) => {
-            if (editingVehicle) {
-              setVehicles(prev => prev.map(v => v.id === vehicle.id ? vehicle : v))
-              setFilteredVehicles(prev => prev.map(v => v.id === vehicle.id ? vehicle : v))
-            } else {
-              setVehicles(prev => [...prev, vehicle])
-              setFilteredVehicles(prev => [...prev, vehicle])
-            }
+          onSubmit={async (vehicle) => {
+            // サーバーから最新データを再取得
+            await fetchVehicles()
             setIsFormOpen(false)
             setEditingVehicle(null)
             toast({

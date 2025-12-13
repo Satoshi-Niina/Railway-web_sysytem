@@ -1,0 +1,183 @@
+name: 依存関係の自動チェックと通知
+
+on:
+  # 毎週日曜日の深夜3時に実行
+  schedule:
+    - cron: '0 18 * * 0'  # UTC 18:00 = JST 03:00
+  # 手動実行も可能
+  workflow_dispatch:
+  # PRが作成された時も実行
+  pull_request:
+    paths:
+      - '**/package.json'
+      - '**/package-lock.json'
+
+jobs:
+  check-dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node.js 22をセットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 依存関係をインストール
+        run: |
+          npm ci
+          cd client && npm ci
+          cd ../server && npm ci
+
+      - name: セキュリティ監査を実行
+        id: audit
+        continue-on-error: true
+        run: |
+          echo "## セキュリティ監査結果" > audit-report.md
+          echo "" >> audit-report.md
+          
+          echo "### ルート" >> audit-report.md
+          npm audit --json > root-audit.json || true
+          cat root-audit.json | jq -r '.vulnerabilities | to_entries[] | "- **\(.key)**: \(.value.severity) - \(.value.via[0].title // "脆弱性あり")"' >> audit-report.md
+          
+          echo "" >> audit-report.md
+          echo "### Client" >> audit-report.md
+          cd client
+          npm audit --json > ../client-audit.json || true
+          cd ..
+          cat client-audit.json | jq -r '.vulnerabilities | to_entries[] | "- **\(.key)**: \(.value.severity) - \(.value.via[0].title // "脆弱性あり")"' >> audit-report.md
+          
+          echo "" >> audit-report.md
+          echo "### Server" >> audit-report.md
+          cd server
+          npm audit --json > ../server-audit.json || true
+          cd ..
+          cat server-audit.json | jq -r '.vulnerabilities | to_entries[] | "- **\(.key)**: \(.value.severity) - \(.value.via[0].title // "脆弱性あり")"' >> audit-report.md
+
+      - name: 更新可能なパッケージを確認
+        id: updates
+        run: |
+          npm install -g npm-check-updates
+          
+          echo "## 更新可能なパッケージ" > updates-report.md
+          echo "" >> updates-report.md
+          
+          echo "### ルート" >> updates-report.md
+          ncu --format json > root-updates.json || echo "{}" > root-updates.json
+          cat root-updates.json | jq -r 'to_entries[] | "- **\(.key)**: \(.value.current) → \(.value.latest)"' >> updates-report.md
+          
+          echo "" >> updates-report.md
+          echo "### Client" >> updates-report.md
+          cd client
+          ncu --format json > ../client-updates.json || echo "{}" > ../client-updates.json
+          cd ..
+          cat client-updates.json | jq -r 'to_entries[] | "- **\(.key)**: \(.value.current) → \(.value.latest)"' >> updates-report.md
+          
+          echo "" >> updates-report.md
+          echo "### Server" >> updates-report.md
+          cd server
+          ncu --format json > ../server-updates.json || echo "{}" > ../server-updates.json
+          cd ..
+          cat server-updates.json | jq -r 'to_entries[] | "- **\(.key)**: \(.value.current) → \(.value.latest)"' >> updates-report.md
+
+      - name: 重大な脆弱性がある場合は自動修正
+        if: steps.audit.outcome == 'failure'
+        run: |
+          npm audit fix --force
+          cd client && npm audit fix --force
+          cd ../server && npm audit fix --force
+
+      - name: 自動修正後の変更をコミット
+        if: steps.audit.outcome == 'failure'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add -A
+          git diff --staged --quiet || git commit -m "🔒 セキュリティ: 脆弱性の自動修正"
+          git push
+
+      - name: Issueを作成して通知
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let auditReport = '脆弱性なし ✅';
+            let updatesReport = '更新なし ✅';
+            
+            try {
+              auditReport = fs.readFileSync('audit-report.md', 'utf8');
+            } catch (e) {}
+            
+            try {
+              updatesReport = fs.readFileSync('updates-report.md', 'utf8');
+            } catch (e) {}
+            
+            const issueBody = `# 📦 依存関係の定期チェック結果
+            
+            **実行日時**: ${new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+            
+            ${auditReport}
+            
+            ---
+            
+            ${updatesReport}
+            
+            ---
+            
+            ## 📝 対応方法
+            
+            ### セキュリティ脆弱性の修正
+            \`\`\`bash
+            npm audit fix
+            cd client && npm audit fix
+            cd server && npm audit fix
+            \`\`\`
+            
+            ### パッケージの更新
+            \`\`\`bash
+            npm run update:interactive
+            \`\`\`
+            
+            ### 全自動更新（注意）
+            \`\`\`bash
+            npm run update:all
+            \`\`\`
+            `;
+            
+            // 既存のIssueを検索
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['dependencies', 'automated'],
+              state: 'open'
+            });
+            
+            if (issues.data.length > 0) {
+              // 既存Issueにコメント追加
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues.data[0].number,
+                body: issueBody
+              });
+            } else {
+              // 新しいIssueを作成
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '📦 依存関係の更新が利用可能です',
+                body: issueBody,
+                labels: ['dependencies', 'automated']
+              });
+            }

@@ -17,16 +17,16 @@ export async function GET(request: NextRequest) {
           v.manufacturer,
           mo.office_name,
           mo.office_code
-        FROM monthly_maintenance_plans mmp
-        JOIN vehicles v ON mmp.vehicle_id = v.id
-        LEFT JOIN management_offices mo ON v.management_office_id = mo.id
+        FROM maintenance.monthly_maintenance_plans mmp
+        JOIN master_data.vehicles v ON mmp.vehicle_id = v.id
+        LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
         WHERE v.status = 'active'
       `
       
       const params: any[] = []
       
       if (month) {
-        query += ` AND mmp.plan_month = $1`
+        query += ` AND TO_CHAR(mmp.plan_month, 'YYYY-MM') = $1`
         params.push(month)
       }
       

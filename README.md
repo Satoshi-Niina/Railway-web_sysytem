@@ -2,6 +2,28 @@
 
 鉄道車両の運用管理、保守計画、検査記録を統合的に管理するWebアプリケーションです。
 
+## 📋 目次
+
+- [機能](#-機能)
+- [システム構成](#️-システム構成)
+- [環境構成](#-環境構成)
+- [自動化システム](#-自動化システム) ⭐ **NEW**
+- [ローカル開発環境のセットアップ](#-ローカル開発環境のセットアップ)
+- [本番環境へのデプロイ](#-本番環境へのデプロイ)
+- [データベース管理](#-データベース管理)
+- [技術スタック](#-技術スタック)
+- [プロジェクト構造](#-プロジェクト構造)
+
+## ⚠️ 重要な変更点
+
+### Docker不使用
+このプロジェクトはDockerを使用せず、直接Node.js環境で実行します。
+
+### ESMモジュール採用
+- **Server**: 完全なESMモジュール（.js、import/export構文）
+- **Client**: Next.jsデフォルト（TypeScript + ESM）
+- TypeScriptはClientのみで使用、Serverは純粋なJavaScript（ESM）
+
 ## 🚀 機能
 
 - **運用管理**: 車両の運用計画・実績管理
@@ -39,190 +61,539 @@ vehicles (1) ←→ (N) failures
 failures (1) ←→ (N) repairs
 ```
 
-## 🚀 開発・デプロイ
+## 🌐 環境構成
+
+このプロジェクトは、**ローカル開発環境**と**本番環境**を完全に分離して管理します。
+
+### 環境の分離方針
+
+1. **完全な環境分離**: ローカルと本番のデータベース・ストレージは相互連携しません
+2. **シンプルな環境変数管理**: ローカルは`.env`のみ、本番は各サービスで`.env.production`を使用
+3. **Client/Server分離**: 本番環境では各サービス(Client/Server)で独立した環境変数を管理
+4. **同一のコードベース**: 両環境で同じソースコードを使用
+5. **独立したリソース**: 各環境で独自のDB・ストレージを保有
+
+### 環境変数ファイル構成
+
+#### 環境変数ファイル一覧（Gitで管理）
+- **`.env.development`**: ローカル開発用テンプレート
+- **`client/.env.production`**: Next.js本番環境テンプレート
+- **`server/.env.production`**: Express.js本番環境テンプレート
+
+#### 環境変数ファイル（Git管理外）
+- **`.env`**: ローカル開発用の実際の設定（シークレット情報含む）
+- **`client/.env.production.local`**: Client本番用の実際の設定
+- **`server/.env.production.local`**: Server本番用の実際の設定
+
+#### セットアップ手順
+**ローカル開発**:
+```bash
+# .env.developmentをコピーして.envを作成
+cp .env.development .env
+# .envを編集してローカル環境の実際の設定を記入
+```
+
+**本番環境**:
+```bash
+# 各サービスで.env.production.localを作成
+cp client/.env.production client/.env.production.local
+cp server/.env.production server/.env.production.local
+# 各ファイルを編集して本番環境の実際の設定を記入
+```
+
+> **注意**: `.env.development`と`.env.production`はテンプレートとしてGitで管理されます。
+> 実際の環境では、これらをコピーして`.env.local`や`.env.production.local`として使用し、
+> 適切な接続情報に変更してください。
+
+## 🤖 自動化システム
+
+このプロジェクトは**依存関係のセキュリティと更新を自動監視**します。
+
+### 完全自動（管理不要）
+
+| 機能 | 実行 | 説明 |
+|------|------|------|
+| 🔒 セキュリティスキャン | 毎週日曜 | 脆弱性を検出してIssueで通知 |
+| 🚨 重大な脆弱性の修正 | 検出時 | Critical/Highは自動修正してコミット |
+| 🔄 安全な更新のPR作成 | 毎週月曜 | パッチバージョンのPRを自動作成 |
+| 🚀 Node.js新版チェック | 毎月1日 | 新LTS版があれば手順付きIssue作成 |
+
+### 管理者の作業（週2分）
+
+1. **月曜日**: 自動作成されたPRをレビュー → マージ
+2. **セキュリティアラート発生時**: 既に自動修正済み → 確認のみ
+
+### 手動コマンド（必要時）
+
+```bash
+# 全体の更新確認
+pnpm check-updates:all
+
+# セキュリティ監査
+pnpm audit
+
+# 対話形式で更新
+pnpm update:interactive
+```
+
+**詳細**: [DEPENDENCY_AUTOMATION.md](./DEPENDENCY_AUTOMATION.md) を参照
+
+---
+
+## 🔧 ローカル開発環境のセットアップ
 
 ### 前提条件
-- PostgreSQL 15+
-- Node.js 18+
+- **Node.js** 20以上 （推奨: 20.x LTS）
+- **pnpm** 9以上
+- **PostgreSQL** 15以上
+- **Git**
 
-### 1. 開発環境のセットアップ
+> **Node.jsバージョン確認**: `node --version` で20以上であることを確認してください。
+> 20未満の場合は、[Node.js公式サイト](https://nodejs.org/)から最新版をインストールしてください。
+> **pnpmインストール**: `npm install -g pnpm` または [pnpm公式サイト](https://pnpm.io/) を参照
 
-```bash
-# 依存関係のインストール
-npm run install:all
-
-# 環境変数の設定
-cp env.example .env.local
-# .env.localを編集してデータベース接続情報を設定
-
-# データベースのセットアップ
-npm run db:setup
-npm run master:setup
-```
-
-### 2. 開発サーバーの起動
+### 1. リポジトリのクローン
 
 ```bash
-# 開発サーバーを起動
-npm run dev
-
-# または個別に起動
-npm run dev:client  # Next.jsアプリケーション
-npm run dev:server  # Express.jsサーバー
+git clone https://github.com/Satoshi-Niina/Railway-web_sysytem.git
+cd Railway-web_sysytem
 ```
 
-### 3. データベース管理
+### 2. 依存関係のインストール
 
 ```bash
-# データベース構造の確認
-npm run db:check
-
-# データベース接続テスト
-npm run test:db
-
-# バックアップ作成
-npm run db:backup
-
-# バックアップ復元
-npm run db:restore
+pnpm install
 ```
 
-### 4. 本番ビルド
+### 3. ローカル環境変数の設定
+
+ローカル開発用の`.env`ファイルを作成します。
 
 ```bash
-# 本番用ビルド
-npm run build
+# テンプレートをコピー
+cp .env.development .env
 
-# 本番サーバー起動
-npm run start
+# .envを編集してローカル環境の実際の設定を記入
 ```
 
-## 🛠️ 開発環境
+**`.env`の設定例**:
+```env
+# アプリケーションURL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_SERVER_URL=http://localhost:3001
 
-### 1. 依存関係のインストール
+# データベース（ローカルのPostgreSQL設定）
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/your_database
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=your_database
+
+# サーバーポート
+PORT=3001
+```
+
+> **重要**: `.env`ファイルはシークレット情報を含むため、Gitで管理されません。
+> チームメンバーは各自で`.env.development`をコピーして`.env`を作成してください。
+
+### 4. データベースのセットアップ
 
 ```bash
-npm install
+# データベースの作成とテーブル構築
+pnpm db:setup
+
+# マスタデータの投入
+pnpm master:setup
 ```
 
-### 2. 環境変数の設定
+### 5. 開発サーバーの起動
 
 ```bash
-cp env.example .env.local
-# .env.localを編集
+# フロントエンド・バックエンドを同時起動
+pnpm dev
 ```
 
-### 3. データベースのセットアップ
+アプリケーションは `http://localhost:3000` でアクセスできます。
+
+## 🚀 本番環境へのデプロイ
+
+### 前提条件
+- 本番環境のPostgreSQLデータベース
+- 本番環境のクラウドストレージ（オプション）
+- デプロイ先のサーバー/プラットフォーム
+
+### 1. 本番環境変数の設定
+
+本番環境では、Client と Server それぞれで環境変数を設定する必要があります。
+
+#### Client（フロントエンド）の環境変数
 
 ```bash
-# ローカルPostgreSQLを起動
-docker-compose up -d postgres
-
-# データベースをセットアップ
-npm run db:setup
+# client/.env.productionをコピー
+cp client/.env.production client/.env.production.local
 ```
 
-### 4. 開発サーバーの起動
+**`client/.env.production.local`の設定例**:
+```env
+NODE_ENV=production
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+NEXT_PUBLIC_API_URL=https://your-domain.com/api
+NEXT_PUBLIC_SERVER_URL=https://your-server-domain.com
+NEXT_PUBLIC_LOG_LEVEL=error
+NEXT_PUBLIC_DEV_MODE=false
+```
+
+#### Server（バックエンド）の環境変数
 
 ```bash
-npm run dev
+# server/.env.productionをコピー
+cp server/.env.production server/.env.production.local
 ```
+
+**`server/.env.production.local`の設定例**:
+```env
+NODE_ENV=production
+PORT=3001
+DATABASE_URL=postgresql://prod_user:prod_password@prod-db-host:5432/railway_maintenance_prod
+DB_HOST=prod-db-host
+DB_NAME=railway_maintenance_prod
+DB_USER=prod_user
+DB_PASSWORD=prod_password
+DB_SSL=true
+ALLOWED_ORIGINS=https://your-domain.com
+STORAGE_TYPE=cloud
+CLOUD_STORAGE_BUCKET=your-production-bucket
+SESSION_SECRET=強力なランダム文字列を生成
+ENABLE_HELMET=true
+FORCE_HTTPS=true
+DEV_MODE=false
+```
+
+### 2. 本番用ビルド
+
+```bash
+# 本番用にビルド
+pnpm build
+```
+
+### 3. 本番データベースのセットアップ
+
+```bash
+# 本番データベースでマイグレーション実行
+NODE_ENV=production pnpm db:setup
+NODE_ENV=production pnpm master:setup
+```
+
+### 4. デプロイ
+
+デプロイ先に応じて以下を実行:
+
+```bash
+# 本番サーバーで起動
+pnpm start
+```
+
+### 5. クリーンデプロイ（推奨）
+
+キャッシュやビルドファイルを完全にクリアしてからデプロイする場合、クリーンデプロイスクリプトを使用します。
+
+#### Windows (PowerShell)
+```powershell
+.\clean-deploy.ps1
+```
+
+#### Linux/Mac (Bash)
+```bash
+chmod +x clean-deploy.sh
+./clean-deploy.sh
+```
+
+**クリーンデプロイスクリプトが実行する処理**:
+1. ローカルのキャッシュ・ビルドファイルをクリア
+2. 依存関係を再インストール
+3. 本番用ビルドを実行
+4. Gitの状態を確認
+5. mainブランチにプッシュ
+6. デプロイ先で実行すべきコマンドを表示
+
+> **重要**: デプロイ先でも同様にキャッシュをクリアし、依存関係を再インストールしてから起動してください。
 
 ## 📊 データベース管理
 
-### マイグレーション
+### 接続テスト
 
 ```bash
-# データベースマイグレーション実行
-npm run db:migrate
+npm run test:db
+```
 
+### データベース構造確認
+
+```bash
+npm run db:check
+```
+
+### バックアップ
+
+```bash
 # バックアップ作成
 npm run db:backup
+```
 
-# バックアップ復元
+### リストア
+
+```bash
+# バックアップから復元
 npm run db:restore
 ```
 
-### 本番環境用データベースセットアップ
+## 📝 環境変数の詳細
 
-```sql
--- scripts/18-production-database-setup.sql を実行
--- テーブル作成、インデックス、マスタデータ挿入
-```
+### 環境変数ファイルの優先順位
+
+各階層（ルート、client、server）で以下の優先順位で読み込まれます:
+
+1. `.env.local` (最優先、Git管理外)
+2. `.env.development` または `.env.production` (環境に応じて)
+3. `.env` (フォールバック)
+
+### 主要な環境変数
+
+#### Client環境変数
+| 変数名 | 説明 | 開発環境 | 本番環境 |
+|--------|------|----------|----------|
+| `NEXT_PUBLIC_APP_URL` | アプリケーションURL | `http://localhost:3000` | 本番ドメイン |
+| `NEXT_PUBLIC_API_URL` | APIエンドポイント | `http://localhost:3000/api` | 本番API URL |
+| `NEXT_PUBLIC_SERVER_URL` | バックエンドサーバーURL | `http://localhost:3001` | 本番サーバーURL |
+| `NEXT_PUBLIC_DEV_MODE` | 開発モードフラグ | `true` | `false` |
+
+#### Server環境変数
+| 変数名 | 説明 | 開発環境 | 本番環境 |
+|--------|------|----------|----------|
+| `PORT` | サーバーポート | `3001` | `3001` |
+| `DATABASE_URL` | PostgreSQL接続文字列 | ローカルDB | 本番DB |
+| `ALLOWED_ORIGINS` | CORS許可オリジン | `http://localhost:3000` | 本番ドメイン |
+| `STORAGE_TYPE` | ストレージタイプ | `local` | `cloud` |
+| `SESSION_SECRET` | セッション秘密鍵 | 開発用 | 強力なランダム文字列 |
 
 ## 🔧 技術スタック
 
 - **フロントエンド**: Next.js 15, React 19, TypeScript
-- **バックエンド**: Next.js API Routes
+- **バックエンド**: Express.js (ESM)
 - **データベース**: PostgreSQL 15
 - **UI**: Tailwind CSS, Radix UI
-- **開発環境**: Node.js, npm
+- **開発ツール**: Node.js (v18+), npm, concurrently
+- **モジュールシステム**: ESM (.js, .jsx)
+- **バージョン管理**: Git, GitHub
 
 ## 📁 プロジェクト構造
 
 ```
 railway-maintenance-system/
-├── app/                    # Next.js App Router
-│   ├── api/               # API Routes
-│   ├── operations/        # 運用管理ページ
-│   ├── inspections/       # 検査管理ページ
-│   ├── vehicles/          # 車両管理ページ
-│   └── failures/          # 故障管理ページ
-├── components/            # React コンポーネント
-├── lib/                   # ユーティリティ
-├── types/                 # TypeScript型定義
-├── scripts/               # データベーススクリプト
-├── docker-compose.yml     # 開発環境
-├── docker-compose.prod.yml # 本番環境
-├── nginx.conf            # Nginx設定
-└── deploy.sh             # デプロイスクリプト
+├── client/                    # フロントエンドアプリケーション (Next.js + TypeScript)
+│   ├── app/                   # Next.js App Router
+│   │   ├── api/              # API Routes
+│   │   ├── operations/       # 運用管理ページ
+│   │   ├── inspections/      # 検査管理ページ
+│   │   ├── vehicles/         # 車両管理ページ
+│   │   ├── failures/         # 故障管理ページ
+│   │   └── maintenance/      # 保守管理ページ
+│   ├── components/           # Reactコンポーネント
+│   ├── lib/                  # ユーティリティ関数
+│   └── types/                # TypeScript型定義
+├── server/                    # バックエンドサーバー (Express.js + ESM)
+│   ├── controllers/          # ビジネスロジック (.js)
+│   ├── routes/               # APIルート定義 (.js)
+│   ├── db.js                 # データベース接続
+│   └── server.js             # サーバーエントリーポイント
+├── scripts/                   # データベーススクリプト (ESM)
+│   ├── setup-database.js     # DB初期化
+│   ├── setup-master-tables.js # マスタデータ投入
+│   └── backup-database.js    # バックアップ
+├── .env.development          # ローカル環境変数テンプレート
+├── client/.env.production    # Client本番環境変数テンプレート
+├── server/.env.production    # Server本番環境変数テンプレート
+├── package.json              # ルートパッケージ設定
+└── README.md                 # このファイル
 ```
 
-## 🔒 セキュリティ
+## 🔐 セキュリティ
 
-- HTTPS強制（本番環境）
-- セキュリティヘッダー設定
-- SQLインジェクション対策
+### ローカル環境
+- 開発用の簡易認証
+- ローカルストレージの使用
+- デバッグモード有効
+
+### 本番環境
+- HTTPS強制
+- セキュリティヘッダー設定（Helmet.js）
+- SQLインジェクション対策（パラメータ化クエリ）
+- CORS設定（許可されたオリジンのみ）
+- 強力なセッションシークレット
 - 環境変数による機密情報管理
-
-## 📈 パフォーマンス
-
-- データベースインデックス最適化
-- Gzip圧縮
-- 静的ファイルキャッシュ
-- コネクションプール設定
 
 ## 🚨 トラブルシューティング
 
 ### よくある問題
 
-1. **データベース接続エラー**
-   ```bash
-   # データベースの状態確認
-   docker-compose logs postgres
-   ```
+#### 1. データベース接続エラー
 
-2. **アプリケーション起動エラー**
-   ```bash
-   # アプリケーションログ確認
-   docker-compose logs app
-   ```
+```bash
+# データベース接続テスト
+npm run test:db
 
-3. **ポート競合**
-   ```bash
-   # 使用中のポート確認
-   netstat -tulpn | grep :3000
-   ```
+# PostgreSQLが起動しているか確認
+# Windows: サービス管理から確認
+# Linux/Mac: systemctl status postgresql
+```
+
+#### 2. ポート競合エラー
+
+```bash
+# ポート3000が使用中の場合
+# Windows PowerShell:
+Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess
+
+# 別のポートを使用する場合は.env.localで設定
+PORT=3001
+```
+
+#### 3. 環境変数が読み込まれない
+
+- Client: `client/.env.development` または `client/.env.local` が存在するか確認
+- Server: `server/.env.development` または `server/.env.local` が存在するか確認
+- `NODE_ENV`が正しく設定されているか確認
+- サーバーを再起動
+
+#### 4. CORSエラーが発生する
+
+Server側の`ALLOWED_ORIGINS`を確認:
+```bash
+# server/.env.development または server/.env.local
+ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+```
+
+#### 5. npm install エラー
+
+```bash
+# node_modulesを削除して再インストール
+Remove-Item -Recurse -Force node_modules, client/node_modules, server/node_modules
+npm run install:all
+```
+
+#### 6. ビルドエラー
+
+```bash
+# キャッシュをクリア
+Remove-Item -Recurse -Force .next, client/.next, server/dist
+npm run build
+```
+
+#### 7. ClientとServerの両方を起動したい
+
+```bash
+# 両方を同時起動（推奨）
+npm run dev
+
+# または個別に起動
+# ターミナル1: Client
+npm run dev:client-only
+
+# ターミナル2: Server  
+npm run dev:server-only
+```
+
+## 🔄 開発ワークフロー
+
+### 日常の開発
+
+1. ローカル環境で開発
+2. `.env.development`または`.env.local`を使用
+3. `npm run dev`で開発サーバー起動
+4. 変更をコミット
+
+### デプロイ前の確認
+
+1. 本番用ビルドのテスト: `npm run build`
+2. ローカルで本番モードテスト: `npm run start`
+3. データベースマイグレーションの確認
+4. 環境変数の確認
+
+### 本番デプロイ
+
+1. mainブランチにマージ
+2. 本番環境で環境変数設定
+3. ビルドとデプロイ実行
+4. 本番データベースのマイグレーション
+5. 動作確認
+
+## 📋 利用可能なスクリプト
+
+```bash
+# 開発（推奨）
+npm run dev              # Client & Server を同時起動（concurrently使用）
+npm run dev:client-only  # Clientのみ起動
+npm run dev:server-only  # Serverのみ起動
+
+# 開発（従来の方法）
+npm run dev:client       # Clientのみ起動（cd client && npm run dev）
+npm run dev:server       # Serverのみ起動（cd server && npm run dev）
+
+# ビルド
+npm run build            # Server → Client の順でビルド
+npm run build:client     # Clientのみビルド
+npm run build:server     # Serverのみビルド
+
+# 本番実行
+npm run start            # Client & Server を同時起動
+npm run start:client     # Clientのみ起動
+npm run start:server     # Serverのみ起動
+
+# データベース
+npm run db:setup         # DB初期化
+npm run db:migrate       # マイグレーション実行
+npm run db:backup        # バックアップ作成
+npm run db:restore       # バックアップ復元
+npm run db:check         # DB構造確認
+npm run test:db          # DB接続テスト
+
+# マスタデータ
+npm run master:setup     # マスタデータ投入
+npm run basecode:setup   # 基地コード設定
+npm run maintenance:setup # 保守サイクル設定
+
+# インストール
+npm run install:all      # 全依存関係インストール
+```
+
+## 🤝 コントリビューション
+
+1. このリポジトリをフォーク
+2. フィーチャーブランチを作成 (`git checkout -b feature/AmazingFeature`)
+3. 変更をコミット (`git commit -m 'Add some AmazingFeature'`)
+4. ブランチにプッシュ (`git push origin feature/AmazingFeature`)
+5. プルリクエストを作成
 
 ## 📞 サポート
 
 問題が発生した場合は、以下を確認してください：
 
-1. ログファイルの確認
-2. 環境変数の設定
-3. データベース接続状態
-4. ネットワーク設定
+1. このREADMEのトラブルシューティングセクション
+2. 環境変数が正しく設定されているか
+3. 必要なサービス（PostgreSQL等）が起動しているか
+4. GitHubのIssuesで既知の問題を確認
 
 ## 📄 ライセンス
 
-このプロジェクトはMITライセンスの下で公開されています。 
+このプロジェクトはMITライセンスの下で公開されています。
+
+## 🔗 リンク
+
+- **GitHubリポジトリ**: https://github.com/Satoshi-Niina/Railway-web_sysytem
+- **本番URL**: （デプロイ後に設定）
+
+---
+
+**開発者向けメモ**: 
+- ローカル環境と本番環境は完全に分離されています
+- データベースやストレージは環境間で共有されません
+- 環境変数ファイルで環境を切り替えます
+- 本番デプロイ前に必ず`.env.production.local`を適切に設定してください 

@@ -13,11 +13,11 @@ export async function PUT(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery(`
-          UPDATE maintenance_bases 
-          SET base_name = $1, location = $2, address = $3, management_office_id = $4, updated_at = NOW()
-          WHERE id = $5
+          UPDATE master_data.bases 
+          SET base_name = $1, base_type = $2, location = $3, management_office_id = $4, is_active = $5, updated_at = NOW()
+          WHERE id = $6
           RETURNING *
-        `, [body.base_name, body.location || null, body.address || null, body.management_office_id, id])
+        `, [body.base_name, body.base_type || 'maintenance', body.location || null, body.management_office_id, body.is_active !== undefined ? body.is_active : true, id])
 
         if (result.length > 0) {
           console.log("Successfully updated in PostgreSQL:", result[0])
@@ -80,7 +80,7 @@ export async function DELETE(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery(`
-          DELETE FROM maintenance_bases 
+          DELETE FROM master_data.bases 
           WHERE id = $1
           RETURNING *
         `, [id])

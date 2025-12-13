@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 interface BaseFormData {
   base_name: string
   base_type: string
-  management_office_id: number
+  management_office_id: number | null
   location: string
   address: string
 }
@@ -38,7 +38,7 @@ export default function MaintenanceBasesPage() {
   const [formData, setFormData] = useState<BaseFormData>({
     base_name: "",
     base_type: "maintenance",
-    management_office_id: 0,
+    management_office_id: null,
     location: "",
     address: "",
   })
@@ -75,13 +75,24 @@ export default function MaintenanceBasesPage() {
       if (basesResponse.ok) {
         const basesData = await basesResponse.json()
         console.log("Bases data:", basesData)
-        setBases(basesData)
+        console.log("First base structure:", basesData[0])
+        // データ構造を修正: office_name, office_codeをmanagement_officeオブジェクトに変換
+        const transformedData = basesData.map((base: any) => ({
+          ...base,
+          management_office: base.office_name ? {
+            office_name: base.office_name,
+            office_code: base.office_code,
+            responsible_area: base.responsible_area
+          } : null
+        }))
+        console.log("Transformed data:", transformedData[0])
+        setBases(transformedData)
       } else {
         console.error("Failed to fetch bases:", basesResponse.statusText)
       }
 
       // 事業所データの取得
-      const officesResponse = await fetch('/api/management-offices')
+      const officesResponse = await fetch('/api/offices')
       console.log("Offices response status:", officesResponse.status)
       if (officesResponse.ok) {
         const officesData = await officesResponse.json()
@@ -124,7 +135,7 @@ export default function MaintenanceBasesPage() {
       return
     }
 
-    if (formData.management_office_id === 0) {
+    if (!formData.management_office_id) {
       toast({
         title: "エラー",
         description: "管理事業所を選択してください",
@@ -136,6 +147,7 @@ export default function MaintenanceBasesPage() {
     try {
       if (editingBase) {
         // 更新
+        console.log("Updating base with formData:", formData)
         const response = await fetch(`/api/bases/${editingBase.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -144,9 +156,8 @@ export default function MaintenanceBasesPage() {
 
         if (response.ok) {
           const updatedBase = await response.json()
-          setBases(prev => prev.map(base => 
-            base.id === editingBase.id ? updatedBase : base
-          ))
+          // サーバーから最新データを再取得
+          await fetchData()
           toast({
             title: "更新完了",
             description: "保守基地情報を更新しました",
@@ -178,7 +189,8 @@ export default function MaintenanceBasesPage() {
         if (response.ok) {
           const newBase = await response.json()
           console.log("Created base:", newBase)
-          setBases(prev => [...prev, newBase])
+          // サーバーから最新データを再取得
+          await fetchData()
           toast({
             title: "作成完了",
             description: "保守基地を新規作成しました",
@@ -228,7 +240,7 @@ export default function MaintenanceBasesPage() {
     setFormData({
       base_name: base.base_name,
       base_type: base.base_type,
-      management_office_id: base.management_office_id || 0,
+      management_office_id: base.management_office_id || null,
       location: base.location || "",
       address: base.address || "",
     })
@@ -267,7 +279,7 @@ export default function MaintenanceBasesPage() {
     setFormData({
       base_name: "",
       base_type: "maintenance",
-      management_office_id: 0,
+      management_office_id: null,
       location: "",
       address: "",
     })
@@ -400,16 +412,20 @@ export default function MaintenanceBasesPage() {
                 <div>
                   <Label htmlFor="management_office_id">管理事業所 *</Label>
                   <Select
-                    value={formData.management_office_id.toString()}
+                    value={formData.management_office_id?.toString() || "none"}
                     onValueChange={(value) => {
                       console.log("Selected office ID:", value)
-                      setFormData({ ...formData, management_office_id: parseInt(value) })
+                      const officeId = (value && value !== "none") ? parseInt(value) : null
+                      console.log("Parsed office ID:", officeId)
+                      setFormData({ ...formData, management_office_id: officeId })
+                      console.log("Updated formData:", { ...formData, management_office_id: officeId })
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="管理事業所を選択" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">選択してください</SelectItem>
                       {offices.length > 0 ? (
                         offices.map((office) => (
                           <SelectItem key={office.id} value={office.id.toString()}>
@@ -511,14 +527,14 @@ export default function MaintenanceBasesPage() {
                       </Badge>
                     </td>
                     <td className="border border-gray-300 px-4 py-2">
-                      {base.management_office?.office_code ? (
+                      {base.management_office?.office_name ? (
                         <Button
                           variant="link"
                           className="p-0 h-auto font-medium text-blue-600 hover:text-blue-800"
                           onClick={() => handleOfficeClick(base.management_office!.office_code)}
                         >
                           <div className="flex items-center space-x-1">
-                            <span>{base.management_office.office_code}</span>
+                            <span>{base.management_office.office_name}</span>
                             <ExternalLink className="w-3 h-3" />
                           </div>
                         </Button>

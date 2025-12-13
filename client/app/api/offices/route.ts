@@ -1,17 +1,35 @@
 import { NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase"
+import { getDatabaseType, executeQuery } from "@/lib/database"
 
 export async function GET() {
-  const supabase = createServerClient()
-
   try {
-    const { data, error } = await supabase.from("offices").select("*").order("office_name", { ascending: true })
+    const dbType = getDatabaseType()
 
-    if (error) throw error
-
-    return NextResponse.json(data)
+    if (dbType === "postgresql") {
+      try {
+        const offices = await executeQuery(`
+          SELECT * FROM master_data.management_offices
+          ORDER BY office_name
+        `)
+        return NextResponse.json(offices)
+      } catch (error) {
+        console.error("Database query failed:", error)
+        return NextResponse.json(
+          { error: "データベース接続エラーが発生しました" },
+          { status: 500 }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { error: "データベースが設定されていません" },
+        { status: 500 }
+      )
+    }
   } catch (error) {
     console.error("Error fetching offices:", error)
-    return NextResponse.json({ error: "Failed to fetch offices" }, { status: 500 })
+    return NextResponse.json(
+      { error: "事業所データの取得に失敗しました" },
+      { status: 500 }
+    )
   }
 }
