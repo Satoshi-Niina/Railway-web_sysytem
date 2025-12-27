@@ -34,7 +34,7 @@ jobs:
 
       - name: バージョンが古い場合はIssueを作成
         if: steps.node-version.outputs.latest_major > steps.node-version.outputs.current_major
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const latestLTS = '${{ steps.node-version.outputs.latest_lts }}';
