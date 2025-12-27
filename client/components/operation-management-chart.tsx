@@ -40,6 +40,16 @@ import Link from "next/link"
 
 import type { Vehicle, Base, ManagementOffice, OperationPlan, OperationRecord, Inspection, Office } from "@/types"
 import { apiCall, isDatabaseConfigured } from "@/lib/api-client"
+import { exportOperationPlanToA3Excel } from "@/lib/excel-export"
+
+// 検修タイプの型定義
+interface InspectionType {
+  id: number
+  type_name: string
+  category: string
+  interval_days?: number
+  description?: string
+}
 
 export function OperationManagementChart() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -51,6 +61,7 @@ export function OperationManagementChart() {
   const [operationPlans, setOperationPlans] = useState<OperationPlan[]>([])
   const [operationRecords, setOperationRecords] = useState<OperationRecord[]>([])
   const [inspections, setInspections] = useState<Inspection[]>([])
+  const [inspectionTypes, setInspectionTypes] = useState<InspectionType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -58,6 +69,7 @@ export function OperationManagementChart() {
   const [showRecordModal, setShowRecordModal] = useState(false)
   const [editingRecord, setEditingRecord] = useState<OperationRecord | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<OperationPlan | null>(null)
+  const [selectedBaseId, setSelectedBaseId] = useState<number | null>(null) // クリックしたセルの基地ID
   const [recordForm, setRecordForm] = useState({
     vehicle_id: "",
     record_date: "",
@@ -87,6 +99,173 @@ export function OperationManagementChart() {
   useEffect(() => {
     fetchData()
   }, [currentMonth])
+
+  // ==================== 留置基地追跡関数 ====================
+  
+  // 車両の最終留置基地を取得（計画と実績の両方を考慮）
+  const getLastDetentionBase = (vehicleId: number, beforeDate: string): number | null => {
+    // 実績データから最後の到着基地を取得（実績優先）
+    const records = operationRecords
+      .filter(r => {
+        const rDate = typeof r.record_date === 'string' ? r.record_date.split('T')[0] : r.record_date
+        return r.vehicle_id === vehicleId && rDate < beforeDate && r.arrival_base_id
+      })
+      .sort((a, b) => {
+        const aDate = typeof a.record_date === 'string' ? a.record_date.split('T')[0] : a.record_date
+        const bDate = typeof b.record_date === 'string' ? b.record_date.split('T')[0] : b.record_date
+        // 日付が同じ場合は時刻でソート
+        if (aDate === bDate) {
+          const aTime = a.end_time || "00:00"
+          const bTime = b.end_time || "00:00"
+          return bTime.localeCompare(aTime)
+        }
+        return bDate.localeCompare(aDate)
+      })
+
+    if (records.length > 0 && records[0].arrival_base_id) {
+      const rDate = typeof records[0].record_date === 'string' ? records[0].record_date.split('T')[0] : records[0].record_date
+      console.log(`[留置基地] 車両${vehicleId}, ${beforeDate}以前: 実績(${rDate} ${records[0].end_time})から基地${records[0].arrival_base_id}`)
+      return records[0].arrival_base_id
+    }
+
+    // 実績がない場合は計画から取得（翌日またぎを考慮）
+    const plans = operationPlans
+      .filter(p => {
+        // 実際の到着日を取得（end_dateがあれば使用、なければplan_date）
+        const actualArrivalDate = p.end_date 
+          ? (typeof p.end_date === 'string' ? p.end_date.split('T')[0] : p.end_date)
+          : (typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date)
+        
+        return p.vehicle_id === vehicleId && actualArrivalDate < beforeDate && p.arrival_base_id
+      })
+      .sort((a, b) => {
+        // 実際の到着日でソート
+        const aArrivalDate = a.end_date 
+          ? (typeof a.end_date === 'string' ? a.end_date.split('T')[0] : a.end_date)
+          : (typeof a.plan_date === 'string' ? a.plan_date.split('T')[0] : a.plan_date)
+        const bArrivalDate = b.end_date 
+          ? (typeof b.end_date === 'string' ? b.end_date.split('T')[0] : b.end_date)
+          : (typeof b.plan_date === 'string' ? b.plan_date.split('T')[0] : b.plan_date)
+        
+        // 日付が同じ場合は終了時刻でソート
+        if (aArrivalDate === bArrivalDate) {
+          const aTime = a.end_time || "00:00"
+          const bTime = b.end_time || "00:00"
+          return bTime.localeCompare(aTime)
+        }
+        return bArrivalDate.localeCompare(aArrivalDate)
+      })
+
+    // デバッグ: 候補の計画を全て表示
+    if (plans.length > 0) {
+      console.log(`[留置基地] 車両${vehicleId}, ${beforeDate}以前の計画候補:`, plans.map(p => {
+        const pDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
+        const arrivalDate = p.end_date 
+          ? (typeof p.end_date === 'string' ? p.end_date.split('T')[0] : p.end_date)
+          : pDate
+        return `開始${pDate} 到着${arrivalDate} ${p.end_time}: 基地${p.arrival_base_id}`
+      }))
+    }
+
+    if (plans.length > 0 && plans[0].arrival_base_id) {
+      const pDate = typeof plans[0].plan_date === 'string' ? plans[0].plan_date.split('T')[0] : plans[0].plan_date
+      const arrivalDate = plans[0].end_date 
+        ? (typeof plans[0].end_date === 'string' ? plans[0].end_date.split('T')[0] : plans[0].end_date)
+        : pDate
+      const baseName = allBases.find(b => b.id === plans[0].arrival_base_id)?.base_name
+      console.log(`[留置基地] 車両${vehicleId}, ${beforeDate}以前: 計画(開始${pDate} 到着${arrivalDate} ${plans[0].end_time})から基地${plans[0].arrival_base_id}(${baseName})`)
+      return plans[0].arrival_base_id
+    }
+
+    console.log(`[留置基地] 車両${vehicleId}, ${beforeDate}以前: 留置基地なし（計画候補: ${plans.length}件）`)
+    return null
+  }
+
+  // 次の運用計画の日付を取得
+  const getNextOperationDate = (vehicleId: number, afterDate: string): string | null => {
+    const plans = operationPlans
+      .filter(p => {
+        const pDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
+        return p.vehicle_id === vehicleId && pDate > afterDate
+      })
+      .sort((a, b) => {
+        const aDate = typeof a.plan_date === 'string' ? a.plan_date.split('T')[0] : a.plan_date
+        const bDate = typeof b.plan_date === 'string' ? b.plan_date.split('T')[0] : b.plan_date
+        return aDate.localeCompare(bDate)
+      })
+
+    return plans.length > 0 
+      ? (typeof plans[0].plan_date === 'string' ? plans[0].plan_date.split('T')[0] : plans[0].plan_date)
+      : null
+  }
+
+  // 指定日に車両が留置されている基地を判定
+  const isVehicleDetainedAtBase = (vehicleId: number, date: string, baseId: number): boolean => {
+    // その日に計画や実績がある場合は留置ではない
+    const hasPlanOrRecord = getPlanForVehicleAndDate(vehicleId, date) || getRecordForVehicleAndDate(vehicleId, date)
+    if (hasPlanOrRecord) {
+      return false
+    }
+
+    // 前回の留置基地を取得
+    const lastBase = getLastDetentionBase(vehicleId, date)
+    
+    // デバッグ: MC-100の留置判定を詳細ログ
+    if (vehicleId === allVehicles.find(v => v.machine_number === "100")?.id) {
+      const currentBaseName = allBases.find(b => b.id === baseId)?.base_name
+      const lastBaseName = allBases.find(b => b.id === lastBase)?.base_name
+      console.log(`[留置判定] ${date} ${currentBaseName}(ID:${baseId}): 最終留置基地=${lastBaseName}(ID:${lastBase}) → ${lastBase === baseId ? '✓留置中' : '✗別の基地'}`)
+    }
+    
+    if (lastBase !== baseId) {
+      return false
+    }
+
+    // 次の運用計画があるかチェック
+    const nextOpDate = getNextOperationDate(vehicleId, date)
+    if (!nextOpDate) {
+      // 次の運用がない場合は、月末まで留置と見なす
+      return true
+    }
+
+    // 次の運用日よりも前の場合は留置状態
+    return date < nextOpDate
+  }
+
+  // 実績入力時の基地不一致をチェック
+  const checkBaseConflict = (vehicleId: number, recordDate: string, arrivalBaseId: number | null): string | null => {
+    if (!arrivalBaseId) return null
+
+    // 翌日以降の最初の運用計画を取得
+    const nextDayDate = new Date(recordDate)
+    nextDayDate.setDate(nextDayDate.getDate() + 1)
+    const nextDay = nextDayDate.toISOString().slice(0, 10)
+
+    const nextPlans = operationPlans
+      .filter(p => {
+        const pDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
+        return p.vehicle_id === vehicleId && pDate >= nextDay && p.departure_base_id
+      })
+      .sort((a, b) => {
+        const aDate = typeof a.plan_date === 'string' ? a.plan_date.split('T')[0] : a.plan_date
+        const bDate = typeof b.plan_date === 'string' ? b.plan_date.split('T')[0] : b.plan_date
+        return aDate.localeCompare(bDate)
+      })
+
+    if (nextPlans.length > 0 && nextPlans[0].departure_base_id) {
+      const nextPlan = nextPlans[0]
+      if (nextPlan.departure_base_id !== arrivalBaseId) {
+        const arrivalBase = allBases.find(b => b.id === arrivalBaseId)
+        const departureBase = allBases.find(b => b.id === nextPlan.departure_base_id)
+        const nextPlanDate = typeof nextPlan.plan_date === 'string' ? nextPlan.plan_date.split('T')[0] : nextPlan.plan_date
+        return `⚠️ 基地不一致: ${arrivalBase?.base_name}に到着しますが、${nextPlanDate}の運用計画は${departureBase?.base_name}から出発予定です。`
+      }
+    }
+
+    return null
+  }
+
+  // ==================== データ取得 ====================
 
   const fetchData = async () => {
     setLoading(true)
@@ -150,7 +329,17 @@ export function OperationManagementChart() {
         // 検査データは必須ではないので空配列のまま
       }
 
+      // 検修タイプマスタの取得
+      let inspectionTypesData: InspectionType[] = []
+      try {
+        inspectionTypesData = await apiCall<InspectionType[]>("inspection-types")
+      } catch (error) {
+        console.error("検修タイプマスタの取得エラー:", error)
+        // 検修タイプは必須ではないので空配列のまま
+      }
+
       setAllVehicles(vehiclesData)
+      setInspectionTypes(inspectionTypesData)
       setAllBases(basesData)
       setAllOffices(officesData as ManagementOffice[])
       setOperationPlans(plansData)
@@ -165,6 +354,35 @@ export function OperationManagementChart() {
         records: recordsData.length,
         inspections: inspectionsData.length
       })
+
+      // 運用計画の詳細ログ（MC-100のみ）
+      const mc100 = vehiclesData.find(v => v.machine_number === "100")
+      if (mc100) {
+        const mc100Plans = plansData
+          .filter(p => p.vehicle_id === mc100.id)
+          .sort((a, b) => {
+            const aDate = typeof a.plan_date === 'string' ? a.plan_date.split('T')[0] : a.plan_date
+            const bDate = typeof b.plan_date === 'string' ? b.plan_date.split('T')[0] : b.plan_date
+            if (aDate === bDate) {
+              const aTime = a.start_time || "00:00"
+              const bTime = b.start_time || "00:00"
+              return aTime.localeCompare(bTime)
+            }
+            return aDate.localeCompare(bDate)
+          })
+        console.log("=== MC-100 運用計画詳細（時系列順） ===")
+        mc100Plans.forEach(plan => {
+          const planDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
+          const endDate = plan.end_date 
+            ? (typeof plan.end_date === 'string' ? plan.end_date.split('T')[0] : plan.end_date)
+            : planDate
+          const depBase = basesData.find(b => b.id === plan.departure_base_id)
+          const arrBase = basesData.find(b => b.id === plan.arrival_base_id)
+          const timeRange = `${plan.start_time?.slice(0,5) || '??:??'}-${plan.end_time?.slice(0,5) || '??:??'}`
+          const dateInfo = endDate !== planDate ? `${planDate}→${endDate}` : planDate
+          console.log(`${dateInfo} ${timeRange}: ${plan.shift_type} | ${depBase?.base_name || 'なし'} → ${arrBase?.base_name || 'なし'}`)
+        })
+      }
     } catch (error) {
       console.error("Error fetching data:", error)
       setError("データの取得に失敗しました。")
@@ -173,9 +391,38 @@ export function OperationManagementChart() {
     }
   }
 
-  // セルクリック時の処理（運用実績の作成・編集）
-  const handleCellClick = (vehicleId: number, date: string, editRecord?: OperationRecord) => {
+  // セルクリック時の処理（運用実績の作成・編集、または運用計画の作成）
+  const handleCellClick = (vehicleId: number, date: string, editRecord?: OperationRecord, baseId?: number) => {
+    // クリックしたセルの基地IDを記録
+    setSelectedBaseId(baseId || null)
     const plan = getPlanForVehicleAndDate(vehicleId, date)
+    
+    // 留置中セルからの計画作成
+    if (!editRecord && !plan && baseId) {
+      const isDetained = isVehicleDetainedAtBase(vehicleId, date, baseId)
+      if (isDetained) {
+        const lastBase = getLastDetentionBase(vehicleId, date)
+        if (lastBase === baseId) {
+          // 運用計画作成モードで開く
+          setIsCreatingPlanFromDetention(true)
+          setDetentionBaseId(baseId)
+          setPlanForm({
+            vehicle_id: vehicleId.toString(),
+            plan_date: date,
+            shift_type: "day",
+            inspection_type_id: "",
+            start_time: "08:00",
+            end_time: "17:00",
+            departure_base_id: baseId.toString(),
+            arrival_base_id: baseId.toString(),
+            planned_distance: 0,
+            notes: "",
+          })
+          setShowPlanModal(true)
+          return
+        }
+      }
+    }
     
     if (editRecord) {
       // 既存実績の編集
@@ -185,8 +432,8 @@ export function OperationManagementChart() {
         vehicle_id: editRecord.vehicle_id.toString(),
         record_date: editRecord.record_date,
         shift_type: editRecord.shift_type,
-        start_time: editRecord.start_time || "08:00",
-        end_time: editRecord.end_time || "17:00",
+        start_time: (editRecord as any).actual_start_time || "08:00",
+        end_time: (editRecord as any).actual_end_time || "17:00",
         actual_distance: editRecord.actual_distance || 0,
         departure_base_id: editRecord.departure_base_id?.toString() || "none",
         arrival_base_id: editRecord.arrival_base_id?.toString() || "none",
@@ -196,6 +443,8 @@ export function OperationManagementChart() {
       })
     } else if (plan) {
       // 計画から実績を作成（新規）
+      // 選択された基地が計画の到着基地と異なる場合は選択された基地を優先
+      const arrivalBase = baseId && plan.arrival_base_id !== baseId ? baseId.toString() : (plan.arrival_base_id?.toString() || "none")
       setEditingRecord(null)
       setSelectedPlan(plan)
       setRecordForm({
@@ -206,10 +455,10 @@ export function OperationManagementChart() {
         end_time: plan.end_time || "17:00",
         actual_distance: plan.planned_distance || 0,
         departure_base_id: plan.departure_base_id?.toString() || "none",
-        arrival_base_id: plan.arrival_base_id?.toString() || "none",
+        arrival_base_id: arrivalBase,
         status: "completed",
         notes: plan.notes || "",
-        is_as_planned: true,
+        is_as_planned: arrivalBase === (plan.arrival_base_id?.toString() || "none"),
       })
     } else {
       // 新規実績作成 - 前回の到着基地を出発基地として設定
@@ -236,7 +485,7 @@ export function OperationManagementChart() {
         end_time: "17:00",
         actual_distance: 0,
         departure_base_id: lastArrivalBaseId,
-        arrival_base_id: "none",
+        arrival_base_id: baseId ? baseId.toString() : "none",
         status: "completed",
         notes: "",
         is_as_planned: false,
@@ -246,43 +495,110 @@ export function OperationManagementChart() {
     setShowRecordModal(true)
   }
 
+  // 基地不一致警告の状態
+  const [baseConflictWarning, setBaseConflictWarning] = useState<string | null>(null)
+  
+  // 運用計画作成モード（留置中から作成）
+  const [isCreatingPlanFromDetention, setIsCreatingPlanFromDetention] = useState(false)
+  const [detentionBaseId, setDetentionBaseId] = useState<number | null>(null)
+  
+  // 運用計画作成・編集モーダルの状態
+  const [showPlanModal, setShowPlanModal] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<OperationPlan | null>(null)
+  const [planForm, setPlanForm] = useState({
+    vehicle_id: "",
+    plan_date: "",
+    end_date: "",
+    shift_type: "day",
+    inspection_type_id: "", // 検修種別ID
+    start_time: "08:00",
+    end_time: "17:00",
+    departure_base_id: "",
+    arrival_base_id: "",
+    planned_distance: 0,
+    notes: "",
+  })
+  const [nextPlanConflictWarning, setNextPlanConflictWarning] = useState<string | null>(null)
+
+  // 計画を編集モードで開く
+  const handleEditPlan = (plan: OperationPlan) => {
+    setEditingPlan(plan)
+    setPlanForm({
+      vehicle_id: plan.vehicle_id.toString(),
+      plan_date: typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date,
+      end_date: plan.end_date ? (typeof plan.end_date === 'string' ? plan.end_date.split('T')[0] : plan.end_date) : "",
+      shift_type: plan.shift_type,
+      inspection_type_id: "",
+      start_time: plan.start_time || "08:00",
+      end_time: plan.end_time || "17:00",
+      departure_base_id: plan.departure_base_id?.toString() || "",
+      arrival_base_id: plan.arrival_base_id?.toString() || "",
+      planned_distance: plan.planned_distance || 0,
+      notes: plan.notes || "",
+    })
+    setShowPlanModal(true)
+  }
+
   // 実績の保存
   const handleSaveRecord = async () => {
     try {
+      // 基地不一致のチェック
+      const arrivalBaseId = recordForm.arrival_base_id && recordForm.arrival_base_id !== "none" 
+        ? Number.parseInt(recordForm.arrival_base_id) 
+        : null
+      
+      if (arrivalBaseId) {
+        const warning = checkBaseConflict(
+          Number.parseInt(recordForm.vehicle_id),
+          recordForm.record_date,
+          arrivalBaseId
+        )
+        
+        if (warning) {
+          setBaseConflictWarning(warning)
+          // 警告を表示するが、保存は継続
+        }
+      }
+
       const recordData = {
         vehicle_id: Number.parseInt(recordForm.vehicle_id),
         record_date: recordForm.record_date,
         shift_type: recordForm.shift_type,
-        start_time: recordForm.start_time,
-        end_time: recordForm.end_time,
+        actual_start_time: recordForm.start_time,
+        actual_end_time: recordForm.end_time,
         actual_distance: recordForm.actual_distance,
         departure_base_id: recordForm.departure_base_id && recordForm.departure_base_id !== "none" ? Number.parseInt(recordForm.departure_base_id) : null,
-        arrival_base_id: recordForm.arrival_base_id && recordForm.arrival_base_id !== "none" ? Number.parseInt(recordForm.arrival_base_id) : null,
+        arrival_base_id: arrivalBaseId,
         status: recordForm.status,
         notes: recordForm.notes,
       }
 
+      console.log(`[実績保存] ${editingRecord ? '更新' : '新規作成'}:`, recordData)
+
       if (editingRecord) {
         // 更新
-        await apiCall(`operation-records/${editingRecord.id}`, {
+        const result = await apiCall(`operation-records/${editingRecord.id}`, {
           method: "PUT",
           body: JSON.stringify(recordData),
         })
+        console.log('[実績保存] 更新成功:', result)
       } else {
         // 新規作成
-        await apiCall("operation-records", {
+        const result = await apiCall("operation-records", {
           method: "POST",
           body: JSON.stringify(recordData),
         })
+        console.log('[実績保存] 新規作成成功:', result)
       }
 
-      fetchData()
+      await fetchData()
       setShowRecordModal(false)
       setEditingRecord(null)
       setSelectedPlan(null)
+      setBaseConflictWarning(null)
     } catch (error) {
-      console.error("Error saving record:", error)
-      setError("実績の保存に失敗しました。")
+      console.error("[実績保存エラー]", error)
+      setError("実績の保存に失敗しました: " + (error instanceof Error ? error.message : String(error)))
     }
   }
 
@@ -302,6 +618,105 @@ export function OperationManagementChart() {
     } catch (error) {
       console.error("Error deleting record:", error)
       setError("実績の削除に失敗しました。")
+    }
+  }
+
+  // 運用計画の保存（新規作成または更新）
+  const handleSavePlan = async () => {
+    try {
+      // 到着基地が次の計画と異なる場合は警告（新規作成時のみ）
+      const arrivalBaseId = planForm.arrival_base_id ? Number.parseInt(planForm.arrival_base_id) : null
+      
+      if (arrivalBaseId && !editingPlan) {
+        const warning = checkBaseConflict(
+          Number.parseInt(planForm.vehicle_id),
+          planForm.plan_date,
+          arrivalBaseId
+        )
+        
+        if (warning && !nextPlanConflictWarning) {
+          setNextPlanConflictWarning(warning)
+          return // 警告を表示して一旦停止
+        }
+      }
+
+      // 検修の場合は検査テーブルに保存
+      if (planForm.shift_type === "maintenance" && planForm.inspection_type_id) {
+        const inspectionType = inspectionTypes.find(t => t.id.toString() === planForm.inspection_type_id)
+        const inspectionData = {
+          vehicle_id: Number.parseInt(planForm.vehicle_id),
+          inspection_type: inspectionType?.type_name || "",
+          inspection_category: inspectionType?.category || "定期検査",
+          planned_start_date: planForm.plan_date,
+          planned_end_date: planForm.end_date || planForm.plan_date,
+          status: "planned",
+          notes: planForm.notes
+        }
+
+        await apiCall("inspections", {
+          method: "POST",
+          body: JSON.stringify(inspectionData),
+        })
+      } else {
+        // 運用の場合は運用計画テーブルに保存
+        const planData = {
+          vehicle_id: Number.parseInt(planForm.vehicle_id),
+          plan_date: planForm.plan_date,
+          end_date: planForm.end_date || null,
+          shift_type: planForm.shift_type,
+          start_time: planForm.start_time,
+          end_time: planForm.end_time,
+          departure_base_id: Number.parseInt(planForm.departure_base_id),
+          arrival_base_id: arrivalBaseId,
+          planned_distance: planForm.planned_distance,
+          notes: planForm.notes,
+          status: "planned",
+        }
+
+        if (editingPlan) {
+          // 既存計画の更新
+          await apiCall(`operation-plans/${editingPlan.id}`, {
+            method: "PUT",
+            body: JSON.stringify(planData),
+          })
+        } else {
+          // 新規計画の作成
+          await apiCall("operation-plans", {
+            method: "POST",
+            body: JSON.stringify(planData),
+          })
+        }
+      }
+
+      fetchData()
+      setShowPlanModal(false)
+      setEditingPlan(null)
+      setIsCreatingPlanFromDetention(false)
+      setDetentionBaseId(null)
+      setNextPlanConflictWarning(null)
+    } catch (error) {
+      console.error("Error saving plan:", error)
+      setError("運用計画の保存に失敗しました。")
+    }
+  }
+
+  // 運用計画の削除
+  const handleDeletePlan = async () => {
+    if (!editingPlan) return
+    
+    if (!confirm("この運用計画を削除しますか？")) return
+
+    try {
+      await apiCall(`operation-plans/${editingPlan.id}`, {
+        method: "DELETE",
+      })
+
+      fetchData()
+      setShowPlanModal(false)
+      setEditingPlan(null)
+    } catch (error) {
+      console.error("Error deleting plan:", error)
+      setError("運用計画の削除に失敗しました。")
     }
   }
 
@@ -428,12 +843,45 @@ export function OperationManagementChart() {
     return grouped
   }, [filteredVehicles])
 
-  // 特定の日付と車両の運用計画を取得
+  // 特定の日付と車両の運用計画を取得（出発日基準）※検修計画は除外
   const getPlanForVehicleAndDate = (vehicleId: number, date: string): OperationPlan | undefined => {
-    return operationPlans.find((plan) => {
+    const plan = operationPlans.find((plan) => {
+      // 検修計画は除外
+      if (plan.shift_type === 'maintenance') return false
+      
       const planDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
       return plan.vehicle_id === vehicleId && planDate === date
     })
+    
+    if (plan && vehicleId === allVehicles.find(v => v.machine_number === "100")?.id) {
+      const depBase = allBases.find(b => b.id === plan.departure_base_id)?.base_name
+      const arrBase = allBases.find(b => b.id === plan.arrival_base_id)?.base_name
+      console.log(`[計画取得] ${date}: ${depBase || 'なし'} → ${arrBase || 'なし'}`)
+    }
+    
+    return plan
+  }
+
+  // 特定の日付に到着する運用計画を取得（到着日基準）※検修計画は除外
+  const getPlanArrivingOnDate = (vehicleId: number, date: string): OperationPlan | undefined => {
+    const plan = operationPlans.find((plan) => {
+      // 検修計画は除外
+      if (plan.shift_type === 'maintenance') return false
+      
+      const arrivalDate = plan.end_date 
+        ? (typeof plan.end_date === 'string' ? plan.end_date.split('T')[0] : plan.end_date)
+        : (typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date)
+      return plan.vehicle_id === vehicleId && arrivalDate === date
+    })
+    
+    if (plan && vehicleId === allVehicles.find(v => v.machine_number === "100")?.id) {
+      const depBase = allBases.find(b => b.id === plan.departure_base_id)?.base_name
+      const arrBase = allBases.find(b => b.id === plan.arrival_base_id)?.base_name
+      const planDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
+      console.log(`[到着日計画取得] ${date}到着: 出発${planDate} ${depBase || 'なし'} → ${arrBase || 'なし'}`)
+    }
+    
+    return plan
   }
 
   // 特定の日付と車両の運用実績を取得
@@ -444,13 +892,26 @@ export function OperationManagementChart() {
     })
   }
 
-  // 特定の日付、車両、基地の運用計画を取得
+  // 特定の日付、車両、基地の運用計画を取得※検修計画は除外
   const getPlanForVehicleDateAndBase = (vehicleId: number, date: string, baseId: number): OperationPlan | undefined => {
-    return operationPlans.find((plan) => {
+    const plan = operationPlans.find((plan) => {
+      // 検修計画は除外
+      if (plan.shift_type === 'maintenance') return false
+      
       const planDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
       return plan.vehicle_id === vehicleId && planDate === date && 
         (plan.departure_base_id === baseId || plan.arrival_base_id === baseId)
     })
+    
+    // デバッグ: MC-100の計画取得をログ出力
+    if (plan && vehicleId === allVehicles.find(v => v.machine_number === "100")?.id) {
+      const depBase = allBases.find(b => b.id === plan.departure_base_id)?.base_name
+      const arrBase = allBases.find(b => b.id === plan.arrival_base_id)?.base_name
+      const currentBase = allBases.find(b => b.id === baseId)?.base_name
+      console.log(`[計画取得:基地別] ${date} ${currentBase}: ${depBase || 'なし'} → ${arrBase || 'なし'} (${plan.shift_type})`)
+    }
+    
+    return plan
   }
 
   // 特定の日付、車両、基地の運用実績を取得
@@ -462,11 +923,25 @@ export function OperationManagementChart() {
     })
   }
 
-  // 特定の日付と車両の検査を取得
+  // 特定の日付と車両の検査を取得（検修期間全体をチェック）
   const getInspectionForVehicleAndDate = (vehicleId: number, date: string): Inspection | undefined => {
     return inspections.find((inspection) => {
       const inspectionDate = typeof inspection.inspection_date === 'string' ? inspection.inspection_date.split('T')[0] : inspection.inspection_date
       return inspection.vehicle_id === vehicleId && inspectionDate === date
+    })
+  }
+
+  // 検修期間中かどうかを判定（plan_dateからend_dateまで）
+  const isInMaintenancePeriod = (vehicleId: number, date: string): OperationPlan | undefined => {
+    return operationPlans.find((plan) => {
+      if (plan.vehicle_id !== vehicleId || plan.shift_type !== 'maintenance') return false
+      
+      const planStartDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
+      const planEndDate = plan.end_date 
+        ? (typeof plan.end_date === 'string' ? plan.end_date.split('T')[0] : plan.end_date)
+        : planStartDate
+      
+      return date >= planStartDate && date <= planEndDate
     })
   }
 
@@ -488,16 +963,8 @@ export function OperationManagementChart() {
   }
 
   const getShiftTypeColor = (shiftType: string) => {
-    switch (shiftType) {
-      case "day":
-        return "bg-yellow-100 text-yellow-800 border-yellow-300"
-      case "night":
-        return "bg-blue-100 text-blue-800 border-blue-300"
-      case "both":
-        return "bg-purple-100 text-purple-800 border-purple-300"
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-300"
-    }
+    // すべての計画を黄色で統一
+    return "bg-yellow-100 text-yellow-800 border-yellow-300"
   }
 
   const getShiftTypeLabel = (shiftType: string) => {
@@ -671,6 +1138,33 @@ export function OperationManagementChart() {
   // 月表示に戻る
   const handleBackToMonth = () => {
     setSelectedDate(null)
+  }
+
+  // A3 Excelエクスポート
+  const handleExportToExcel = async () => {
+    try {
+      // フィルター条件を収集
+      const filterConditions = {
+        office: selectedOfficeId !== "all" 
+          ? allOffices.find(o => o.id === Number.parseInt(selectedOfficeId))?.office_name 
+          : undefined,
+        bases: undefined, // 基地フィルターは現在未実装
+        vehicleType: selectedVehicleTypes.length > 0 
+          ? selectedVehicleTypes.join('、') 
+          : undefined
+      }
+
+      await exportOperationPlanToA3Excel(
+        filteredVehicles,
+        operationPlans,
+        inspections,
+        currentMonth,
+        filterConditions
+      )
+    } catch (error) {
+      console.error('Excelエクスポートエラー:', error)
+      setError('Excelエクスポートに失敗しました。')
+    }
   }
 
   if (loading) {
@@ -952,21 +1446,34 @@ export function OperationManagementChart() {
               </Button>
             )}
           </div>
+          
+          {/* Excelエクスポートボタンと補足説明 */}
+          <div className="mt-4 space-y-2">
+            <Button variant="outline" size="sm" onClick={handleExportToExcel} className="w-full">
+              <FileText className="w-4 h-4 mr-2" />
+              A3 Excelエクスポート
+            </Button>
+            <div className="text-xs text-blue-600 font-medium text-center">
+              ※ フィルターで絞り込んだデータがエクスポートされます。
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* 運用実績管理表 */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <span>{currentMonth} 運用実績管理表</span>
-            <Badge variant="outline" className={monthInfo.color}>
-              {monthInfo.label}表示
-            </Badge>
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center space-x-2">
+              <span>{currentMonth} 運用実績管理表</span>
+              <Badge variant="outline" className={monthInfo.color}>
+                {monthInfo.label}表示
+              </Badge>
+            </CardTitle>
+          </div>
           <div className="text-sm text-gray-600 space-y-2">
             <div>
-              運用計画と実績を統合表示します。セルをクリックして実績を追加・編集できます（計画がない場合でも実績追加可能）。
+              運用計画と実績を統合表示します。セルをクリックして実績を追加・編集できます（計画がない場合でも実績追加可能）。計画をクリックで編集できます。
             </div>
             <div className="flex flex-wrap gap-3 text-xs">
               <div className="flex items-center space-x-1">
@@ -983,7 +1490,7 @@ export function OperationManagementChart() {
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded"></div>
-                <span>検査</span>
+                <span>検修</span>
               </div>
             </div>
           </div>
@@ -1111,7 +1618,7 @@ export function OperationManagementChart() {
                                         </div>
                                       )}
 
-                                      {/* 検査 */}
+                                      {/* 検修 */}
                                       {inspection && (
                                         <div className="space-y-1">
                                           <div className="flex items-center space-x-1">
@@ -1126,7 +1633,7 @@ export function OperationManagementChart() {
                                                     : "低"}
                                             </div>
                                           </div>
-                                          <div className="text-xs text-gray-600">{inspection.inspection_type}</div>
+                                          <div className="text-xs text-gray-600">検修: {inspection.inspection_type}</div>
                                           <div className="text-xs text-gray-500">{inspection.notes}</div>
                                         </div>
                                       )}
@@ -1231,33 +1738,66 @@ export function OperationManagementChart() {
 
                         {/* 保守基地セル（計画と実績の統合表示） */}
                         {allBases.map((base) => {
-                          const plan = getPlanForVehicleDateAndBase(row.vehicle.id, dateString, base.id)
+                          // その日に到着する計画（到着日基準）
+                          const arrivingPlan = getPlanArrivingOnDate(row.vehicle.id, dateString)
+                          const plan = arrivingPlan && (arrivingPlan.departure_base_id === base.id || arrivingPlan.arrival_base_id === base.id) ? arrivingPlan : undefined
+                          
+                          // 実績：出発基地または到着基地がこの基地のものを表示
                           const records = operationRecords.filter(
-                            r => r.vehicle_id === row.vehicle.id && r.record_date === dateString && 
-                            (r.departure_base_id === base.id || r.arrival_base_id === base.id)
+                            r => {
+                              const rDate = typeof r.record_date === 'string' ? r.record_date.split('T')[0] : r.record_date
+                              return r.vehicle_id === row.vehicle.id && rDate === dateString && 
+                                (r.departure_base_id === base.id || r.arrival_base_id === base.id)
+                            }
                           )
                           const inspection = getInspectionForVehicleAndDate(row.vehicle.id, dateString)
+                          
+                          // 留置状態をチェック
+                          const isDetained = isVehicleDetainedAtBase(row.vehicle.id, dateString, base.id)
 
                           return (
                             <td 
                               key={base.id} 
-                              className="border p-2"
+                              className={`border p-2 ${isDetained ? 'bg-gray-50' : ''}`}
                             >
                               <div className="space-y-2">
-                                {/* 運用計画 */}
-                                {plan && (
+                                {/* 検修期間の表示 */}
+                                {isInMaintenancePeriod(row.vehicle.id, dateString) && (
                                   <div 
-                                    className="space-y-1 cursor-pointer hover:bg-blue-100 rounded p-1"
-                                    onClick={() => handleCellClick(row.vehicle.id, dateString)}
+                                    className="cursor-pointer hover:bg-blue-50 rounded p-2"
+                                    onClick={() => {
+                                      const maintenancePlan = isInMaintenancePeriod(row.vehicle.id, dateString)
+                                      if (maintenancePlan) {
+                                        handleEditPlan(maintenancePlan)
+                                      }
+                                    }}
                                   >
-                                    <div className={`text-xs px-1 py-0.5 rounded ${getShiftTypeColor(plan.shift_type)}`}>
-                                      計画: {getShiftTypeLabel(plan.shift_type)}
+                                    <div className="bg-white text-blue-700 border-2 border-blue-400 text-sm px-3 py-2 rounded text-center font-medium">
+                                      検修中
                                     </div>
                                   </div>
                                 )}
 
-                                {/* 運用実績リスト */}
-                                {records.length > 0 && (
+                                {/* 運用計画（検修以外、検修期間外のみ表示） */}
+                                {plan && plan.shift_type !== 'maintenance' && !isInMaintenancePeriod(row.vehicle.id, dateString) && (
+                                  <div 
+                                    className="space-y-1 cursor-pointer hover:bg-blue-100 rounded p-1"
+                                    onClick={() => handleEditPlan(plan)}
+                                  >
+                                    <div className={`text-xs px-1 py-0.5 rounded ${getShiftTypeColor(plan.shift_type)}`}>
+                                      計画: {getShiftTypeLabel(plan.shift_type)}
+                                      {/* 基地間移動の表示（計画表示内に統合） */}
+                                      {plan.departure_base_id && plan.arrival_base_id && plan.departure_base_id !== plan.arrival_base_id && plan.departure_base_id === base.id && (
+                                        <span className="ml-1 text-blue-600 font-medium">
+                                          ➡ {allBases.find(b => b.id === plan.arrival_base_id)?.base_name}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* 運用実績リスト（検修期間外のみ表示） */}
+                                {records.length > 0 && !isInMaintenancePeriod(row.vehicle.id, dateString) && (
                                   <div className="space-y-1">
                                     {records.map((record) => (
                                       <div 
@@ -1282,8 +1822,19 @@ export function OperationManagementChart() {
                                   </div>
                                 )}
 
-                                {/* 実績追加ボタン（計画がある場合） */}
-                                {plan && (
+                                {/* 留置状態の表示（留置中、検修期間外のみ） */}
+                                {isDetained && !plan && records.length === 0 && !isInMaintenancePeriod(row.vehicle.id, dateString) && (
+                                  <button
+                                    onClick={() => handleCellClick(row.vehicle.id, dateString)}
+                                    className="text-xs text-indigo-800 px-2 py-1 bg-indigo-100 rounded text-center w-full hover:bg-indigo-200 transition-colors cursor-pointer"
+                                  >
+                                    <Home className="w-3 h-3 inline-block mr-1" />
+                                    留置中
+                                  </button>
+                                )}
+
+                                {/* 実績追加ボタン（計画がある場合、検修期間外） */}
+                                {plan && plan.shift_type !== 'maintenance' && !isInMaintenancePeriod(row.vehicle.id, dateString) && (
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation()
@@ -1295,28 +1846,8 @@ export function OperationManagementChart() {
                                   </button>
                                 )}
 
-                                {/* 検査 */}
-                                {inspection && (
-                                  <div className="space-y-1">
-                                    <div className="flex items-center space-x-1">
-                                      <Wrench className="w-3 h-3 text-purple-600" />
-                                      <div className={`text-xs px-1 py-0.5 rounded ${getPriorityBadgeColor(inspection.priority)}`}>
-                                        {inspection.priority === "urgent"
-                                          ? "緊急"
-                                          : inspection.priority === "high"
-                                            ? "高"
-                                            : inspection.priority === "normal"
-                                              ? "通常"
-                                              : "低"}
-                                      </div>
-                                    </div>
-                                    <div className="text-xs text-gray-600">{inspection.inspection_type}</div>
-                                    <div className="text-xs text-gray-500">{inspection.notes}</div>
-                                  </div>
-                                )}
-
-                                {/* データがない場合（クリックで実績追加可能） */}
-                                {!plan && records.length === 0 && !inspection && (
+                                {/* データがない場合（クリックで実績追加可能、検修期間外のみ） */}
+                                {!plan && records.length === 0 && !isInMaintenancePeriod(row.vehicle.id, dateString) && !isDetained && (
                                   <button
                                     onClick={() => handleCellClick(row.vehicle.id, dateString)}
                                     className="text-xs text-gray-500 hover:text-green-600 hover:bg-green-50 px-2 py-2 rounded w-full text-center transition-colors"
@@ -1373,6 +1904,14 @@ export function OperationManagementChart() {
                 運用計画が存在しない実績を追加します。日付、機種、基地を指定してください。
               </div>
             </div>
+          )}
+
+          {/* 基地不一致警告 */}
+          {baseConflictWarning && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{baseConflictWarning}</AlertDescription>
+            </Alert>
           )}
 
           <div className="space-y-4 py-4">
@@ -1491,7 +2030,20 @@ export function OperationManagementChart() {
                 <Label htmlFor="arrival_base">到着基地</Label>
                 <Select 
                   value={recordForm.arrival_base_id} 
-                  onValueChange={(value) => setRecordForm({ ...recordForm, arrival_base_id: value })}
+                  onValueChange={(value) => {
+                    setRecordForm({ ...recordForm, arrival_base_id: value })
+                    // 到着基地変更時に警告をチェック
+                    if (value && value !== "none") {
+                      const warning = checkBaseConflict(
+                        Number.parseInt(recordForm.vehicle_id),
+                        recordForm.record_date,
+                        Number.parseInt(value)
+                      )
+                      setBaseConflictWarning(warning)
+                    } else {
+                      setBaseConflictWarning(null)
+                    }
+                  }}
                 >
                   <SelectTrigger id="arrival_base">
                     <SelectValue placeholder="到着基地を選択" />
@@ -1505,6 +2057,16 @@ export function OperationManagementChart() {
                     ))}
                   </SelectContent>
                 </Select>
+                {/* クリックした基地と異なる基地を選択した場合の警告 */}
+                {selectedBaseId && recordForm.arrival_base_id !== "none" && 
+                 Number.parseInt(recordForm.arrival_base_id) !== selectedBaseId && (() => {
+                  const selectedBase = allBases.find(b => b.id === selectedBaseId)
+                  return (
+                    <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                      ⚠️ クリックした基地は{selectedBase?.base_name}です
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
@@ -1589,6 +2151,295 @@ export function OperationManagementChart() {
                 <Button onClick={handleSaveRecord}>
                   <Save className="w-4 h-4 mr-2" />
                   {editingRecord ? "更新" : "作成"}
+                </Button>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 運用計画作成モーダル */}
+      <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPlan ? "運用計画を編集" : isCreatingPlanFromDetention ? "留置中から新しい運用計画を作成" : "新しい運用計画を作成"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingPlan 
+                ? "運用計画の内容を編集します。" 
+                : isCreatingPlanFromDetention 
+                  ? "最終留置基地から出発する運用計画を作成します。" 
+                  : "新しい運用計画を作成します。"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* 基地不一致警告 */}
+          {nextPlanConflictWarning && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {nextPlanConflictWarning}
+                <div className="mt-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      // 警告を確認して保存を続行
+                      handleSavePlan()
+                    }}
+                  >
+                    確認しました。計画を作成する
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="plan_vehicle">車両</Label>
+                <Select 
+                  value={planForm.vehicle_id} 
+                  onValueChange={(value) => setPlanForm({ ...planForm, vehicle_id: value })}
+                  disabled={editingPlan !== null || isCreatingPlanFromDetention}
+                >
+                  <SelectTrigger id="plan_vehicle">
+                    <SelectValue placeholder="車両を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allVehicles.filter(v => v.id).map((vehicle) => (
+                      <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                        {vehicle.name} - {vehicle.machine_number}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plan_date">計画日</Label>
+                <Input
+                  id="plan_date"
+                  type="date"
+                  value={planForm.plan_date}
+                  onChange={(e) => setPlanForm({ ...planForm, plan_date: e.target.value })}
+                  disabled={editingPlan !== null}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plan_end_date">終了日（検修期間用）</Label>
+                <Input
+                  id="plan_end_date"
+                  type="date"
+                  value={planForm.end_date}
+                  onChange={(e) => setPlanForm({ ...planForm, end_date: e.target.value })}
+                  placeholder="任意"
+                />
+                <div className="text-xs text-gray-500">
+                  検修期間を設定する場合に入力してください
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="plan_shift_type">運用予定</Label>
+                  <Select 
+                    value={planForm.shift_type} 
+                    onValueChange={(value) => {
+                      setPlanForm({ 
+                        ...planForm, 
+                        shift_type: value,
+                        inspection_type_id: value === "maintenance" ? planForm.inspection_type_id : ""
+                      })
+                    }}
+                  >
+                    <SelectTrigger id="plan_shift_type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">昼間</SelectItem>
+                      <SelectItem value="night">夜間</SelectItem>
+                      <SelectItem value="maintenance">検修</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {planForm.shift_type === "maintenance" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="plan_inspection_type">検修種別</Label>
+                    <Select 
+                      value={planForm.inspection_type_id} 
+                      onValueChange={(value) => setPlanForm({ ...planForm, inspection_type_id: value })}
+                    >
+                      <SelectTrigger id="plan_inspection_type">
+                        <SelectValue placeholder="検修種別を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {inspectionTypes.length === 0 ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            検修種別マスタにデータがありません
+                          </div>
+                        ) : (
+                          inspectionTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id.toString()}>
+                              {type.type_name}・{type.interval_days ? `${type.interval_days}日` : '期間未設定'}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="plan_start_time">開始時刻</Label>
+                  <Input
+                    id="plan_start_time"
+                    type="time"
+                    value={planForm.start_time}
+                    onChange={(e) => setPlanForm({ ...planForm, start_time: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="plan_end_time">終了時刻</Label>
+                  <Input
+                    id="plan_end_time"
+                    type="time"
+                    value={planForm.end_time}
+                    onChange={(e) => setPlanForm({ ...planForm, end_time: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="plan_departure_base">出発基地</Label>
+                <Select 
+                  value={planForm.departure_base_id} 
+                  onValueChange={(value) => setPlanForm({ ...planForm, departure_base_id: value })}
+                  disabled={isCreatingPlanFromDetention}
+                >
+                  <SelectTrigger id="plan_departure_base">
+                    <SelectValue placeholder="出発基地を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allBases.filter(b => b.id).map((base) => (
+                      <SelectItem key={base.id} value={base.id.toString()}>
+                        {base.base_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {isCreatingPlanFromDetention && (
+                  <div className="text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                    ℹ️ 最終留置基地から出発します（変更不可）
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="plan_arrival_base">到着基地</Label>
+                <Select 
+                  value={planForm.arrival_base_id} 
+                  onValueChange={(value) => {
+                    setPlanForm({ ...planForm, arrival_base_id: value })
+                    // 到着基地変更時に警告をチェック
+                    if (value) {
+                      const warning = checkBaseConflict(
+                        Number.parseInt(planForm.vehicle_id),
+                        planForm.plan_date,
+                        Number.parseInt(value)
+                      )
+                      setNextPlanConflictWarning(warning)
+                    } else {
+                      setNextPlanConflictWarning(null)
+                    }
+                  }}
+                >
+                  <SelectTrigger id="plan_arrival_base">
+                    <SelectValue placeholder="到着基地を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allBases.filter(b => b.id).map((base) => (
+                      <SelectItem key={base.id} value={base.id.toString()}>
+                        {base.base_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plan_planned_distance">予定距離 (km)</Label>
+              <Input
+                id="plan_planned_distance"
+                type="number"
+                min="0"
+                step="0.1"
+                value={planForm.planned_distance}
+                onChange={(e) => setPlanForm({ ...planForm, planned_distance: parseFloat(e.target.value) || 0 })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="plan_notes">備考</Label>
+              <Textarea
+                id="plan_notes"
+                value={planForm.notes}
+                onChange={(e) => setPlanForm({ ...planForm, notes: e.target.value })}
+                placeholder="備考を入力してください"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <div className="flex space-x-2 w-full justify-between">
+              <div>
+                {editingPlan && (
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeletePlan}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    削除
+                  </Button>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowPlanModal(false)
+                    setEditingPlan(null)
+                    setIsCreatingPlanFromDetention(false)
+                    setDetentionBaseId(null)
+                    setNextPlanConflictWarning(null)
+                  }}
+                >
+                  キャンセル
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (nextPlanConflictWarning) {
+                      // 警告がある場合は何もしない（警告内のボタンで確認）
+                      return
+                    }
+                    handleSavePlan()
+                  }}
+                  disabled={nextPlanConflictWarning !== null}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {editingPlan ? "更新" : "作成"}
                 </Button>
               </div>
             </div>

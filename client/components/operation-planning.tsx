@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Calendar, ChevronLeft, ChevronRight, Car, AlertCircle, Building, Filter, Copy, Download, Edit, Trash2 } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Car, AlertCircle, Building, Filter, Copy, Edit, Trash2, FileText } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
@@ -17,6 +17,15 @@ import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui
 
 import type { Vehicle, OperationPlan, Base, Office, VehicleInspectionSchedule } from "@/types"
 import { apiCall, isDatabaseConfigured } from "@/lib/api-client"
+
+// 検修タイプの型定義
+interface InspectionType {
+  id: number
+  type_name: string
+  category: string
+  interval_months?: number
+  description?: string
+}
 
 // ファイル保存ダイアログの型定義
 declare global {
@@ -51,6 +60,7 @@ export function OperationPlanning() {
   const [allBases, setAllBases] = useState<Base[]>([])
   const [allOffices, setAllOffices] = useState<Office[]>([])
   const [inspectionSchedules, setInspectionSchedules] = useState<VehicleInspectionSchedule[]>([])
+  const [inspectionTypes, setInspectionTypes] = useState<InspectionType[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [timeFieldErrors, setTimeFieldErrors] = useState<{ start: boolean; end: boolean }>({ start: false, end: false })
@@ -66,6 +76,7 @@ export function OperationPlanning() {
     plan_date: "",
     end_date: "",
     shift_type: "day",
+    inspection_type_id: "", // 検修種別ID
     start_time: "08:00",
     end_time: "17:00",
     planned_distance: 0,
@@ -156,6 +167,16 @@ export function OperationPlanning() {
         // 検査スケジュールは必須ではないので空配列のまま
       }
 
+      // 検修タイプマスタの取得
+      let inspectionTypesData: InspectionType[] = []
+      try {
+        inspectionTypesData = await apiCall<InspectionType[]>("inspection-types")
+        setInspectionTypes(inspectionTypesData)
+      } catch (error) {
+        console.error("検修タイプマスタの取得エラー:", error)
+        // 検修タイプは必須ではないので空配列のまま
+      }
+
       console.log("=== データ取得完了 ===")
       console.log("運用計画データ:", plansData.length, "件")
       console.log("運用計画サンプル:", JSON.stringify(plansData[0], null, 2))
@@ -224,6 +245,12 @@ export function OperationPlanning() {
 
     return vehicles
   }, [allVehicles, allBases, allOffices, selectedOfficeId, selectedVehicleTypes, selectedMachineNumbers])
+
+  // フィルタリングされた運用計画を取得
+  const filteredOperationPlans = useMemo(() => {
+    const filteredVehicleIds = filteredVehicles.map(v => v.id)
+    return operationPlans.filter(plan => filteredVehicleIds.includes(plan.vehicle_id))
+  }, [operationPlans, filteredVehicles])
 
   // 各フィルターで利用可能な事業所リストを取得（他のフィルターに応じて絞り込み）
   const availableOffices = useMemo(() => {
@@ -355,27 +382,26 @@ export function OperationPlanning() {
     return endDate > planDate
   }
 
-  // 前日から継続する計画を取得（end_dateが当日の計画）
+  // 前日から継続する計画を取得（前日開始で当日終了の計画のみ）
   const getPreviousDayOvernightPlans = (vehicleId: number, date: string) => {
     const targetDate = date.split('T')[0]
     
     const prevPlans = operationPlans.filter((p) => {
+      if (p.vehicle_id !== vehicleId) return false
+      
       const planDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
       const endDate = p.end_date ? (typeof p.end_date === 'string' ? p.end_date.split('T')[0] : p.end_date) : planDate
       
-      // 計画日が当日より前で、終了日が当日の計画
-      const match = p.vehicle_id === vehicleId && planDate < targetDate && endDate === targetDate
+      // 【重要】計画日が当日より前で、終了日が当日の計画のみ
+      // ★計画日が当日またはそれ以降の場合は絶対に含めない★
+      const isPreviousDayStart = planDate < targetDate
+      const isCurrentDayEnd = endDate === targetDate
       
-      if (match && vehicleId === filteredVehicles[0]?.id && targetDate === getDateString(1)) {
-        console.log('前日継続計画発見:', { vehicleId, targetDate, planDate, endDate, plan: p })
-      }
+      // 計画日が当日以降なら除外（当日開始の計画は前日継続ではない）
+      if (planDate >= targetDate) return false
       
-      return match
+      return isPreviousDayStart && isCurrentDayEnd
     })
-    
-    if (vehicleId === filteredVehicles[0]?.id && targetDate === getDateString(1)) {
-      console.log('前日継続計画取得結果:', { vehicleId, targetDate, count: prevPlans.length })
-    }
     
     return prevPlans
   }
@@ -410,6 +436,20 @@ export function OperationPlanning() {
     })
     
     return plans
+  }
+
+  // 検修期間中かどうかを判定（plan_dateからend_dateまで）
+  const isInMaintenancePeriod = (vehicleId: number, date: string): OperationPlan | undefined => {
+    return operationPlans.find((plan) => {
+      if (plan.vehicle_id !== vehicleId || plan.shift_type !== 'maintenance') return false
+      
+      const planStartDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
+      const planEndDate = plan.end_date 
+        ? (typeof plan.end_date === 'string' ? plan.end_date.split('T')[0] : plan.end_date)
+        : planStartDate
+      
+      return date >= planStartDate && date <= planEndDate
+    })
   }
 
   const navigateMonth = (direction: "prev" | "next") => {
@@ -931,18 +971,38 @@ export function OperationPlanning() {
         }
       }
 
-      if (editingPlan) {
-        // 更新
-        await apiCall(`operation-plans/${editingPlan.id}`, {
-          method: "PUT",
-          body: JSON.stringify(planData),
+      // 検修の場合は検査テーブルに保存
+      if (planForm.shift_type === "maintenance" && planForm.inspection_type_id) {
+        const inspectionType = inspectionTypes.find(t => t.id.toString() === planForm.inspection_type_id)
+        const inspectionData = {
+          vehicle_id: planData.vehicle_id,
+          inspection_type: inspectionType?.type_name || "",
+          inspection_category: inspectionType?.category || "定期検査",
+          planned_start_date: planData.plan_date,
+          planned_end_date: planData.plan_date,
+          status: "planned",
+          notes: planData.notes
+        }
+
+        await apiCall("inspections", {
+          method: "POST",
+          body: JSON.stringify(inspectionData),
         })
       } else {
-        // 新規作成
-        await apiCall("operation-plans", {
-          method: "POST",
-          body: JSON.stringify(planData),
-        })
+        // 運用の場合は運用計画テーブルに保存
+        if (editingPlan) {
+          // 更新
+          await apiCall(`operation-plans/${editingPlan.id}`, {
+            method: "PUT",
+            body: JSON.stringify(planData),
+          })
+        } else {
+          // 新規作成
+          await apiCall("operation-plans", {
+            method: "POST",
+            body: JSON.stringify(planData),
+          })
+        }
       }
 
       await fetchData()
@@ -1035,85 +1095,21 @@ export function OperationPlanning() {
     setSelectedMachineNumbers([])
   }
 
-  // CSVエクスポート機能
-  const exportToCSV = async () => {
+  // Excelエクスポート
+  const handleExportToExcel = async () => {
     try {
-      setError(null)
-      
-      // 現在のフィルター設定を含むURLを構築
-      const params = new URLSearchParams({
-        month: currentMonth,
-        format: 'csv'
-      })
-      
-      if (selectedOfficeId !== "all") {
-        params.append('office_id', selectedOfficeId)
-      }
-      
-      // 複数の機種パラメータを送信
-      selectedVehicleTypes.forEach(type => {
-        params.append('vehicle_type', type)
-      })
-      
-      const response = await fetch(`/api/operation-plans?${params.toString()}`)
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-      
-      const blob = await response.blob()
-      
-      // ファイル名を生成（フィルターがある場合は含める）
-      const officeName = selectedOfficeId !== "all" 
-        ? allOffices.find(o => o.id === Number.parseInt(selectedOfficeId))?.office_name || ""
-        : ""
-      const vehicleTypeNames = selectedVehicleTypes.length > 0 
-        ? selectedVehicleTypes.join('-') 
-        : ""
-      
-      let fileName = `operation-plans-${currentMonth}`
-      if (officeName) fileName += `-${officeName}`
-      if (vehicleTypeNames) fileName += `-${vehicleTypeNames}`
-      fileName += '.csv'
-      
-      // ブラウザがファイル保存ダイアログをサポートしているかチェック
-      if (window.showSaveFilePicker) {
-        try {
-          const handle = await window.showSaveFilePicker({
-            suggestedName: fileName,
-            types: [{
-              description: 'CSVファイル',
-              accept: { 'text/csv': ['.csv'] }
-            }]
-          })
-          const writable = await handle.createWritable()
-          await writable.write(blob)
-          await writable.close()
-        } catch (saveError) {
-          // ファイル保存ダイアログがキャンセルされた場合やエラーの場合は従来の方法を使用
-          console.log('ファイル保存ダイアログが使用できません:', saveError)
-          downloadFile(blob, fileName)
-        }
-      } else {
-        // 従来のダウンロード方法
-        downloadFile(blob, fileName)
-      }
+      const { exportOperationPlanToA3Excel } = await import('@/lib/excel-export')
+      await exportOperationPlanToA3Excel(
+        filteredVehicles,       // 1. 車両データ
+        filteredOperationPlans, // 2. 運用計画データ
+        [],                     // 3. 検査データ（現在は空配列）
+        currentMonth,           // 4. 月（"YYYY-MM" 形式の文字列）
+        allBases                // 5. 基地データ（基地名表示用）
+      )
     } catch (error) {
-      console.error('CSVエクスポートエラー:', error)
-      setError(`CSVエクスポートに失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
+      console.error('Excel export error:', error)
+      setError('Excelエクスポートに失敗しました。')
     }
-  }
-
-  // ファイルダウンロード関数
-  const downloadFile = (blob: Blob, fileName: string) => {
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
   }
 
   if (loading) {
@@ -1372,15 +1368,26 @@ export function OperationPlanning() {
               )}
             </div>
             <div className="flex items-center space-x-2">
-              {(selectedOfficeId !== "all" || selectedVehicleTypes.length > 0 || selectedMachineNumbers.length > 0) && (
-                <Button variant="outline" size="sm" onClick={resetFilters}>
-                  フィルターをリセット
-                </Button>
-              )}
-              <Button variant="outline" size="sm" onClick={exportToCSV}>
-                <Download className="w-4 h-4 mr-2" />
-                CSVエクスポート
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={resetFilters}
+                disabled={selectedOfficeId === "all" && selectedVehicleTypes.length === 0 && selectedMachineNumbers.length === 0}
+              >
+                フィルターをリセット
               </Button>
+              <div className="w-4" />
+              <Button variant="outline" size="sm" onClick={handleExportToExcel} className="border-2 border-blue-600 text-blue-600 hover:bg-blue-50">
+                <FileText className="w-4 h-4 mr-2" />
+                エクスポート
+              </Button>
+            </div>
+          </div>
+
+          {/* 補足説明 */}
+          <div className="mt-2">
+            <div className="text-xs text-blue-600 font-medium text-right">
+              ※ フィルターで絞り込んだデータがエクセル（A3）でエクスポートされます。
             </div>
           </div>
         </CardContent>
@@ -1429,20 +1436,85 @@ export function OperationPlanning() {
                       </td>
                       {days.map((day) => {
                         const dateString = getDateString(day)
-                        const plans = getPlansForVehicleAndDate(vehicle.id, dateString)
-                          // 時間順にソート（朝→昼→夜）
+                        
+                        // 当日開始の計画を取得
+                        const allPlans = getPlansForVehicleAndDate(vehicle.id, dateString)
                           .sort((a, b) => {
                             const timeA = a.start_time || '00:00'
                             const timeB = b.start_time || '00:00'
                             return timeA.localeCompare(timeB)
                           })
-                        const previousDayPlans = getPreviousDayOvernightPlans(vehicle.id, dateString)
-                          // 前日継続も時間順にソート
+                        
+                        // デバッグログ：車両100の1-3日のみ
+                        if (day <= 3 && vehicle.machine_number === '100') {
+                          console.log(`\n=== ${day}日 車両100 ===`)
+                          console.log('当日開始の計画:', allPlans.map(p => ({
+                            id: p.id,
+                            plan_date: p.plan_date,
+                            end_date: p.end_date,
+                            time: `${p.start_time}-${p.end_time}`,
+                            shift: p.shift_type
+                          })))
+                        }
+                        
+                        // 時刻文字列を正規化するヘルパー関数 (H:MM -> HH:MM)
+                        const normalizeTime = (time?: string) => {
+                          if (!time) return "00:00"
+                          const parts = time.split(':')
+                          const h = parts[0] || '00'
+                          const m = parts[1] || '00'
+                          return `${h.padStart(2, '0')}:${m.padStart(2, '0')}`
+                        }
+                        
+                        // 当日計画の時間帯セットを作成（時刻を正規化）
+                        const currentDayTimeRanges = allPlans.map(p => ({
+                          id: p.id,
+                          start: normalizeTime(p.start_time),
+                          end: normalizeTime(p.end_time)
+                        }))
+                        
+                        // 前日継続計画を取得
+                        const allPreviousDayPlans = getPreviousDayOvernightPlans(vehicle.id, dateString)
+                          .filter(p => p.shift_type !== 'maintenance') // 検修は別途表示
                           .sort((a, b) => {
                             const timeA = a.start_time || '00:00'
                             const timeB = b.start_time || '00:00'
                             return timeA.localeCompare(timeB)
                           })
+                        
+                        // 重複除外：当日計画と同じ時間帯の前日継続は除外
+                        const previousDayPlans = allPreviousDayPlans.filter(prevPlan => {
+                          // 前日継続の時刻を正規化
+                          const prevStart = normalizeTime(prevPlan.start_time)
+                          const prevEnd = normalizeTime(prevPlan.end_time)
+                          
+                          // 当日計画に同じ時間帯が存在する場合は前日継続を除外
+                          // ※翌日またぎの計画（22:00-08:00）の場合も、表記が同じなら重複として除外する
+                          // （ユーザー要望: Day 1の夜間計画と重複する前日継続表示は不要）
+                          for (const currentRange of currentDayTimeRanges) {
+                            if (prevStart === currentRange.start && prevEnd === currentRange.end) {
+                              return false // 同じ時間帯の前日継続は除外
+                            }
+                          }
+                          
+                          return true
+                        })
+
+                        
+                        // デバッグログ：フィルター後
+                        if (day <= 3 && vehicle.machine_number === '100') {
+                          console.log('前日継続（フィルター後）:', previousDayPlans.map(p => ({
+                            time: `${p.start_time?.slice(0,5)}-${p.end_time?.slice(0,5)}`
+                          })))
+                          console.log('当日計画の時間帯:', currentDayTimeRanges.map(r => `${r.start}-${r.end}`))
+                        }
+                        
+                        // 前日継続のIDセットを作成
+                        const previousPlanIds = new Set(previousDayPlans.map(p => p.id))
+                        
+                        // 当日計画から前日継続に含まれるIDを除外
+                        const plans = allPlans.filter(plan => !previousPlanIds.has(plan.id))
+                        
                         // タイムゾーンの影響を避けるため、日付文字列から直接曜日を計算
                         const [year, month, dayNum] = dateString.split('-').map(Number)
                         const isWeekend = new Date(year, month - 1, dayNum).getDay() === 0 || new Date(year, month - 1, dayNum).getDay() === 6
@@ -1460,47 +1532,73 @@ export function OperationPlanning() {
                             onClick={() => !isPastMonth && handleCellClick(vehicle.id, dateString)}
                           >
                             <div className="space-y-1.5 relative" onClick={(e) => e.stopPropagation()}>
-                              {/* 検査予告バッジ */}
+                              {/* 検修期間判定 */}
                               {(() => {
-                                const warning = getInspectionWarning(vehicle.id, dateString)
-                                if (warning) {
-                                  return (
-                                    <div className="mb-1">
-                                      <Badge className="text-xs bg-yellow-500 text-white whitespace-nowrap">
-                                        <AlertCircle className="w-3 h-3 mr-1 inline" />
-                                        {warning.next_inspection_type}予告 (残{warning.days_until_inspection}日)
-                                      </Badge>
-                                    </div>
-                                  )
-                                }
-                                return null
-                              })()}
-                              {(plans.length + previousDayPlans.length) > 1 && (
-                                <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold z-10">
-                                  {plans.length + previousDayPlans.length}
-                                </div>
-                              )}
-                              {/* 前日からの継続計画 */}
-                              {previousDayPlans.map((plan, idx) => (
-                                  <div 
-                                    key={`prev-${plan.id || idx}`} 
-                                    className="p-1 rounded bg-amber-50 border-2 border-amber-300"
-                                  >
-                                    <div className="flex items-center gap-1 mb-0.5 flex-wrap">
-                                      <Badge className="text-xs bg-amber-600 text-white whitespace-nowrap">
-                                        前日継続
-                                      </Badge>
-                                      <span className="text-xs font-medium text-amber-900 whitespace-nowrap">
-                                        {plan.start_time?.slice(0, 5)}~{plan.end_time?.slice(0, 5)}
-                                      </span>
-                                    </div>
-                                    {plan.departure_base_id && plan.arrival_base_id && (
-                                      <div className="text-xs text-amber-700 mt-0.5">
-                                        {allBases.find((b) => b.id === plan.departure_base_id)?.base_name} → {allBases.find((b) => b.id === plan.arrival_base_id)?.base_name}
+                                const maintenancePlan = isInMaintenancePeriod(vehicle.id, dateString)
+                                
+                                return (
+                                  <>
+                                    {/* 前日からの継続計画（検修期間中でも表示、既に検修は除外済み） */}
+                                    {previousDayPlans.map((plan, idx) => (
+                                      <div 
+                                        key={`prev-${plan.id || idx}`} 
+                                        className="p-1 rounded bg-amber-50 border-2 border-amber-300"
+                                      >
+                                        <div className="flex items-center gap-1 mb-0.5 flex-wrap">
+                                          <Badge className="text-xs bg-amber-600 text-white whitespace-nowrap">
+                                            前日継続
+                                          </Badge>
+                                          <span className="text-xs font-medium text-amber-900 whitespace-nowrap">
+                                            {plan.start_time?.slice(0, 5)}~{plan.end_time?.slice(0, 5)}
+                                          </span>
+                                        </div>
+                                        {plan.departure_base_id && plan.arrival_base_id && (
+                                          <div className="text-xs text-amber-700 mt-0.5">
+                                            {allBases.find((b) => b.id === plan.departure_base_id)?.base_name} → {allBases.find((b) => b.id === plan.arrival_base_id)?.base_name}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+
+                                    {/* 検修期間中の表示 */}
+                                    {maintenancePlan && (
+                                      <div 
+                                        className="cursor-pointer hover:bg-blue-50 rounded p-2"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          !isPastMonth && handleCellClick(vehicle.id, dateString, maintenancePlan)
+                                        }}
+                                      >
+                                        <div className="bg-white text-blue-700 border-2 border-blue-400 text-sm px-3 py-2 rounded text-center font-medium">
+                                          検修中
+                                        </div>
                                       </div>
                                     )}
-                                  </div>
-                                ))}
+
+                                    {/* 検修期間外の通常表示 */}
+                                    {!maintenancePlan && (
+                                      <>
+                                        {/* 検査予告バッジ */}
+                                        {(() => {
+                                          const warning = getInspectionWarning(vehicle.id, dateString)
+                                          if (warning) {
+                                            return (
+                                              <div className="mb-1">
+                                                <Badge className="text-xs bg-yellow-500 text-white whitespace-nowrap">
+                                                  <AlertCircle className="w-3 h-3 mr-1 inline" />
+                                                  {warning.next_inspection_type}予告 (残{warning.days_until_inspection}日)
+                                                </Badge>
+                                              </div>
+                                            )
+                                          }
+                                          return null
+                                        })()}
+                                        {(plans.length + previousDayPlans.length) > 1 && (
+                                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold z-10">
+                                            {plans.length + previousDayPlans.length}
+                                          </div>
+                                        )}
+
                                 {/* 当日の計画 */}
                                 {plans.map((plan, idx) => (
                                   <div 
@@ -1533,24 +1631,29 @@ export function OperationPlanning() {
                                         {allBases.find((b) => b.id === plan.departure_base_id)?.base_name} → {allBases.find((b) => b.id === plan.arrival_base_id)?.base_name}
                                       </div>
                                     )}
-                                  </div>
-                                ))}
-                              {/* 当日計画がない場合の表示 */}
-                              {plans.length === 0 && previousDayPlans.length === 0 && (
-                                <div className="text-gray-400 text-xs mb-1">未計画</div>
-                              )}
-                              {/* 追加ボタン（常に表示） */}
-                              {!isPastMonth && (
-                                <button
-                                  className="w-full text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded py-1 border border-dashed border-blue-300"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleCellClick(vehicle.id, dateString)
-                                  }}
-                                >
-                                  + 追加
-                                </button>
-                              )}
+                                          </div>
+                                        ))}
+                                        {/* 当日計画がない場合の表示 */}
+                                        {plans.length === 0 && previousDayPlans.length === 0 && (
+                                          <div className="text-gray-400 text-xs mb-1">未計画</div>
+                                        )}
+                                        {/* 追加ボタン（常に表示） */}
+                                        {!isPastMonth && (
+                                          <button
+                                            className="w-full text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded py-1 border border-dashed border-blue-300"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleCellClick(vehicle.id, dateString)
+                                            }}
+                                          >
+                                            + 追加
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </>
+                                )
+                              })()}
                             </div>
                           </td>
                         )
@@ -1642,57 +1745,94 @@ export function OperationPlanning() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="shift_type">勤務形態</Label>
-                <Select 
-                  value={planForm.shift_type} 
-                  onValueChange={(value) => setPlanForm({ ...planForm, shift_type: value })}
-                >
-                  <SelectTrigger id="shift_type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="day">昼間</SelectItem>
-                    <SelectItem value="night">夜間</SelectItem>
-                    <SelectItem value="day_night">昼夜</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="start_time">開始時刻</Label>
-                <div className="relative">
-                  <Input
-                    id="start_time"
-                    type="time"
-                    value={planForm.start_time}
-                    onChange={(e) => setPlanForm({ ...planForm, start_time: e.target.value })}
-                    className={timeFieldErrors.start ? "border-2 border-red-500" : ""}
-                  />
-                  {timeFieldErrors.start && conflictDetails.start && (
-                    <div className="absolute z-10 w-64 p-2 mt-1 text-xs text-white bg-red-600 rounded shadow-lg">
-                      {conflictDetails.start}
-                    </div>
-                  )}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="shift_type">運用予定</Label>
+                  <Select 
+                    value={planForm.shift_type} 
+                    onValueChange={(value) => {
+                      setPlanForm({ 
+                        ...planForm, 
+                        shift_type: value,
+                        inspection_type_id: value === "maintenance" ? planForm.inspection_type_id : ""
+                      })
+                    }}
+                  >
+                    <SelectTrigger id="shift_type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="day">昼間</SelectItem>
+                      <SelectItem value="night">夜間</SelectItem>
+                      <SelectItem value="maintenance">検修</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {planForm.shift_type === "maintenance" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="inspection_type">検修種別</Label>
+                    <Select 
+                      value={planForm.inspection_type_id} 
+                      onValueChange={(value) => setPlanForm({ ...planForm, inspection_type_id: value })}
+                    >
+                      <SelectTrigger id="inspection_type">
+                        <SelectValue placeholder="検修種別を選択" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {inspectionTypes.length === 0 ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            検修種別マスタにデータがありません
+                          </div>
+                        ) : (
+                          inspectionTypes.map((type) => (
+                            <SelectItem key={type.id} value={type.id.toString()}>
+                              {type.type_name}・{type.interval_months}ヶ月
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="end_time">終了時刻</Label>
-                <div className="relative">
-                  <Input
-                    id="end_time"
-                    type="time"
-                    value={planForm.end_time}
-                    onChange={(e) => setPlanForm({ ...planForm, end_time: e.target.value })}
-                    className={timeFieldErrors.end ? "border-2 border-red-500" : ""}
-                  />
-                  {timeFieldErrors.end && conflictDetails.end && (
-                    <div className="absolute z-10 w-64 p-2 mt-1 text-xs text-white bg-red-600 rounded shadow-lg">
-                      {conflictDetails.end}
-                    </div>
-                  )}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start_time">開始時刻</Label>
+                  <div className="relative">
+                    <Input
+                      id="start_time"
+                      type="time"
+                      value={planForm.start_time}
+                      onChange={(e) => setPlanForm({ ...planForm, start_time: e.target.value })}
+                      className={timeFieldErrors.start ? "border-2 border-red-500" : ""}
+                    />
+                    {timeFieldErrors.start && conflictDetails.start && (
+                      <div className="absolute z-10 w-64 p-2 mt-1 text-xs text-white bg-red-600 rounded shadow-lg">
+                        {conflictDetails.start}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="end_time">終了時刻</Label>
+                  <div className="relative">
+                    <Input
+                      id="end_time"
+                      type="time"
+                      value={planForm.end_time}
+                      onChange={(e) => setPlanForm({ ...planForm, end_time: e.target.value })}
+                      className={timeFieldErrors.end ? "border-2 border-red-500" : ""}
+                    />
+                    {timeFieldErrors.end && conflictDetails.end && (
+                      <div className="absolute z-10 w-64 p-2 mt-1 text-xs text-white bg-red-600 rounded shadow-lg">
+                        {conflictDetails.end}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1843,33 +1983,27 @@ export function OperationPlanning() {
           </div>
 
           <DialogFooter>
-            <div className="flex justify-between w-full">
-              <div>
-                {editingPlan && (
-                  <Button
-                    variant="destructive"
-                    onClick={handleDeletePlan}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    削除
-                  </Button>
-                )}
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowPlanModal(false)
-                    setEditingPlan(null)
-                  }}
-                >
-                  キャンセル
-                </Button>
-                <Button onClick={handleSavePlan}>
-                  {editingPlan ? "更新" : "作成"}
-                </Button>
-              </div>
-            </div>
+            {editingPlan && (
+              <Button
+                variant="destructive"
+                onClick={handleDeletePlan}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                削除
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPlanModal(false)
+                setEditingPlan(null)
+              }}
+            >
+              キャンセル
+            </Button>
+            <Button onClick={handleSavePlan}>
+              {editingPlan ? "更新" : "作成"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export default function InspectionsPage() {
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="max-w-[1920px] mx-auto py-4 space-y-4">
       <InspectionList />
     </div>
   )

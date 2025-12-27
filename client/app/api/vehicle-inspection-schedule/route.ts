@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
               ico.cycle_order as next_cycle_order,
               ico.cycle_months,
               ico.warning_months,
-              li.inspection_date + (ico.cycle_months || ' months')::interval as next_inspection_date,
-              li.inspection_date + ((ico.cycle_months - ico.warning_months) || ' months')::interval as warning_start_date
+              li.inspection_date + (INTERVAL '1 month' * ico.cycle_months) as next_inspection_date,
+              li.inspection_date + (INTERVAL '1 month' * (ico.cycle_months - ico.warning_months)) as warning_start_date
             FROM latest_inspections li
             JOIN master_data.vehicles v ON li.vehicle_id = v.id
             LEFT JOIN inspections.inspection_cycle_order ico ON 
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
               WHEN next_inspection_date::date BETWEEN $1::date AND $2::date THEN true
               ELSE false
             END as is_in_period,
-            EXTRACT(day FROM (next_inspection_date::date - CURRENT_DATE)::interval) as days_until_inspection
+            (next_inspection_date::date - CURRENT_DATE) as days_until_inspection
           FROM next_cycle nc
           WHERE 1=1
         `
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (showWarnings) {
-          query += ` AND is_warning = true`
+          query += ` AND CURRENT_DATE >= nc.warning_start_date::date`
         }
 
         query += ` ORDER BY nc.vehicle_id, next_inspection_date`
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
             ico.cycle_order as next_cycle_order,
             ico.cycle_months,
             ico.warning_months,
-            li.inspection_date + (ico.cycle_months || ' months')::interval as next_inspection_date
+            li.inspection_date + (INTERVAL '1 month' * ico.cycle_months) as next_inspection_date
           FROM latest_inspection li
           JOIN master_data.vehicles v ON li.vehicle_id = v.id
           LEFT JOIN inspections.inspection_cycle_order ico ON 

@@ -9,7 +9,7 @@ export default function SettingsPage() {
       {/* ヘッダーセクション */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-gray-900">設定</h1>
-        <p className="text-lg text-gray-600 max-w-4xl mx-auto">
+        <p className="text-lg text-gray-600 mx-auto">
           システムの各種設定とマスタデータの管理を行います。事業所、保守基地、車両情報、データベース設定などを管理できます。
         </p>
       </div>

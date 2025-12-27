@@ -6,25 +6,32 @@ export const getInspections = async (req, res) => {
     
     let query = `
       SELECT 
-        ip.*,
+        ip.id,
+        ip.vehicle_id,
+        ip.inspection_type,
+        ip.inspection_category,
+        ip.planned_start_date as inspection_date,
+        ip.planned_end_date,
+        ip.status,
+        ip.notes,
+        ip.created_at,
+        ip.updated_at,
         v.vehicle_type,
         v.machine_number,
-        v.management_office_id,
-        it.type_name as inspection_type
-      FROM maintenance.inspection_plans ip
+        v.management_office_id
+      FROM inspections.inspection_plans ip
       LEFT JOIN master_data.vehicles v ON ip.vehicle_id = v.id
-      LEFT JOIN maintenance.inspection_types it ON ip.inspection_type_id = it.id
     `;
     
     const queryParams = [];
     
     // 月フィルター
     if (month) {
-      query += ` WHERE DATE_TRUNC('month', ip.plan_date) = DATE_TRUNC('month', $1::date)`;
+      query += ` WHERE DATE_TRUNC('month', ip.planned_start_date) = DATE_TRUNC('month', $1::date)`;
       queryParams.push(`${month}-01`);
     }
     
-    query += ` ORDER BY ip.plan_date ASC`;
+    query += ` ORDER BY ip.planned_start_date ASC`;
     
     const result = await pool.query(query, queryParams);
     res.json(result.rows);
@@ -35,14 +42,18 @@ export const getInspections = async (req, res) => {
 };
 
 export const createInspection = async (req, res) => {
-  const { machine_id, inspector, inspected_at, result } = req.body;
+  const { vehicle_id, inspection_type, inspection_category, planned_start_date, planned_end_date, status, notes } = req.body;
   try {
-    await pool.query(
-      'INSERT INTO inspections (machine_id, inspector, inspected_at, result) VALUES ($1, $2, $3, $4)',
-      [machine_id, inspector, inspected_at, result]
+    const result = await pool.query(
+      `INSERT INTO inspections.inspection_plans 
+       (vehicle_id, inspection_type, inspection_category, planned_start_date, planned_end_date, status, notes) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7) 
+       RETURNING *`,
+      [vehicle_id, inspection_type, inspection_category, planned_start_date, planned_end_date, status || 'planned', notes]
     );
-    res.status(201).json({ message: 'Inspection added' });
+    res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to add inspection' });
+    console.error('検査計画作成エラー:', err);
+    res.status(500).json({ error: '検査計画の作成に失敗しました', details: err.message });
   }
 };

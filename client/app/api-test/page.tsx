@@ -33,7 +33,7 @@ export default function ApiTestPage() {
   }
 
   return (
-    <div className="container mx-auto p-8">
+    <div className="max-w-[1920px] mx-auto p-6">
       <h1 className="text-3xl font-bold mb-8">API接続テスト</h1>
       
       <div className="grid grid-cols-2 gap-4 mb-8">

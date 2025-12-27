@@ -777,7 +777,7 @@ export default function TravelPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {!isDatabaseConfigured() && (
         <Alert>
           <AlertCircle className="h-4 w-4" />

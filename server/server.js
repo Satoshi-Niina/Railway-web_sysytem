@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import inspectionRoutes from './routes/inspection.js';
+import inspectionTypesRoutes from './routes/inspection-types.js';
 import testRoutes from './routes/test.js';
 import testSqliteRoutes from './routes/test-sqlite.js';
 import operationPlansRoutes from './routes/operation-plans.js';
@@ -49,6 +50,7 @@ app.use(cors({
 app.use(express.json());
 
 app.use('/api/inspections', inspectionRoutes);
+app.use('/api/inspection-types', inspectionTypesRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/test-sqlite', testSqliteRoutes);
 app.use('/api/operation-plans', operationPlansRoutes);

@@ -12,7 +12,7 @@ export default function HomePage() {
       {/* ヘッダーセクション */}
       <div className="text-center space-y-4">
         <h1 className="text-4xl font-bold text-gray-900">鉄道保守管理システム</h1>
-        <p className="text-lg text-gray-600 max-w-4xl mx-auto">
+        <p className="text-lg text-gray-600 mx-auto">
           鉄道保守用車両の**運用管理**を中心に、走行計画・実績、検査計画、故障・修繕記録を一元管理するシステムです。効率的な車両管理と保守業務の最適化を支援します。
         </p>
       </div>
