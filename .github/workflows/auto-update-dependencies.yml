@@ -15,7 +15,7 @@ jobs:
     
     steps:
       - name: リポジトリをチェックアウト
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: docker
           fetch-depth: 0
