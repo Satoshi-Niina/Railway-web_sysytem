@@ -13,7 +13,7 @@
   },
   "sideEffects": false,
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.716.0",
+    "@aws-sdk/client-s3": "^3.958.0",
     "@aws-sdk/s3-request-presigner": "^3.716.0",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.2",
