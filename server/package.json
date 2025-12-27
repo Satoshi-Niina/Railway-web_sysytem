@@ -19,7 +19,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "pg": "^8.13.1",
-    "better-sqlite3": "^11.8.1"
+    "better-sqlite3": "^12.5.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
