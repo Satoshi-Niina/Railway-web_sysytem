@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default function OperationsPage() {
   return (
-    <div className="max-w-[1920px] mx-auto py-4 space-y-4">
+    <div className="w-full space-y-4">
       <div>
         <h1 className="text-3xl font-bold text-gray-900">運用計画</h1>
         <p className="text-gray-600 mt-2">運用計画を作成・編集します</p>

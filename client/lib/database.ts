@@ -249,13 +249,81 @@ export async function getDatabaseInfo() {
   }
 }
 
-// テーブル名からスキーマを自動判定
-function getSchemaForTable(tableName: string): string {
+// app_resource_routingのキャッシュ
+interface ResourceRouting {
+  logical_resource_name: string
+  physical_schema: string
+  physical_table: string
+}
+
+let resourceRoutingCache: Map<string, ResourceRouting> | null = null
+let routingCacheLoadTime: number | null = null
+const CACHE_TTL = 60000 // 60秒
+
+// app_resource_routingからルーティング情報を読み込み
+async function loadResourceRouting(): Promise<void> {
+  try {
+    const pool = getPool()
+    if (!pool) {
+      console.warn('⚠️ Database pool not available, using fallback routing')
+      return
+    }
+
+    // キャッシュが有効な場合はスキップ
+    const now = Date.now()
+    if (resourceRoutingCache && routingCacheLoadTime && (now - routingCacheLoadTime) < CACHE_TTL) {
+      return
+    }
+
+    console.log('📋 Loading resource routing from app_resource_routing...')
+    const result = await query(
+      'SELECT logical_resource_name, physical_schema, physical_table FROM public.app_resource_routing WHERE is_active = true'
+    )
+    
+    resourceRoutingCache = new Map()
+    for (const row of result.rows) {
+      resourceRoutingCache.set(row.logical_resource_name, {
+        logical_resource_name: row.logical_resource_name,
+        physical_schema: row.physical_schema,
+        physical_table: row.physical_table,
+      })
+    }
+    
+    routingCacheLoadTime = now
+    console.log(`✅ Loaded ${resourceRoutingCache.size} resource routes`)
+  } catch (error) {
+    console.error('❌ Failed to load resource routing:', error)
+    // エラーの場合はフォールバックマッピングを使用
+  }
+}
+
+// リソース名からスキーマとテーブルを解決
+export async function resolveResource(logicalResourceName: string): Promise<{ schema: string; table: string }> {
+  // ルーティング情報を読み込み（初回またはキャッシュ期限切れの場合）
+  await loadResourceRouting()
+  
+  // キャッシュから検索
+  if (resourceRoutingCache?.has(logicalResourceName)) {
+    const routing = resourceRoutingCache.get(logicalResourceName)!
+    return {
+      schema: routing.physical_schema,
+      table: routing.physical_table,
+    }
+  }
+  
+  // フォールバック: ハードコードされたマッピング
+  return getSchemaForTableFallback(logicalResourceName)
+}
+
+// フォールバック用のテーブル名からスキーマを自動判定
+function getSchemaForTableFallback(tableName: string): { schema: string; table: string } {
   const tableSchemaMap: Record<string, string> = {
     // master_data スキーマ
-    'management_offices': 'master_data',
+    'managements_offices': 'master_data',
     'bases': 'master_data',
-    'vehicle_types': 'master_data',
+    'machine_types': 'master_data',
+    'machine-types': 'master_data', // ハイフン形式もサポート
+    'machines': 'master_data',
     'vehicles': 'master_data',
     'inspection_types': 'master_data',
     
@@ -276,13 +344,23 @@ function getSchemaForTable(tableName: string): string {
     'monthly_maintenance_plans': 'maintenance',
   }
   
-  return tableSchemaMap[tableName] || 'public'
+  const schema = tableSchemaMap[tableName] || 'public'
+  // テーブル名はハイフンをアンダースコアに変換
+  const physicalTable = tableName.replace(/-/g, '_')
+  
+  return { schema, table: physicalTable }
+}
+
+// テーブル名からスキーマを自動判定（後方互換性のため残す）
+function getSchemaForTable(tableName: string): string {
+  const { schema } = getSchemaForTableFallback(tableName)
+  return schema
 }
 
 // SQLクエリにスキーマプレフィックスを自動追加
 function addSchemaPrefix(sql: string): string {
   // すでにスキーマプレフィックスがある場合はそのまま返す
-  if (sql.match(/\b(master_data|operations|inspections|maintenance)\./)) {
+  if (sql.match(/\b(master_data|operations|inspections|maintenance|public|information_schema)\./) ) {
     return sql
   }
   

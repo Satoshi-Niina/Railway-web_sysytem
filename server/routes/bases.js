@@ -8,11 +8,17 @@ router.get('/', async (req, res) => {
   try {
     const query = `
       SELECT 
-        b.*,
+        b.base_id as id,
+        b.base_name,
+        b.base_code,
+        b.location,
+        b.office_id as management_office_id,
+        b.created_at,
+        b.updated_at,
         mo.office_name,
         mo.office_code
       FROM master_data.bases b
-      LEFT JOIN master_data.management_offices mo ON b.office_id = mo.office_id
+      LEFT JOIN master_data.managements_offices mo ON b.office_id = mo.office_id
       ORDER BY b.base_code
     `;
     
@@ -31,11 +37,17 @@ router.get('/:id', async (req, res) => {
     
     const query = `
       SELECT 
-        b.*,
+        b.base_id as id,
+        b.base_name,
+        b.base_code,
+        b.location,
+        b.office_id as management_office_id,
+        b.created_at,
+        b.updated_at,
         mo.office_name,
         mo.office_code
       FROM master_data.bases b
-      LEFT JOIN master_data.management_offices mo ON b.office_id = mo.office_id
+      LEFT JOIN master_data.managements_offices mo ON b.office_id = mo.office_id
       WHERE b.base_id = $1
     `;
     
@@ -55,16 +67,16 @@ router.get('/:id', async (req, res) => {
 // 基地の作成
 router.post('/', async (req, res) => {
   try {
-    const { base_name, base_code, location, office_id, storage_capacity } = req.body;
+    const { base_name, base_code, location, office_id } = req.body;
     
     const query = `
       INSERT INTO master_data.bases 
-        (base_name, base_code, location, office_id, storage_capacity)
-      VALUES ($1, $2, $3, $4, $5)
+        (base_name, base_code, location, office_id)
+      VALUES ($1, $2, $3, $4)
       RETURNING *
     `;
     
-    const result = await db.query(query, [base_name, base_code, location, office_id, storage_capacity]);
+    const result = await db.query(query, [base_name, base_code, location, office_id]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating base:', error);
@@ -76,7 +88,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { base_name, base_code, location, office_id, storage_capacity } = req.body;
+    const { base_name, base_code, location, office_id } = req.body;
     
     const query = `
       UPDATE master_data.bases 
@@ -84,13 +96,12 @@ router.put('/:id', async (req, res) => {
           base_code = $2, 
           location = $3, 
           office_id = $4, 
-          storage_capacity = $5,
           updated_at = CURRENT_TIMESTAMP
-      WHERE base_id = $6
+      WHERE base_id = $5
       RETURNING *
     `;
     
-    const result = await db.query(query, [base_name, base_code, location, office_id, storage_capacity, id]);
+    const result = await db.query(query, [base_name, base_code, location, office_id, id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Base not found' });

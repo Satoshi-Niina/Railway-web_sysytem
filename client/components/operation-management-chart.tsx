@@ -62,6 +62,7 @@ export function OperationManagementChart() {
   const [operationRecords, setOperationRecords] = useState<OperationRecord[]>([])
   const [inspections, setInspections] = useState<Inspection[]>([])
   const [inspectionTypes, setInspectionTypes] = useState<InspectionType[]>([])
+  const [masterMachineTypes, setMasterMachineTypes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -95,6 +96,12 @@ export function OperationManagementChart() {
   const isCurrentMonth = currentMonth === currentDateObj.toISOString().slice(0, 7)
   const isPastMonth = selectedMonthDate < new Date(currentDateObj.getFullYear(), currentDateObj.getMonth(), 1)
   const isFutureMonth = selectedMonthDate > new Date(currentDateObj.getFullYear(), currentDateObj.getMonth(), 1)
+
+  // 事業所フィルターが変更されたとき、機種と機械番号の選択をクリア
+  useEffect(() => {
+    setSelectedVehicleTypes([])
+    setSelectedMachineNumbers([])
+  }, [selectedOfficeId])
 
   useEffect(() => {
     fetchData()
@@ -285,21 +292,24 @@ export function OperationManagementChart() {
       }
 
       // 基地データの取得
+      // 基地データの取得
       let basesData: Base[] = []
       try {
         basesData = await apiCall<Base[]>("bases")
+        console.log("基地データ取得成功:", basesData.length, "件")
       } catch (error) {
         console.error("基地データの取得エラー:", error)
-        throw new Error("基地データの取得に失敗しました")
+        // エラーがあっても空配列で続行
       }
 
       // 事業所データの取得
       let officesData: Office[] = []
       try {
         officesData = await apiCall<Office[]>("offices")
+        console.log("事業所データ取得成功:", officesData.length, "件")
       } catch (error) {
         console.error("事業所データの取得エラー:", error)
-        throw new Error("事業所データの取得に失敗しました")
+        // エラーがあっても空配列で続行
       }
 
       // 運用計画データの取得
@@ -338,6 +348,17 @@ export function OperationManagementChart() {
         // 検修タイプは必須ではないので空配列のまま
       }
 
+      // マスタ機種データの取得
+      let masterTypesData: any[] = []
+      try {
+        masterTypesData = await apiCall<any[]>("machine-types")
+        setMasterMachineTypes(masterTypesData)
+      } catch (error) {
+        console.error("マスタ機種データの取得エラー:", error)
+        // マスタ機種データは必須ではないので空配列のまま
+        setMasterMachineTypes([])
+      }
+
       setAllVehicles(vehiclesData)
       setInspectionTypes(inspectionTypesData)
       setAllBases(basesData)
@@ -354,6 +375,9 @@ export function OperationManagementChart() {
         records: recordsData.length,
         inspections: inspectionsData.length
       })
+      
+      console.log("取得した基地データ:", basesData)
+      console.log("取得した事業所データ:", officesData)
 
       // 運用計画の詳細ログ（MC-100のみ）
       const mc100 = vehiclesData.find(v => v.machine_number === "100")
@@ -501,6 +525,18 @@ export function OperationManagementChart() {
   // 運用計画作成モード（留置中から作成）
   const [isCreatingPlanFromDetention, setIsCreatingPlanFromDetention] = useState(false)
   const [detentionBaseId, setDetentionBaseId] = useState<number | null>(null)
+  
+  // 事業所でフィルタリングされた基地と、その他の基地を分類
+  const { filteredBasesForModal, otherBasesForModal } = useMemo(() => {
+    if (selectedOfficeId === "all") {
+      // フィルターなしの場合、すべての基地を優先リストに表示
+      return { filteredBasesForModal: allBases, otherBasesForModal: [] }
+    }
+    const officeId = Number.parseInt(selectedOfficeId)
+    const filtered = allBases.filter((base) => base.management_office_id === officeId)
+    const others = allBases.filter((base) => base.management_office_id !== officeId)
+    return { filteredBasesForModal: filtered, otherBasesForModal: others }
+  }, [allBases, selectedOfficeId])
   
   // 運用計画作成・編集モーダルの状態
   const [showPlanModal, setShowPlanModal] = useState(false)
@@ -734,43 +770,33 @@ export function OperationManagementChart() {
     return new Set(operationPlans.map(plan => plan.vehicle_id))
   }, [operationPlans])
 
-  // 各フィルターで利用可能な事業所リストを取得（他のフィルターに応じて絞り込み）
+  // 各フィルターで利用可能な事業所リストを取得（全ての事業所を表示）
   const availableOffices = useMemo(() => {
-    let vehicles = allVehicles
+    // 全ての事業所を返す
+    return allOffices
+  }, [allOffices])
 
-    // 機種でフィルタリング（複数選択対応）
-    if (selectedVehicleTypes.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedVehicleTypes.includes(vehicle.vehicle_type))
-    }
-
-    // 機械番号でフィルタリング（複数選択対応）
-    if (selectedMachineNumbers.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedMachineNumbers.includes(vehicle.machine_number))
-    }
-
-    // 利用可能な事業所IDを取得
-    const availableOfficeIds = new Set(vehicles.map((v) => v.management_office_id).filter(Boolean))
-    return allOffices.filter((office) => availableOfficeIds.has(office.id))
-  }, [allVehicles, allOffices, selectedVehicleTypes, selectedMachineNumbers])
-
-  // 利用可能な機種を取得（運用計画がある車両の機種のみ）
+  // 利用可能な機種を取得（machine_typesテーブルから）
   const availableVehicleTypes = useMemo(() => {
-    let vehicles = allVehicles
-    
-    // 事業所でフィルタリング
-    if (selectedOfficeId !== "all") {
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === Number.parseInt(selectedOfficeId))
+    // 事業所が「すべて」の場合：machine_typesテーブルの全機種を表示
+    if (selectedOfficeId === "all") {
+      const allModelNames = masterMachineTypes
+        .map(mt => mt.model_name)
+        .filter(Boolean)
+      return Array.from(new Set(allModelNames)).sort()
     }
     
-    // 機械番号でフィルタリング（複数選択対応）
-    if (selectedMachineNumbers.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedMachineNumbers.includes(vehicle.machine_number))
-    }
+    // 事業所が選択されている場合：その事業所の機械が持つ機種のみを表示
+    const vehiclesInOffice = allVehicles.filter(
+      v => v.management_office_id === Number.parseInt(selectedOfficeId)
+    )
+    const vehicleTypes = vehiclesInOffice
+      .map(v => v.vehicle_type)
+      .filter(Boolean)
     
-    // 実際に存在する機種を取得
-    const availableTypes = new Set(vehicles.map(v => v.vehicle_type).filter(Boolean))
-    return Array.from(availableTypes).sort()
-  }, [allVehicles, selectedOfficeId, selectedMachineNumbers])
+    // 重複を除去してソート
+    return Array.from(new Set(vehicleTypes)).sort()
+  }, [masterMachineTypes, allVehicles, selectedOfficeId])
 
   // 利用可能な機械番号を取得
   const availableMachineNumbers = useMemo(() => {
@@ -791,6 +817,18 @@ export function OperationManagementChart() {
     return uniqueNumbers.sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }))
   }, [allVehicles, selectedOfficeId, selectedVehicleTypes])
 
+  // 機種フィルターが変更されたとき、無効な機械番号を除外
+  useEffect(() => {
+    if (selectedMachineNumbers.length > 0 && selectedVehicleTypes.length > 0) {
+      const validMachineNumbers = selectedMachineNumbers.filter(num => 
+        availableMachineNumbers.includes(num)
+      )
+      if (validMachineNumbers.length !== selectedMachineNumbers.length) {
+        setSelectedMachineNumbers(validMachineNumbers)
+      }
+    }
+  }, [selectedVehicleTypes, availableMachineNumbers])
+
   // 利用可能な日付リストを取得（現在の月の日付）
   const availableDates = useMemo(() => {
     const daysInMonth = getDaysInMonth(currentMonth)
@@ -801,14 +839,9 @@ export function OperationManagementChart() {
     return dates
   }, [currentMonth])
 
-  // 事業所でフィルタリングされた車両を取得
+  // 車両フィルタリング（事業所フィルターは除外、機種・機械番号のみ）
   const filteredVehicles = useMemo(() => {
     let vehicles = allVehicles
-
-    // 事業所でフィルタリング
-    if (selectedOfficeId !== "all") {
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === Number.parseInt(selectedOfficeId))
-    }
 
     // 機種でフィルタリング（複数選択対応）
     if (selectedVehicleTypes.length > 0) {
@@ -821,7 +854,27 @@ export function OperationManagementChart() {
     }
 
     return vehicles
-  }, [allVehicles, selectedOfficeId, selectedVehicleTypes, selectedMachineNumbers])
+  }, [allVehicles, selectedVehicleTypes, selectedMachineNumbers])
+
+  // 事業所フィルターに基づいて保守基地をフィルタリング
+  const filteredBases = useMemo(() => {
+    console.log('[filteredBases] selectedOfficeId:', selectedOfficeId)
+    console.log('[filteredBases] allBases:', allBases)
+    
+    if (selectedOfficeId === "all") {
+      // 全ての事業所が選択されている場合は全ての基地を表示
+      console.log('[filteredBases] Showing all bases:', allBases.length)
+      return allBases
+    }
+    // 選択された事業所に所属する基地のみを表示
+    const filtered = allBases.filter(base => {
+      const matches = base.management_office_id === Number.parseInt(selectedOfficeId)
+      console.log(`[filteredBases] Base ${base.base_name} (office_id: ${base.management_office_id}) matches office ${selectedOfficeId}:`, matches)
+      return matches
+    })
+    console.log('[filteredBases] Filtered bases:', filtered.length, filtered.map(b => b.base_name))
+    return filtered
+  }, [allBases, selectedOfficeId])
 
   // 機種別にグループ化された車両を取得
   const vehiclesByType = useMemo(() => {
@@ -1091,7 +1144,7 @@ export function OperationManagementChart() {
       const dateString = getDateString(day)
       return selectedDates.includes(dateString)
     })
-  }, [allDays, selectedDates, currentMonth])
+  }, [selectedDates, currentMonth, daysInMonth])
 
   // フィルターリセット
   const resetFilters = () => {
@@ -1663,18 +1716,21 @@ export function OperationManagementChart() {
               <table className="w-full border-collapse text-xs">
                 <thead>
                   <tr>
-                    <th className="border p-2 bg-gray-50 text-center min-w-16 sticky left-0 z-10">日付</th>
-                    <th className="border p-2 bg-gray-50 text-center min-w-12 sticky left-16 z-10">曜日</th>
-                    <th className="border p-2 bg-blue-50 text-center min-w-20">機種</th>
-                    <th className="border p-2 bg-blue-50 text-center min-w-20">機械番号</th>
-                    {allBases.map((base) => (
-                      <th key={base.id} className="border p-2 bg-green-50 text-center min-w-24">
-                        <div className="space-y-1">
-                          <div className="font-medium">{base.base_name}</div>
-                          <div className="text-xs text-gray-600">{base.location}</div>
-                        </div>
-                      </th>
-                    ))}
+                    <th className="border p-2 bg-gray-50 text-center w-[5ch] sticky left-0 z-10">日付</th>
+                    <th className="border p-2 bg-gray-50 text-center w-[4ch] sticky left-[5ch] z-10">曜日</th>
+                    <th className="border p-2 bg-blue-50 text-center w-[9ch]">機種</th>
+                    <th className="border p-2 bg-blue-50 text-center w-[16ch]">機械番号</th>
+                    {(() => {
+                      console.log('[レンダリング] filteredBases:', filteredBases.length, filteredBases)
+                      return filteredBases.map((base) => (
+                        <th key={base.id} className="border p-2 bg-green-50 text-center min-w-24">
+                          <div className="space-y-1">
+                            <div className="font-medium">{base.base_name}</div>
+                            <div className="text-xs text-gray-600">{base.location}</div>
+                          </div>
+                        </th>
+                      ))
+                    })()}
                   </tr>
                 </thead>
                 <tbody>
@@ -1699,7 +1755,7 @@ export function OperationManagementChart() {
                         {/* 日付セル（最初の車両行のみ表示） */}
                         {rowIndex === 0 && (
                           <td
-                            className={`border p-2 text-center font-medium sticky left-0 z-10 cursor-pointer hover:bg-blue-100 transition-colors ${
+                            className={`border p-2 text-center font-medium w-[5ch] sticky left-0 z-10 cursor-pointer hover:bg-blue-100 transition-colors ${
                               isToday ? "bg-yellow-100" : "bg-gray-50"
                             }`}
                             rowSpan={vehicleRows.length}
@@ -1712,7 +1768,7 @@ export function OperationManagementChart() {
                         {/* 曜日セル（最初の車両行のみ表示） */}
                         {rowIndex === 0 && (
                           <td
-                            className={`border p-2 text-center text-sm sticky left-16 z-10 ${
+                            className={`border p-2 text-center text-sm w-[4ch] sticky left-[5ch] z-10 ${
                               isWeekend ? "text-red-600 font-medium" : "text-gray-600"
                             } ${isToday ? "bg-yellow-100" : "bg-gray-50"}`}
                             rowSpan={vehicleRows.length}
@@ -1723,7 +1779,7 @@ export function OperationManagementChart() {
 
                         {/* 機種セル */}
                         {row.isFirstOfType && (
-                          <td className="border p-2 text-center font-medium bg-blue-50" rowSpan={row.typeCount}>
+                          <td className="border p-2 text-center font-medium bg-blue-50 w-[9ch]" rowSpan={row.typeCount}>
                             <div className="flex flex-col items-center space-y-1">
                               <Car className="w-4 h-4 text-blue-600" />
                               <span className="text-xs font-semibold">{row.vehicleType}</span>
@@ -1732,12 +1788,12 @@ export function OperationManagementChart() {
                         )}
 
                         {/* 機械番号セル */}
-                        <td className="border p-2 text-center font-medium bg-blue-50">
+                        <td className="border p-2 text-center font-medium bg-blue-50 w-[16ch]">
                           <div className="text-sm font-semibold">{row.vehicle.machine_number}</div>
                         </td>
 
                         {/* 保守基地セル（計画と実績の統合表示） */}
-                        {allBases.map((base) => {
+                        {filteredBases.map((base) => {
                           // その日に到着する計画（到着日基準）
                           const arrivingPlan = getPlanArrivingOnDate(row.vehicle.id, dateString)
                           const plan = arrivingPlan && (arrivingPlan.departure_base_id === base.id || arrivingPlan.arrival_base_id === base.id) ? arrivingPlan : undefined
@@ -1782,7 +1838,10 @@ export function OperationManagementChart() {
                                 {plan && plan.shift_type !== 'maintenance' && !isInMaintenancePeriod(row.vehicle.id, dateString) && (
                                   <div 
                                     className="space-y-1 cursor-pointer hover:bg-blue-100 rounded p-1"
-                                    onClick={() => handleEditPlan(plan)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCellClick(row.vehicle.id, dateString)
+                                    }}
                                   >
                                     <div className={`text-xs px-1 py-0.5 rounded ${getShiftTypeColor(plan.shift_type)}`}>
                                       計画: {getShiftTypeLabel(plan.shift_type)}
@@ -1833,18 +1892,7 @@ export function OperationManagementChart() {
                                   </button>
                                 )}
 
-                                {/* 実績追加ボタン（計画がある場合、検修期間外） */}
-                                {plan && plan.shift_type !== 'maintenance' && !isInMaintenancePeriod(row.vehicle.id, dateString) && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleCellClick(row.vehicle.id, dateString)
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded w-full text-left"
-                                  >
-                                    + 実績追加
-                                  </button>
-                                )}
+
 
                                 {/* データがない場合（クリックで実績追加可能、検修期間外のみ） */}
                                 {!plan && records.length === 0 && !isInMaintenancePeriod(row.vehicle.id, dateString) && !isDetained && (
@@ -1915,36 +1963,19 @@ export function OperationManagementChart() {
           )}
 
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicle">車両</Label>
-                <Select 
-                  value={recordForm.vehicle_id} 
-                  onValueChange={(value) => setRecordForm({ ...recordForm, vehicle_id: value })}
-                  disabled={!!editingRecord}
-                >
-                  <SelectTrigger id="vehicle">
-                    <SelectValue placeholder="車両を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allVehicles.filter(v => v.id).map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                        {vehicle.name} - {vehicle.machine_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="record_date">実績日</Label>
-                <Input
-                  id="record_date"
-                  type="date"
-                  value={recordForm.record_date}
-                  onChange={(e) => setRecordForm({ ...recordForm, record_date: e.target.value })}
-                  disabled={!!editingRecord}
-                />
+            {/* 車両と日付の表示（編集不可） */}
+            <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">車両:</span>
+                  <span className="ml-2 font-medium">
+                    {allVehicles.find(v => v.id === Number.parseInt(recordForm.vehicle_id))?.machine_number || '未設定'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-gray-600">実績日:</span>
+                  <span className="ml-2 font-medium">{recordForm.record_date}</span>
+                </div>
               </div>
             </div>
 
@@ -1999,11 +2030,34 @@ export function OperationManagementChart() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
-                    {allBases.filter(b => b.id).map((base) => (
-                      <SelectItem key={base.id} value={base.id.toString()}>
-                        {base.base_name}
-                      </SelectItem>
-                    ))}
+                    {filteredBasesForModal.length > 0 && (
+                      <>
+                        {filteredBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                        {otherBasesForModal.length > 0 && (
+                          <SelectItem disabled value="divider" className="text-xs text-gray-400 py-1">
+                            ──────────
+                          </SelectItem>
+                        )}
+                      </>
+                    )}
+                    {otherBasesForModal.length > 0 && (
+                      <>
+                        {selectedOfficeId !== "all" && (
+                          <SelectItem disabled value="other-label" className="text-xs text-gray-500 font-medium">
+                            その他の基地
+                          </SelectItem>
+                        )}
+                        {otherBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
                 {!editingRecord && (() => {
@@ -2050,11 +2104,34 @@ export function OperationManagementChart() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
-                    {allBases.filter(b => b.id).map((base) => (
-                      <SelectItem key={base.id} value={base.id.toString()}>
-                        {base.base_name}
-                      </SelectItem>
-                    ))}
+                    {filteredBasesForModal.length > 0 && (
+                      <>
+                        {filteredBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                        {otherBasesForModal.length > 0 && (
+                          <SelectItem disabled value="divider" className="text-xs text-gray-400 py-1">
+                            ──────────
+                          </SelectItem>
+                        )}
+                      </>
+                    )}
+                    {otherBasesForModal.length > 0 && (
+                      <>
+                        {selectedOfficeId !== "all" && (
+                          <SelectItem disabled value="other-label" className="text-xs text-gray-500 font-medium">
+                            その他の基地
+                          </SelectItem>
+                        )}
+                        {otherBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
                 {/* クリックした基地と異なる基地を選択した場合の警告 */}
@@ -2331,11 +2408,34 @@ export function OperationManagementChart() {
                     <SelectValue placeholder="出発基地を選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allBases.filter(b => b.id).map((base) => (
-                      <SelectItem key={base.id} value={base.id.toString()}>
-                        {base.base_name}
-                      </SelectItem>
-                    ))}
+                    {filteredBasesForModal.length > 0 && (
+                      <>
+                        {filteredBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                        {otherBasesForModal.length > 0 && (
+                          <SelectItem disabled value="divider" className="text-xs text-gray-400 py-1">
+                            ──────────
+                          </SelectItem>
+                        )}
+                      </>
+                    )}
+                    {otherBasesForModal.length > 0 && (
+                      <>
+                        {selectedOfficeId !== "all" && (
+                          <SelectItem disabled value="other-label" className="text-xs text-gray-500 font-medium">
+                            その他の基地
+                          </SelectItem>
+                        )}
+                        {otherBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
                 {isCreatingPlanFromDetention && (
@@ -2368,11 +2468,34 @@ export function OperationManagementChart() {
                     <SelectValue placeholder="到着基地を選択" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allBases.filter(b => b.id).map((base) => (
-                      <SelectItem key={base.id} value={base.id.toString()}>
-                        {base.base_name}
-                      </SelectItem>
-                    ))}
+                    {filteredBasesForModal.length > 0 && (
+                      <>
+                        {filteredBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                        {otherBasesForModal.length > 0 && (
+                          <SelectItem disabled value="divider" className="text-xs text-gray-400 py-1">
+                            ──────────
+                          </SelectItem>
+                        )}
+                      </>
+                    )}
+                    {otherBasesForModal.length > 0 && (
+                      <>
+                        {selectedOfficeId !== "all" && (
+                          <SelectItem disabled value="other-label" className="text-xs text-gray-500 font-medium">
+                            その他の基地
+                          </SelectItem>
+                        )}
+                        {otherBasesForModal.filter(b => b.id).map((base) => (
+                          <SelectItem key={base.id} value={base.id.toString()}>
+                            {base.base_name}
+                          </SelectItem>
+                        ))}
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

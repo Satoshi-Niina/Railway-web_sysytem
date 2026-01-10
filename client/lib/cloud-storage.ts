@@ -1,22 +1,16 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { Storage } from '@google-cloud/storage'
 
 // ストレージタイプの判定
-const STORAGE_TYPE = process.env.STORAGE_TYPE || 'local'
+const STORAGE_TYPE = process.env.STORAGE_TYPE || 'gcs'
 
-// S3クライアントの初期化（STORAGE_TYPE=aws-s3の場合）
-const s3Client = STORAGE_TYPE === 'aws-s3' ? new S3Client({
-  region: process.env.AWS_REGION || 'ap-northeast-1',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-  },
-}) : null
+// GCSクライアントの初期化
+const storage = new Storage({
+  projectId: process.env.GCP_PROJECT_ID,
+  keyFilename: process.env.GCP_KEY_FILE, // サービスアカウントキーのパス
+})
 
-const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME || 
-                    process.env.AZURE_STORAGE_CONTAINER_NAME || 
-                    process.env.GCP_BUCKET_NAME || 
-                    'railway-maintenance-storage'
+const BUCKET_NAME = process.env.GCS_BUCKET_NAME || 'railway-maintenance-storage'
+const bucket = storage.bucket(BUCKET_NAME)
 
 // フォルダ構造の定義
 export const STORAGE_FOLDERS = {
@@ -29,45 +23,46 @@ export const STORAGE_FOLDERS = {
 
 export type StorageFolder = typeof STORAGE_FOLDERS[keyof typeof STORAGE_FOLDERS]
 
-// ファイルアップロード
+// ファイルアップロード（GCS）
 export async function uploadFile(
   file: Buffer,
   fileName: string,
   folder: StorageFolder,
   contentType: string = 'image/jpeg'
 ): Promise<string> {
-  const key = `${folder}/${Date.now()}-${fileName}`
-  
-  const command = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: key,
-    Body: file,
-    ContentType: contentType,
-    ACL: 'public-read', // 公開読み取り可能
+  const timestamp = Date.now()
+  const safeFileName = `${timestamp}-${fileName}`
+  const filePath = `${folder}/${safeFileName}`
+
+  const fileUpload = bucket.file(filePath)
+
+  await fileUpload.save(file, {
+    contentType,
+    metadata: {
+      cacheControl: 'public, max-age=31536000',
+    },
   })
 
-  try {
-    await s3Client.send(command)
-    return `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION || 'ap-northeast-1'}.amazonaws.com/${key}`
-  } catch (error) {
-    console.error('File upload failed:', error)
-    throw new Error('ファイルのアップロードに失敗しました')
-  }
+  // 公開URLを返す
+  return `https://storage.googleapis.com/${BUCKET_NAME}/${filePath}`
 }
 
-// ファイル削除
+// ファイル削除（ローカルストレージ）
 export async function deleteFile(fileUrl: string): Promise<boolean> {
   try {
-    // URLからキーを抽出
-    const url = new URL(fileUrl)
-    const key = url.pathname.substring(1) // 先頭のスラッシュを除去
+    if (STORAGE_TYPE !== 'local') {
+      return false
+    }
 
-    const command = new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    })
-
-    await s3Client.send(command)
+    // URLからファイルパスを抽出 (/storage/folder/filename.jpg -> folder/filename.jpg)
+    const urlPath = fileUrl.replace(/^\/storage\//, '')
+    const GCS）
+export async function deleteFile(fileUrl: string): Promise<boolean> {
+  try {
+    // URLからファイルパスを抽出
+    const filePath = fileUrl.replace(`https://storage.googleapis.com/${BUCKET_NAME}/`, '')
+    
+    await bucket.file(filePath).delete()
     return true
   } catch (error) {
     console.error('File deletion failed:', error)
@@ -78,92 +73,80 @@ export async function deleteFile(fileUrl: string): Promise<boolean> {
 // 署名付きURLの生成（一時的なアクセス用）
 export async function generateSignedUrl(fileUrl: string, expiresIn: number = 3600): Promise<string> {
   try {
-    const url = new URL(fileUrl)
-    const key = url.pathname.substring(1)
+    const filePath = fileUrl.replace(`https://storage.googleapis.com/${BUCKET_NAME}/`, '')
+    const file = bucket.file(filePath)
 
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
+    const [url] = await file.getSignedUrl({
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + expiresIn * 1000,
     })
 
-    return await getSignedUrl(s3Client, command, { expiresIn })
+    return url
   } catch (error) {
     console.error('Signed URL generation failed:', error)
     throw new Error('署名付きURLの生成に失敗しました')
   }
 }
 
-// フォルダ内のファイル一覧取得
+// フォルダ内のファイル一覧取得（GCS）
 export async function listFiles(folder: StorageFolder): Promise<string[]> {
   try {
-    const command = new ListObjectsV2Command({
-      Bucket: BUCKET_NAME,
-      Prefix: `${folder}/`,
+    const [files] = await bucket.getFiles({
+      prefix: `${folder}/`,
     })
 
-    const response = await s3Client.send(command)
-    return response.Contents?.map(obj => obj.Key || '').filter(key => key) || []
+    return files.map(file => `https://storage.googleapis.com/${BUCKET_NAME}/${file.name}`)
   } catch (error) {
     console.error('File listing failed:', error)
     return []
   }
 }
 
-// ファイルサイズの取得
+// ファイルサイズの取得（GCS）
 export async function getFileSize(fileUrl: string): Promise<number> {
   try {
-    const url = new URL(fileUrl)
-    const key = url.pathname.substring(1)
+    const filePath = fileUrl.replace(`https://storage.googleapis.com/${BUCKET_NAME}/`, '')
+    const file = bucket.file(filePath)
 
-    const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: key,
-    })
-
-    const response = await s3Client.send(command)
-    return response.ContentLength || 0
+    const [metadata] = await file.getMetadata()
+    return parseInt(metadata.size || '0')
   } catch (error) {
     console.error('File size retrieval failed:', error)
     return 0
   }
 }
 
-// ストレージ使用量の取得
+// ストレージ使用量の取得（GCS）
 export async function getStorageUsage(): Promise<{
   failures: number
   repairs: number
   inspections: number
   documents: number
+  backups: number
   total: number
 }> {
   const folders = Object.values(STORAGE_FOLDERS)
   const usage: any = {}
-
   let total = 0
 
   for (const folder of folders) {
     try {
-      const command = new ListObjectsV2Command({
-        Bucket: BUCKET_NAME,
-        Prefix: `${folder}/`,
+      const [files] = await bucket.getFiles({
+        prefix: `${folder}/`,
       })
 
-      const response = await s3Client.send(command)
-      const folderSize = response.Contents?.reduce((sum, obj) => sum + (obj.Size || 0), 0) || 0
-      
-      usage[folder] = folderSize
-      total += folderSize
-    } catch (error) {
-      console.error(`Storage usage calculation failed for ${folder}:`, error)
-      usage[folder] = 0
-    }
-  }
+      let folderSize = 0
+      for (const file of files) {
+        const [metadata] = await file.getMetadata()
+        folderSize += parseInt(metadata.size || '0')
 
   return {
     failures: usage.failures || 0,
     repairs: usage.repairs || 0,
     inspections: usage.inspections || 0,
     documents: usage.documents || 0,
+    backups: usage.backups || 0,
     total,
   }
 }

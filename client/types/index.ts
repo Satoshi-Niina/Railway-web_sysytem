@@ -16,55 +16,49 @@ export interface Vehicle {
 export interface Base {
   id: number
   base_name: string
+  base_code?: string
   location: string
   management_office_id?: number
+  office_name?: string
+  office_code?: string
+  storage_capacity?: number
+  contact_info?: string
   created_at: string
+  updated_at?: string
 }
 
 export interface ManagementOffice {
   id: number
   office_name: string
-  location: string
+  office_code?: string
+  responsible_area?: string
   created_at: string
+  updated_at?: string
 }
 
 export interface OperationPlan {
-  id: number
+  schedule_id: number
   vehicle_id: number
-  plan_date: string
-  end_date?: string
-  shift_type: string
-  departure_base_id: number | null
-  arrival_base_id: number | null
-  planned_distance: number
-  start_time: string
-  end_time: string
-  notes?: string
+  schedule_date: string
+  description?: string
+  status: string
   created_at: string
   updated_at: string
   vehicle?: Vehicle
-  departure_base?: Base
-  arrival_base?: Base
 }
 
 export interface OperationRecord {
-  id: number
+  record_id: number
+  schedule_id: number
   vehicle_id: number
-  record_date: string
-  shift_type: string
-  departure_base_id: number | null
-  arrival_base_id: number | null
-  actual_distance: number
+  operation_date: string
   start_time: string
   end_time: string
   status: string
   notes?: string
-  is_as_planned?: boolean
   created_at: string
   updated_at: string
   vehicle?: Vehicle
-  departure_base?: Base
-  arrival_base?: Base
 }
 
 export interface InspectionPlan {
@@ -240,3 +234,35 @@ export interface VehicleInspectionSchedule {
   is_in_period: boolean
   days_until_inspection: number
 }
+
+// 検査種別マスタ
+export interface InspectionType {
+  id: number
+  type_name: string
+  category: string
+  interval_days?: number
+  description?: string
+  created_at: string
+}
+
+// 車両検査スケジュール（機械番号と検査種別のリンク）
+export interface VehicleInspectionScheduleLink {
+  id: number
+  vehicle_id: number
+  inspection_type_id: number
+  last_inspection_date?: string
+  next_inspection_date?: string
+  interval_days: number
+  is_active: boolean
+  notes?: string
+  created_at: string
+  updated_at: string
+  // JOIN結果で取得される追加フィールド
+  vehicle_type?: string
+  machine_number?: string
+  model?: string
+  type_name?: string
+  inspection_category?: string
+  office_name?: string
+}
+

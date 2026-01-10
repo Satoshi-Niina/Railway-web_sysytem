@@ -8,13 +8,13 @@ router.get('/', async (req, res) => {
   try {
     const query = `
       SELECT 
-        office_id,
+        office_id as id,
         office_name,
         office_code,
-        responsible_area,
+        office_type,
         created_at,
         updated_at
-      FROM master_data.management_offices
+      FROM master_data.managements_offices
       ORDER BY office_code
     `;
     
@@ -33,13 +33,13 @@ router.get('/:id', async (req, res) => {
     
     const query = `
       SELECT 
-        office_id,
+        office_id as id,
         office_name,
         office_code,
-        responsible_area,
+        office_type,
         created_at,
         updated_at
-      FROM master_data.management_offices
+      FROM master_data.managements_offices
       WHERE office_id = $1
     `;
     
@@ -59,16 +59,16 @@ router.get('/:id', async (req, res) => {
 // 事業所の作成
 router.post('/', async (req, res) => {
   try {
-    const { office_name, office_code, responsible_area } = req.body;
+    const { office_name, office_code, office_type } = req.body;
     
     const query = `
-      INSERT INTO master_data.management_offices 
-        (office_name, office_code, responsible_area)
+      INSERT INTO master_data.managements_offices 
+        (office_name, office_code, office_type)
       VALUES ($1, $2, $3)
       RETURNING *
     `;
     
-    const result = await db.query(query, [office_name, office_code, responsible_area]);
+    const result = await db.query(query, [office_name, office_code, office_type]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating office:', error);
@@ -80,19 +80,19 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { office_name, office_code, responsible_area } = req.body;
+    const { office_name, office_code, office_type } = req.body;
     
     const query = `
-      UPDATE master_data.management_offices 
+      UPDATE master_data.managements_offices 
       SET office_name = $1, 
           office_code = $2, 
-          responsible_area = $3,
+          office_type = $3,
           updated_at = CURRENT_TIMESTAMP
       WHERE office_id = $4
       RETURNING *
     `;
     
-    const result = await db.query(query, [office_name, office_code, responsible_area, id]);
+    const result = await db.query(query, [office_name, office_code, office_type, id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Office not found' });
@@ -111,7 +111,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     
     const result = await db.query(
-      'DELETE FROM master_data.management_offices WHERE office_id = $1 RETURNING *',
+      'DELETE FROM master_data.managements_offices WHERE office_id = $1 RETURNING *',
       [id]
     );
     

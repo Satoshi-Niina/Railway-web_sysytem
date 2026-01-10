@@ -13,15 +13,33 @@ router.get('/', async (req, res) => {
         vt.max_speed,
         vt.passenger_capacity,
         mo.office_name,
-        b.base_name
-      FROM master_data.vehicles v
+        b.base_name,
+        mt.type_code as vehicle_type,
+        mt.type_name as machine_type_name,
+        mt.category,
+        m.machine_number,
+        m.id as machine_id
+      FROM maintenance.vehicles v
       LEFT JOIN master_data.vehicle_types vt ON v.vehicle_type_id = vt.type_id
-      LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
+      LEFT JOIN master_data.machines m ON v.vehicle_number::text = m.machine_number OR v.vehicle_id::text = m.serial_number
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
+      LEFT JOIN master_data.managements_offices mo ON v.office_id = mo.office_id
       LEFT JOIN master_data.bases b ON v.base_id = b.base_id
       ORDER BY v.vehicle_number
     `;
     
     const result = await db.query(query);
+    console.log('=== Vehicles Query Result (first 3) ===');
+    result.rows.slice(0, 3).forEach((row, idx) => {
+      console.log(`Row ${idx}:`, {
+        vehicle_id: row.vehicle_id,
+        vehicle_number: row.vehicle_number,
+        vehicle_type: row.vehicle_type,
+        machine_number: row.machine_number,
+        machine_type_name: row.machine_type_name,
+        category: row.category
+      });
+    });
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching vehicles:', error);

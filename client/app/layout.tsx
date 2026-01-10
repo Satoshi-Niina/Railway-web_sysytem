@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import Navigation from "@/components/navigation"
+import DevToolInitializer from "@/components/dev-tool-initializer"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,9 +21,10 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body className={inter.className}>
+        <DevToolInitializer />
         <Navigation />
         <main className="min-h-screen bg-gray-50">
-          <div className="max-w-[1920px] mx-auto px-8 py-6">{children}</div>
+          <div className="w-full px-4 py-4">{children}</div>
         </main>
       </body>
     </html>

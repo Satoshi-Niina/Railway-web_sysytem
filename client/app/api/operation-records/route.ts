@@ -14,34 +14,37 @@ export async function GET(request: NextRequest) {
     if (dbType === "postgresql") {
       let query = `
         SELECT or_table.*, 
-               v.machine_number, v.vehicle_type, v.model,
+               or_table.record_id as id,
+               or_table.operation_date as record_date,
+               m.machine_number, mt.type_name as vehicle_type, mt.model_name as model,
                mo.office_name, mo.office_code,
                db.base_name as departure_base_name, db.location as departure_location,
                ab.base_name as arrival_base_name, ab.location as arrival_location
         FROM operations.operation_records or_table
-        LEFT JOIN master_data.vehicles v ON or_table.vehicle_id = v.id
-        LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
-        LEFT JOIN master_data.bases db ON or_table.departure_base_id = db.id
-        LEFT JOIN master_data.bases ab ON or_table.arrival_base_id = ab.id
+        LEFT JOIN master_data.machines m ON or_table.vehicle_id::text = m.id::text
+        LEFT JOIN master_data.machine_types mt ON m.machine_type_id::text = mt.id::text
+        LEFT JOIN master_data.managements_offices mo ON m.office_id::text = mo.office_id::text
+        LEFT JOIN master_data.bases db ON m.assigned_base_id::text = db.base_id::text
+        LEFT JOIN master_data.bases ab ON m.assigned_base_id::text = ab.base_id::text
       `
       const params: any[] = []
       let paramIndex = 1
       let whereConditions: string[] = []
 
       if (month) {
-        whereConditions.push(`DATE_TRUNC('month', or_table.record_date) = DATE_TRUNC('month', $${paramIndex}::date)`)
+        whereConditions.push(`DATE_TRUNC('month', or_table.operation_date) = DATE_TRUNC('month', $${paramIndex}::date)`)
         params.push(`${month}-01`)
         paramIndex++
       }
 
       if (officeId && officeId !== "all") {
-        whereConditions.push(`v.management_office_id = $${paramIndex}`)
-        params.push(Number.parseInt(officeId))
+        whereConditions.push(`m.office_id = $${paramIndex}`)
+        params.push(officeId)
         paramIndex++
       }
 
       if (vehicleType && vehicleType !== "all") {
-        whereConditions.push(`v.vehicle_type = $${paramIndex}`)
+        whereConditions.push(`mt.type_name = $${paramIndex}`)
         params.push(vehicleType)
         paramIndex++
       }
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest) {
         query += " WHERE " + whereConditions.join(" AND ")
       }
 
-      query += " ORDER BY or_table.record_date, mo.office_name, v.vehicle_type, v.machine_number"
+      query += " ORDER BY or_table.operation_date, mo.office_name, mt.type_name, m.machine_number"
 
       const records = await executeQuery<OperationRecord>(query, params)
       return NextResponse.json(records)

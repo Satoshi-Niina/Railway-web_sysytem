@@ -6,7 +6,7 @@ async function generateOfficeCode(): Promise<string> {
   try {
     console.log("Generating office code...")
     // 既存の事業所コードを取得して最大番号を計算
-    const existingOffices = await executeQuery("SELECT office_code FROM master_data.management_offices ORDER BY office_code")
+    const existingOffices = await executeQuery("SELECT office_code FROM master_data.managements_offices ORDER BY office_code")
     console.log("Existing offices:", existingOffices)
     
     let maxCode = 0
@@ -43,7 +43,7 @@ export async function GET() {
 
     if (dbType === "postgresql") {
       try {
-        const offices = await executeQuery("SELECT * FROM master_data.management_offices ORDER BY office_name")
+        const offices = await executeQuery("SELECT *, office_id as id FROM master_data.managements_offices ORDER BY office_name")
         console.log("✅ Query successful, rows:", offices.length)
         return NextResponse.json(offices)
       } catch (error) {
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
         console.log("Generated office_code:", officeCode)
 
         const result = await executeQuery(`
-          INSERT INTO master_data.management_offices (office_name, office_code, responsible_area)
+          INSERT INTO master_data.managements_offices (office_name, office_code, responsible_area)
           VALUES ($1, $2, $3)
           RETURNING *
         `, [

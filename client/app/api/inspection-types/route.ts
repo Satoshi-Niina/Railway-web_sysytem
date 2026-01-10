@@ -7,14 +7,14 @@ export async function GET() {
     
     const queryText = `
       SELECT
-        id,
+        type_id as id,
         type_name,
-        category,
-        interval_days,
+        'routine' as category,
+        0 as interval_days,
         description,
         created_at
       FROM master_data.inspection_types
-      ORDER BY category, type_name
+      ORDER BY type_name
     `
     
     const result = await executeQuery(queryText, [])

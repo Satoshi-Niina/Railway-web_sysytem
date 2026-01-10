@@ -30,14 +30,22 @@ export async function GET(request: Request) {
       try {
         console.log("Executing vehicles query...")
         const vehicles = await executeQuery(`
-          SELECT v.*, 
-               mo.office_name, mo.office_code,
-               b.base_name
-          FROM master_data.vehicles v
-          LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
-          LEFT JOIN master_data.bases b ON v.home_base_id = b.id
-          WHERE v.status = 'active'
-          ORDER BY v.vehicle_type, v.machine_number
+          SELECT 
+            m.id as id,
+            m.machine_number,
+            mt.model_name as vehicle_type,
+            mt.id as model,
+            mt.manufacturer,
+            'active' as status,
+            mo.office_name,
+            mo.office_id as management_office_id,
+            m.purchase_date as acquisition_date,
+            m.created_at,
+            m.updated_at
+          FROM master_data.machines m
+          LEFT JOIN master_data.machine_types mt ON m.machine_type_id::text = mt.id::text
+          LEFT JOIN master_data.managements_offices mo ON m.office_id::text = mo.office_id::text
+          ORDER BY mt.model_name, m.machine_number
         `)
         console.log("PostgreSQL query result:", vehicles.length, "vehicles found")
         return NextResponse.json(vehicles)
@@ -94,7 +102,7 @@ export async function POST(request: Request) {
         const insertResult = await executeQuery(`
           INSERT INTO master_data.vehicles (
             machine_number, vehicle_type, model, manufacturer, acquisition_date, 
-            management_office_id, home_base_id, status
+            office_id, base_id, status
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
           RETURNING *
@@ -104,8 +112,8 @@ export async function POST(request: Request) {
           body.model || null,
           body.manufacturer || null,
           body.acquisition_date || null,
-          body.management_office_id || null,
-          body.home_base_id || null,
+          body.management_office_id || body.office_id || null,
+          body.home_base_id || body.base_id || null,
           'active'
         ])
 
@@ -117,8 +125,8 @@ export async function POST(request: Request) {
           const result = await executeQuery(`
             SELECT v.*, mo.office_name, mo.office_code
             FROM master_data.vehicles v
-            LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
-            WHERE v.id = $1
+            LEFT JOIN master_data.managements_offices mo ON v.office_id::text = mo.office_id::text
+            WHERE v.vehicle_id::text = $1::text
           `, [vehicleId])
           
           if (result.length > 0) {

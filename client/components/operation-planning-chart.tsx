@@ -272,28 +272,15 @@ export function OperationPlanningChart() {
     return date.toISOString().slice(0, 10)
   }
 
-  // 事業所でフィルタリングされた基地を取得
+  // 事業所でフィルタリングされた基地を取得（カレンダー表示用 - フィルターなし）
   const filteredBases = useMemo(() => {
-    let bases = allBases
-
-    // 事業所でフィルタリング
-    if (selectedOfficeId !== "all") {
-      const officeId = Number.parseInt(selectedOfficeId)
-      bases = bases.filter((base) => base.management_office_id === officeId)
-    }
-
-    return bases
-  }, [allBases, selectedOfficeId])
+    // カレンダー表示には全基地を表示
+    return allBases
+  }, [allBases])
 
   // 事業所でフィルタリングされた車両を取得
   const filteredVehicles = useMemo(() => {
     let vehicles = allVehicles
-
-    // 事業所でフィルタリング
-    if (selectedOfficeId !== "all") {
-      const officeId = Number.parseInt(selectedOfficeId)
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === officeId)
-    }
 
     // 機種でフィルタリング
     if (selectedVehicleType !== "all") {
@@ -306,7 +293,7 @@ export function OperationPlanningChart() {
     }
 
     return vehicles
-  }, [allVehicles, selectedOfficeId, selectedVehicleType, selectedMachineNumber])
+  }, [allVehicles, selectedVehicleType, selectedMachineNumber])
 
   // 機種別にグループ化された車両を取得（固定順序）
   const vehiclesByType = useMemo(() => {
@@ -964,6 +951,13 @@ export function OperationPlanningChart() {
           </div>
         </CardHeader>
         <CardContent>
+          {Object.keys(vehiclesByType).length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Car className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+              <p>フィルター条件に一致する車両がありません。</p>
+              <p className="text-sm mt-2">フィルター条件を変更してください。</p>
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-xs">
               <thead>
@@ -1111,6 +1105,7 @@ export function OperationPlanningChart() {
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
 
@@ -1129,6 +1124,7 @@ export function OperationPlanningChart() {
         date={selectedDate}
         base={selectedBase}
         bases={allBases}
+        selectedOfficeId={selectedOfficeId}
         onSave={handleSavePlan}
         onDelete={editingPlan ? () => handleDeletePlan(editingPlan.id) : undefined}
       />
@@ -1145,6 +1141,7 @@ function OperationPlanModal({
   date,
   base,
   bases,
+  selectedOfficeId,
   onSave,
   onDelete,
 }: {
@@ -1155,6 +1152,7 @@ function OperationPlanModal({
   date: string
   base: Base | null
   bases: Base[]
+  selectedOfficeId: string
   onSave: (planData: Partial<OperationPlan>) => void
   onDelete?: () => void
 }) {
@@ -1167,6 +1165,28 @@ function OperationPlanModal({
   const [loading, setLoading] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [pendingChanges, setPendingChanges] = useState<Partial<OperationPlan> | null>(null)
+
+  // 事業所でフィルタリングされた基地と、その他の基地を分類
+  const { filteredBases, otherBases } = useMemo(() => {
+    // 車両が選択されている場合は、その車両の事業所の基地を優先表示
+    const vehicleOfficeId = vehicle?.management_office_id
+    
+    if (!vehicleOfficeId) {
+      // 車両が選択されていない場合、またはselectedOfficeIdを使用
+      if (selectedOfficeId === "all") {
+        return { filteredBases: bases, otherBases: [] }
+      }
+      const officeId = Number.parseInt(selectedOfficeId)
+      const filtered = bases.filter((base) => base.management_office_id === officeId)
+      const others = bases.filter((base) => base.management_office_id !== officeId)
+      return { filteredBases: filtered, otherBases: others }
+    }
+    
+    // 車両の事業所に属する基地を優先表示
+    const filtered = bases.filter((base) => base.management_office_id === vehicleOfficeId)
+    const others = bases.filter((base) => base.management_office_id !== vehicleOfficeId)
+    return { filteredBases: filtered, otherBases: others }
+  }, [bases, selectedOfficeId, vehicle])
 
   useEffect(() => {
     if (plan) {
@@ -1299,11 +1319,34 @@ function OperationPlanModal({
                   <SelectValue placeholder="基地を選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bases.map((base) => (
-                    <SelectItem key={base.id} value={base.id.toString()}>
-                      {base.base_name}
-                    </SelectItem>
-                  ))}
+                  {filteredBases.length > 0 && (
+                    <>
+                      {filteredBases.map((base) => (
+                        <SelectItem key={base.id} value={base.id.toString()}>
+                          {base.base_name}
+                        </SelectItem>
+                      ))}
+                      {otherBases.length > 0 && (
+                        <SelectItem disabled value="divider" className="text-xs text-gray-400 py-1">
+                          ──────────
+                        </SelectItem>
+                      )}
+                    </>
+                  )}
+                  {otherBases.length > 0 && (
+                    <>
+                      {selectedOfficeId !== "all" && (
+                        <SelectItem disabled value="other-label" className="text-xs text-gray-500 font-medium">
+                          その他の基地
+                        </SelectItem>
+                      )}
+                      {otherBases.map((base) => (
+                        <SelectItem key={base.id} value={base.id.toString()}>
+                          {base.base_name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -1317,11 +1360,34 @@ function OperationPlanModal({
                   <SelectValue placeholder="基地を選択" />
                 </SelectTrigger>
                 <SelectContent>
-                  {bases.map((base) => (
-                    <SelectItem key={base.id} value={base.id.toString()}>
-                      {base.base_name}
-                    </SelectItem>
-                  ))}
+                  {filteredBases.length > 0 && (
+                    <>
+                      {filteredBases.map((base) => (
+                        <SelectItem key={base.id} value={base.id.toString()}>
+                          {base.base_name}
+                        </SelectItem>
+                      ))}
+                      {otherBases.length > 0 && (
+                        <SelectItem disabled value="divider" className="text-xs text-gray-400 py-1">
+                          ──────────
+                        </SelectItem>
+                      )}
+                    </>
+                  )}
+                  {otherBases.length > 0 && (
+                    <>
+                      {(selectedOfficeId !== "all" || vehicle?.management_office_id) && (
+                        <SelectItem disabled value="other-label" className="text-xs text-gray-500 font-medium">
+                          その他の基地
+                        </SelectItem>
+                      )}
+                      {otherBases.map((base) => (
+                        <SelectItem key={base.id} value={base.id.toString()}>
+                          {base.base_name}
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

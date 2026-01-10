@@ -9,17 +9,23 @@ export async function GET() {
     if (dbType === "postgresql") {
       try {
         const bases = await executeQuery(
-          `SELECT b.*, mo.office_name, mo.office_code, mo.responsible_area
+          `SELECT b.base_id as id, b.base_name, b.base_code, b.location, 
+                  b.office_id as management_office_id,
+                  b.created_at, b.updated_at,
+                  mo.office_name, mo.office_code
            FROM master_data.bases b
-           LEFT JOIN master_data.management_offices mo ON b.management_office_id = mo.id
-           WHERE b.is_active = true
+           LEFT JOIN master_data.managements_offices mo ON b.office_id::text = mo.office_id::text
            ORDER BY b.base_name`
         )
         return NextResponse.json(bases)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Database query failed:", error)
         return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
+          { 
+            error: "データベース接続エラーが発生しました",
+            details: error.message,
+            code: error.code
+          },
           { status: 500 }
         )
       }
@@ -100,7 +106,7 @@ export async function POST(request: Request) {
       try {
         const result = await executeQuery(`
           INSERT INTO master_data.bases (
-            base_name, base_type, location, management_office_id, is_active
+            base_name, base_type, location, office_id, is_active
           )
           VALUES ($1, $2, $3, $4, $5)
           RETURNING *
@@ -108,7 +114,7 @@ export async function POST(request: Request) {
           body.base_name,
           body.base_type,
           body.location || null,
-          body.management_office_id || null,
+          body.management_office_id || body.office_id || null,
           body.is_active !== false // デフォルトはtrue
         ])
 

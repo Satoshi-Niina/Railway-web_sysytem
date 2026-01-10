@@ -4,15 +4,63 @@ import { getDatabaseType, executeQuery } from "@/lib/database"
 // GET: 車両の検査予定を取得（運用計画期間の予告表示用）
 export async function GET(request: NextRequest) {
   try {
+    console.log('=== Vehicle Inspection Schedule API called ===')
+    
     const { searchParams } = new URL(request.url)
     const vehicleId = searchParams.get("vehicle_id")
     const month = searchParams.get("month") // YYYY-MM形式
     const showWarnings = searchParams.get("show_warnings") === "true" // 予告のみ表示
 
+    console.log('Parameters:', { vehicleId, month, showWarnings })
+
     const dbType = getDatabaseType()
+    console.log('Database type:', dbType)
 
     if (dbType === "postgresql") {
+      // テーブルの存在確認
+      try {
+        const tableCheck = await executeQuery(`
+          SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'inspections' 
+            AND table_name = 'vehicle_inspection_records'
+          ) as records_exists,
+          EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_schema = 'inspections' 
+            AND table_name = 'inspection_cycle_order'
+          ) as cycle_exists
+        `)
+        
+        console.log('Table check:', tableCheck[0])
+        
+        if (!tableCheck[0]?.records_exists || !tableCheck[0]?.cycle_exists) {
+          console.log('Required inspection tables do not exist, returning empty array')
+          return NextResponse.json([])
+        }
+      } catch (tableCheckError) {
+        console.error('Table check error:', tableCheckError)
+        return NextResponse.json([])
+      }
+
       if (month) {
+        // vehicle_inspection_recordsが空の場合でもエラーにならないように空配列を返す
+        try {
+          const checkRecordsQuery = `SELECT COUNT(*) FROM inspections.vehicle_inspection_records`
+          const recordsCount = await executeQuery(checkRecordsQuery)
+          
+          console.log('Records count:', recordsCount[0])
+          
+          if (recordsCount[0]?.count === '0' || recordsCount[0]?.count === 0) {
+            // 検査実績がない場合は空配列を返す
+            console.log('No inspection records found, returning empty array')
+            return NextResponse.json([])
+          }
+        } catch (countError) {
+          console.error('Count check error:', countError)
+          return NextResponse.json([])
+        }
+
         // 特定月の検査予定と予告を取得
         const [year, monthNum] = month.split('-')
         const startDate = `${year}-${monthNum}-01`
@@ -34,8 +82,8 @@ export async function GET(request: NextRequest) {
             -- 次の検査サイクルを計算
             SELECT 
               li.vehicle_id,
-              v.machine_number,
-              v.vehicle_type,
+              m.machine_number,
+              mt.model_name as vehicle_type,
               li.inspection_type as last_inspection_type,
               li.inspection_date as last_inspection_date,
               li.cycle_order as last_cycle_order,
@@ -46,17 +94,17 @@ export async function GET(request: NextRequest) {
               li.inspection_date + (INTERVAL '1 month' * ico.cycle_months) as next_inspection_date,
               li.inspection_date + (INTERVAL '1 month' * (ico.cycle_months - ico.warning_months)) as warning_start_date
             FROM latest_inspections li
-            JOIN master_data.vehicles v ON li.vehicle_id = v.id
+            JOIN master_data.machines m ON li.vehicle_id = m.id
+            LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
             LEFT JOIN inspections.inspection_cycle_order ico ON 
-              ico.vehicle_type = v.vehicle_type AND 
+              ico.vehicle_type = mt.model_name AND 
               ico.cycle_order = (
                 SELECT MIN(cycle_order) 
                 FROM inspections.inspection_cycle_order 
-                WHERE vehicle_type = v.vehicle_type 
+                WHERE vehicle_type = mt.model_name 
                 AND cycle_order > li.cycle_order
                 AND is_active = true
               )
-            WHERE v.status = 'active'
           )
           SELECT 
             nc.*,
@@ -78,7 +126,7 @@ export async function GET(request: NextRequest) {
 
         if (vehicleId) {
           query += ` AND nc.vehicle_id = $${paramIndex}`
-          params.push(Number(vehicleId))
+          params.push(vehicleId)
           paramIndex++
         }
 
@@ -91,6 +139,14 @@ export async function GET(request: NextRequest) {
         const data = await executeQuery(query, params)
         return NextResponse.json(data)
       } else if (vehicleId) {
+        // vehicle_inspection_recordsが空の場合はnullを返す
+        const checkRecordsQuery = `SELECT COUNT(*) FROM inspections.vehicle_inspection_records WHERE vehicle_id = $1`
+        const recordsCount = await executeQuery(checkRecordsQuery, [vehicleId])
+        
+        if (recordsCount[0]?.count === '0' || recordsCount[0]?.count === 0) {
+          return NextResponse.json(null)
+        }
+
         // 特定車両の次回検査予定を取得
         const query = `
           WITH latest_inspection AS (
@@ -102,21 +158,22 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             li.*,
-            v.machine_number,
-            v.vehicle_type,
+            m.machine_number,
+            mt.model_name as vehicle_type,
             ico.inspection_type as next_inspection_type,
             ico.cycle_order as next_cycle_order,
             ico.cycle_months,
             ico.warning_months,
             li.inspection_date + (INTERVAL '1 month' * ico.cycle_months) as next_inspection_date
           FROM latest_inspection li
-          JOIN master_data.vehicles v ON li.vehicle_id = v.id
+          JOIN master_data.machines m ON li.vehicle_id = m.id
+          LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
           LEFT JOIN inspections.inspection_cycle_order ico ON 
-            ico.vehicle_type = v.vehicle_type AND 
+            ico.vehicle_type = mt.model_name AND 
             ico.cycle_order = (
               SELECT MIN(cycle_order) 
               FROM inspections.inspection_cycle_order 
-              WHERE vehicle_type = v.vehicle_type 
+              WHERE vehicle_type = mt.model_name 
               AND cycle_order > li.cycle_order
               AND is_active = true
             )
@@ -134,11 +191,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([])
     }
   } catch (error) {
-    console.error("Error fetching vehicle inspection schedule:", error)
+    console.error("❌ Error fetching vehicle inspection schedule")
+    console.error("Error name:", error instanceof Error ? error.name : 'Unknown')
+    console.error("Error message:", error instanceof Error ? error.message : String(error))
+    console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace')
+    console.error("Error code:", (error as any).code)
+    
     return NextResponse.json(
       { 
         error: "Failed to fetch vehicle inspection schedule",
-        details: error instanceof Error ? error.message : String(error)
+        details: error instanceof Error ? error.message : String(error),
+        code: (error as any).code,
+        timestamp: new Date().toISOString()
       },
       { status: 500 }
     )

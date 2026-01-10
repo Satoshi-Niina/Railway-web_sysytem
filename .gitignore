@@ -120,6 +120,8 @@ uploads/
 # Data directory (images, documents, uploads)
 data/
 !data/.gitkeep
+!data/documents/
+!data/documents/**
 
 # IDE specific
 .vscode/

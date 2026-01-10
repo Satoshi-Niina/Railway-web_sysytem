@@ -1,51 +1,40 @@
 import express from 'express';
-import pkg from 'pg';
-const { Pool } = pkg;
+import db from '../db.js';
+import { getTablePath } from '../lib/db-routing.js';
 
 const router = express.Router();
-
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number.parseInt(process.env.DB_PORT || "5432"),
-  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : false,
-});
 
 // GET /api/operation-records - 運用実績の一覧取得（月フィルタ対応）
 router.get('/', async (req, res) => {
   try {
     const { month } = req.query;
+    const tablePath = await getTablePath('operation_records');
     
     let query = `
       SELECT 
-        id, 
+        record_id, 
+        schedule_id,
         vehicle_id, 
-        record_date, 
-        shift_type, 
+        operation_date, 
         start_time, 
         end_time, 
-        actual_distance, 
-        departure_base_id, 
-        arrival_base_id, 
         status, 
         notes, 
         created_at, 
         updated_at
-      FROM operations.operation_records
+      FROM ${tablePath}
     `;
     
     const params = [];
     
     if (month) {
-      query += ` WHERE record_date >= $1 AND record_date < ($1::date + interval '1 month')`;
+      query += ` WHERE operation_date >= $1 AND operation_date < ($1::date + interval '1 month')`;
       params.push(`${month}-01`);
     }
     
-    query += ` ORDER BY record_date, start_time`;
+    query += ` ORDER BY operation_date, start_time`;
     
-    const result = await pool.query(query, params);
+    const result = await db.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('運用実績取得エラー:', error);
@@ -60,23 +49,10 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-      `SELECT 
-        id, 
-        vehicle_id, 
-        record_date, 
-        shift_type, 
-        start_time, 
-        end_time, 
-        actual_distance, 
-        departure_base_id, 
-        arrival_base_id, 
-        status, 
-        notes, 
-        created_at, 
-        updated_at
-      FROM operations.operation_records 
-      WHERE id = $1`,
+    const tablePath = await getTablePath('operation_records');
+    
+    const result = await db.query(
+      `SELECT * FROM ${tablePath} WHERE record_id = $1`,
       [id]
     );
     
@@ -98,54 +74,33 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
+      schedule_id,
       vehicle_id,
-      record_date,
-      shift_type,
+      operation_date,
       start_time,
       end_time,
-      actual_distance,
-      departure_base_id,
-      arrival_base_id,
       status,
       notes,
     } = req.body;
+    const tablePath = await getTablePath('operation_records');
 
-    const result = await pool.query(
-      `INSERT INTO operations.operation_records (
+    const result = await db.query(
+      `INSERT INTO ${tablePath} (
+        schedule_id,
         vehicle_id, 
-        record_date, 
-        shift_type, 
+        operation_date, 
         start_time, 
         end_time, 
-        actual_distance, 
-        departure_base_id, 
-        arrival_base_id, 
         status, 
         notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING 
-        id, 
-        vehicle_id, 
-        record_date, 
-        shift_type, 
-        start_time, 
-        end_time, 
-        actual_distance, 
-        departure_base_id, 
-        arrival_base_id, 
-        status, 
-        notes, 
-        created_at, 
-        updated_at`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *`,
       [
+        schedule_id,
         vehicle_id,
-        record_date,
-        shift_type,
+        operation_date,
         start_time,
         end_time,
-        actual_distance,
-        departure_base_id,
-        arrival_base_id,
         status,
         notes,
       ]
@@ -166,56 +121,35 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const {
+      schedule_id,
       vehicle_id,
-      record_date,
-      shift_type,
+      operation_date,
       start_time,
       end_time,
-      actual_distance,
-      departure_base_id,
-      arrival_base_id,
       status,
       notes,
     } = req.body;
+    const tablePath = await getTablePath('operation_records');
 
-    const result = await pool.query(
-      `UPDATE operations.operation_records 
+    const result = await db.query(
+      `UPDATE ${tablePath} 
       SET 
-        vehicle_id = $1,
-        record_date = $2,
-        shift_type = $3,
+        schedule_id = $1,
+        vehicle_id = $2,
+        operation_date = $3,
         start_time = $4,
         end_time = $5,
-        actual_distance = $6,
-        departure_base_id = $7,
-        arrival_base_id = $8,
-        status = $9,
-        notes = $10,
+        status = $6,
+        notes = $7,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
-      RETURNING 
-        id, 
-        vehicle_id, 
-        record_date, 
-        shift_type, 
-        start_time, 
-        end_time, 
-        actual_distance, 
-        departure_base_id, 
-        arrival_base_id, 
-        status, 
-        notes, 
-        created_at, 
-        updated_at`,
+      WHERE record_id = $8
+      RETURNING *`,
       [
+        schedule_id,
         vehicle_id,
-        record_date,
-        shift_type,
+        operation_date,
         start_time,
         end_time,
-        actual_distance,
-        departure_base_id,
-        arrival_base_id,
         status,
         notes,
         id,
@@ -240,8 +174,10 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await pool.query(
-        'DELETE FROM operations.operation_records WHERE id = $1 RETURNING id',
+    const tablePath = await getTablePath('operation_records');
+    
+    const result = await db.query(
+        `DELETE FROM ${tablePath} WHERE record_id = $1 RETURNING record_id`,
       [id]
     );
 
@@ -249,7 +185,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ error: '運用実績が見つかりません' });
     }
 
-    res.json({ message: '運用実績を削除しました', id: result.rows[0].id });
+    res.json({ message: '運用実績を削除しました', id: result.rows[0].record_id });
   } catch (error) {
     console.error('運用実績削除エラー:', error);
     res.status(500).json({ 

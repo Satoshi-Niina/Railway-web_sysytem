@@ -15,16 +15,17 @@
     "pnpm": ">=9.0.0"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.14.0",
+    "better-sqlite3": "^11.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "pg": "^8.13.1",
-    "better-sqlite3": "^11.8.1"
+    "pg": "^8.13.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
-    "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
     "eslint": "^9.17.0"

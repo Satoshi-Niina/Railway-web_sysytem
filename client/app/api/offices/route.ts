@@ -8,7 +8,7 @@ export async function GET() {
     if (dbType === "postgresql") {
       try {
         const offices = await executeQuery(`
-          SELECT * FROM master_data.management_offices
+          SELECT *, office_id as id FROM master_data.managements_offices
           ORDER BY office_name
         `)
         return NextResponse.json(offices)

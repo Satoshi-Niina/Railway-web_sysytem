@@ -14,9 +14,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 import type { Vehicle, OperationPlan, Base, Office, VehicleInspectionSchedule } from "@/types"
 import { apiCall, isDatabaseConfigured } from "@/lib/api-client"
+import { OperationCalendarView } from "./operation-calendar-view"
 
 // 検修タイプの型定義
 interface InspectionType {
@@ -61,6 +63,8 @@ export function OperationPlanning() {
   const [allOffices, setAllOffices] = useState<Office[]>([])
   const [inspectionSchedules, setInspectionSchedules] = useState<VehicleInspectionSchedule[]>([])
   const [inspectionTypes, setInspectionTypes] = useState<InspectionType[]>([])
+  const [masterMachineTypes, setMasterMachineTypes] = useState<any[]>([])
+  const [masterMachines, setMasterMachines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [timeFieldErrors, setTimeFieldErrors] = useState<{ start: boolean; end: boolean }>({ start: false, end: false })
@@ -76,12 +80,12 @@ export function OperationPlanning() {
     plan_date: "",
     end_date: "",
     shift_type: "day",
-    inspection_type_id: "", // 検修種別ID
+    inspection_type_id: "",
     start_time: "08:00",
     end_time: "17:00",
-    planned_distance: 0,
     departure_base_id: "",
     arrival_base_id: "",
+    planned_distance: 0,
     notes: "",
   })
 
@@ -89,10 +93,19 @@ export function OperationPlanning() {
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>("all")
   const [selectedVehicleTypes, setSelectedVehicleTypes] = useState<string[]>([])
   const [selectedMachineNumbers, setSelectedMachineNumbers] = useState<string[]>([])
+  
+  // ビュー切り替え状態
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
 
   const currentDate = new Date()
   const selectedDate = new Date(currentMonth + "-01")
   const isPastMonth = selectedDate <= new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+
+  // 事業所フィルターが変更されたとき、機種と機械番号の選択をクリア
+  useEffect(() => {
+    setSelectedVehicleTypes([])
+    setSelectedMachineNumbers([])
+  }, [selectedOfficeId])
 
   useEffect(() => {
     fetchData()
@@ -119,22 +132,26 @@ export function OperationPlanning() {
 
       // 車両データの取得
       try {
-        const rawVehiclesData = await apiCall<any[]>("vehicles")
-        // APIから返されるデータをVehicle型にマッピング
+        const rawVehiclesData = await apiCall<any[]>("machines")
+        console.log("=== Raw Machines Data (first 2) ===")
+        console.log(JSON.stringify(rawVehiclesData.slice(0, 2), null, 2))
+        // APIから返されるデータをVehicle型にマッピング（model_nameのみを使用）
         vehiclesData = rawVehiclesData.map(v => ({
           id: v.id,
-          name: v.vehicle_type || v.name, // vehicle_typeをnameにマッピング
-          vehicle_type: v.vehicle_type || '', // vehicle_typeフィールドを保持
-          model: v.model || '',
-          base_location: v.base_name || '',
+          name: v.model_name || '', 
+          vehicle_type: v.model_name || '', // model_nameのみを使用
+          model: v.machine_type_id || '',
+          base_location: v.office_name || '',
           machine_number: v.machine_number || '',
           manufacturer: v.manufacturer || '',
-          acquisition_date: v.acquisition_date || '',
+          acquisition_date: v.created_at || '',
           management_office: v.office_name || '',
-          management_office_id: v.management_office_id,
+          management_office_id: v.office_id,
           created_at: v.created_at || '',
           updated_at: v.updated_at || '',
         }))
+        console.log("=== Mapped Vehicles Data (first 2) ===")
+        console.log(JSON.stringify(vehiclesData.slice(0, 2), null, 2))
       } catch (error) {
         console.error("車両データの取得エラー:", error)
         throw new Error("車両データの取得に失敗しました")
@@ -148,23 +165,41 @@ export function OperationPlanning() {
         throw new Error("基地データの取得に失敗しました")
       }
 
+      // マスタ機種データの取得
+      try {
+        const types = await apiCall<any[]>("machine-types")
+        setMasterMachineTypes(types)
+      } catch (error) {
+        // マスタ機種データは必須ではないので空配列のまま
+        setMasterMachineTypes([])
+      }
+
+      // マスタ機械データの取得
+      try {
+        const machineList = await apiCall<any[]>("machines")
+        setMasterMachines(machineList)
+      } catch (error) {
+        // マスタ機械データは必須ではないので空配列のまま
+        setMasterMachines([])
+      }
+
       // 事業所データの取得
       try {
         officesData = await apiCall<Office[]>("offices")
       } catch (error) {
-        console.error("事業所データの取得エラー:", error)
-        throw new Error("事業所データの取得に失敗しました")
+        // 事業所データがない場合は空配列を使用
+        officesData = []
       }
 
-      // 検査スケジュールデータの取得
+      // 検査スケジュールデータの取得（オプショナル - エラーを静かに処理）
       try {
         const schedulesData = await apiCall<VehicleInspectionSchedule[]>(
           `vehicle-inspection-schedule?month=${currentMonth}&show_warnings=true`
         )
         setInspectionSchedules(schedulesData)
       } catch (error) {
-        console.error("検査スケジュールの取得エラー:", error)
-        // 検査スケジュールは必須ではないので空配列のまま
+        // 検査スケジュールは必須ではないので空配列のまま（エラーログも出力しない）
+        setInspectionSchedules([])
       }
 
       // 検修タイプマスタの取得
@@ -173,33 +208,30 @@ export function OperationPlanning() {
         inspectionTypesData = await apiCall<InspectionType[]>("inspection-types")
         setInspectionTypes(inspectionTypesData)
       } catch (error) {
-        console.error("検修タイプマスタの取得エラー:", error)
-        // 検修タイプは必須ではないので空配列のまま
+        // 検修タイプは必須ではないので空配列のまま（エラーログも出力しない）
+        setInspectionTypes([])
       }
 
       console.log("=== データ取得完了 ===")
       console.log("運用計画データ:", plansData.length, "件")
       console.log("運用計画サンプル:", JSON.stringify(plansData[0], null, 2))
       console.log("車両データ:", vehiclesData.length, "件")
+      console.log("車両データサンプル:", JSON.stringify(vehiclesData.slice(0, 2), null, 2))
       console.log("基地データ:", basesData.length, "件")
       console.log("事業所データ:", officesData.length, "件")
       console.log("検査スケジュールデータ:", inspectionSchedules.length, "件")
       
       // 翌日またぎ計画をチェック
       const overnightPlans = plansData.filter(p => {
-        const planDate = p.plan_date?.split('T')[0]
-        const endDate = p.end_date?.split('T')[0]
-        return endDate && planDate && endDate > planDate
+        const planDate = p.schedule_date?.split('T')[0]
+        return false // schedules table in image doesn't have end_date, so overnight logic needs rethinking or addition of columns
       })
       console.log("翌日またぎ計画:", overnightPlans.length, "件")
       if (overnightPlans.length > 0) {
         console.log("翌日またぎ計画詳細:", overnightPlans.map(p => ({
-          id: p.id,
+          schedule_id: p.schedule_id,
           vehicle_id: p.vehicle_id,
-          plan_date: p.plan_date,
-          end_date: p.end_date,
-          start_time: p.start_time,
-          end_time: p.end_time
+          schedule_date: p.schedule_date
         })))
       }
       
@@ -224,13 +256,15 @@ export function OperationPlanning() {
     return `${currentMonth}-${day.toString().padStart(2, "0")}`
   }
 
-  // 事業所でフィルタリングされた車両を取得
+  // 車両フィルタリング（事業所・機種・機械番号）
   const filteredVehicles = useMemo(() => {
     let vehicles = allVehicles
 
     // 事業所でフィルタリング
     if (selectedOfficeId !== "all") {
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === Number.parseInt(selectedOfficeId))
+      vehicles = vehicles.filter((vehicle) => 
+        vehicle.management_office_id?.toString() === selectedOfficeId
+      )
     }
 
     // 機種でフィルタリング（複数選択対応）
@@ -244,7 +278,7 @@ export function OperationPlanning() {
     }
 
     return vehicles
-  }, [allVehicles, allBases, allOffices, selectedOfficeId, selectedVehicleTypes, selectedMachineNumbers])
+  }, [allVehicles, selectedOfficeId, selectedVehicleTypes, selectedMachineNumbers])
 
   // フィルタリングされた運用計画を取得
   const filteredOperationPlans = useMemo(() => {
@@ -252,86 +286,113 @@ export function OperationPlanning() {
     return operationPlans.filter(plan => filteredVehicleIds.includes(plan.vehicle_id))
   }, [operationPlans, filteredVehicles])
 
-  // 各フィルターで利用可能な事業所リストを取得（他のフィルターに応じて絞り込み）
+  // 各フィルターで利用可能な事業所リストを取得（全ての事業所を表示）
   const availableOffices = useMemo(() => {
-    let vehicles = allVehicles
+    // 全ての事業所を返す
+    return allOffices
+  }, [allOffices])
 
-    // 機種でフィルタリング（複数選択対応）
-    if (selectedVehicleTypes.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedVehicleTypes.includes(vehicle.vehicle_type))
-    }
-
-    // 機械番号でフィルタリング（複数選択対応）
-    if (selectedMachineNumbers.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedMachineNumbers.includes(vehicle.machine_number))
-    }
-
-    // 利用可能な事業所IDを取得
-    const availableOfficeIds = new Set(vehicles.map((v) => v.management_office_id).filter(Boolean))
-    return allOffices.filter((office) => availableOfficeIds.has(office.id))
-  }, [allVehicles, allOffices, selectedVehicleTypes, selectedMachineNumbers])
-
-  // 各フィルターで利用可能な機種リストを取得（他のフィルターに応じて絞り込み）
+  // 各フィルターで利用可能な機種リストを取得（machine_typesテーブルから）
   const availableVehicleTypes = useMemo(() => {
-    let vehicles = allVehicles
-
-    // 事業所でフィルタリング
-    if (selectedOfficeId !== "all") {
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === Number.parseInt(selectedOfficeId))
+    // 事業所が「すべて」の場合：machine_typesテーブルの全機種を表示
+    if (selectedOfficeId === "all") {
+      const allModelNames = masterMachineTypes
+        .map(mt => mt.model_name)
+        .filter(Boolean)
+      return Array.from(new Set(allModelNames)).sort()
     }
-
-    // 機械番号でフィルタリング（複数選択対応）
-    if (selectedMachineNumbers.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedMachineNumbers.includes(vehicle.machine_number))
-    }
-
-    // 実際に存在する機種を取得
-    const availableTypes = new Set(vehicles.map((v) => v.vehicle_type).filter(Boolean))
-    // VEHICLE_TYPE_ORDERの順序で並べ替え、存在するもののみを返す
-    const orderedTypes = VEHICLE_TYPE_ORDER.filter((type) => availableTypes.has(type))
-    // 順序に含まれていない機種も追加（アルファベット順）
-    const otherTypes = Array.from(availableTypes)
-      .filter((type) => !VEHICLE_TYPE_ORDER.includes(type))
-      .sort()
     
-    return [...orderedTypes, ...otherTypes]
-  }, [allVehicles, selectedOfficeId, selectedMachineNumbers])
+    // 事業所が選択されている場合：その事業所の機械が持つ機種のみを表示
+    const vehiclesInOffice = allVehicles.filter(
+      v => v.management_office_id?.toString() === selectedOfficeId
+    )
+    const vehicleTypes = vehiclesInOffice
+      .map(v => v.vehicle_type)
+      .filter(Boolean)
+    
+    // 重複を除去してソート
+    return Array.from(new Set(vehicleTypes)).sort()
+  }, [masterMachineTypes, allVehicles, selectedOfficeId])
 
-  // 各フィルターで利用可能な機械番号リストを取得（他のフィルターに応じて絞り込み）
+  // 各フィルターで利用可能な機械番号リストを取得
   const availableMachineNumbers = useMemo(() => {
     let vehicles = allVehicles
-
-    // 事業所でフィルタリング
+    
+    // 事業所でフィルタリングされている場合は絞り込む
     if (selectedOfficeId !== "all") {
-      vehicles = vehicles.filter((vehicle) => vehicle.management_office_id === Number.parseInt(selectedOfficeId))
+      vehicles = vehicles.filter(v => v.management_office_id?.toString() === selectedOfficeId)
     }
-
-    // 機種でフィルタリング（複数選択対応）
+    
+    // 機種でフィルタリングされている場合は絞り込む
     if (selectedVehicleTypes.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedVehicleTypes.includes(vehicle.vehicle_type))
+      vehicles = vehicles.filter(v => selectedVehicleTypes.includes(v.vehicle_type))
     }
 
-    // 機械番号を取得してソート
-    return vehicles
+    const machineNumbers = vehicles
       .map((v) => v.machine_number)
       .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }))
+
+    return machineNumbers.sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }))
   }, [allVehicles, selectedOfficeId, selectedVehicleTypes])
 
-  // 事業所でフィルタリングされた基地リストを取得
-  const availableBases = useMemo(() => {
-    if (selectedOfficeId === "all") {
-      return allBases
+  // 機種フィルターが変更されたとき、無効な機械番号を除外
+  useEffect(() => {
+    if (selectedMachineNumbers.length > 0 && selectedVehicleTypes.length > 0) {
+      const validMachineNumbers = selectedMachineNumbers.filter(num => 
+        availableMachineNumbers.includes(num)
+      )
+      if (validMachineNumbers.length !== selectedMachineNumbers.length) {
+        setSelectedMachineNumbers(validMachineNumbers)
+      }
     }
+  }, [selectedVehicleTypes, availableMachineNumbers])
 
-    // 選択された事業所の基地のみを返す
-    return allBases.filter((base) => base.management_office_id === Number.parseInt(selectedOfficeId))
-  }, [allBases, selectedOfficeId])
+  // 計画作成時の基地リストを取得（フィルターで選択した事業所の基地を優先表示 + その他の基地）
+  const getAvailableBasesForPlan = (vehicleId: string) => {
+    // フィルターで事業所が選択されている場合はそれを優先
+    if (selectedOfficeId !== "all") {
+      // 選択された事業所の基地を優先
+      const officeBases = allBases.filter(
+        base => base.management_office_id === Number.parseInt(selectedOfficeId)
+      )
+      
+      // その他の基地
+      const otherBases = allBases.filter(
+        base => base.management_office_id !== Number.parseInt(selectedOfficeId)
+      )
+      
+      return { officeBases, otherBases }
+    }
+    
+    // フィルターが"all"の場合は、選択車両の事業所で絞り込む
+    if (!vehicleId) {
+      // 車両が選択されていない場合は全基地を返す（管轄基地なし）
+      return { officeBases: [], otherBases: allBases }
+    }
+    
+    const vehicle = allVehicles.find(v => v.id.toString() === vehicleId)
+    if (!vehicle || !vehicle.management_office_id) {
+      // 車両が見つからない、または事業所が未設定の場合は全基地を返す
+      return { officeBases: [], otherBases: allBases }
+    }
+    
+    // 選択車両の事業所の基地を優先
+    const officeBases = allBases.filter(
+      base => base.management_office_id === vehicle.management_office_id
+    )
+    
+    // その他の基地
+    const otherBases = allBases.filter(
+      base => base.management_office_id !== vehicle.management_office_id
+    )
+    
+    return { officeBases, otherBases }
+  }
 
   // 車両と日付から検査予告情報を取得するヘルパー関数
-  const getInspectionWarning = (vehicleId: number, dateString: string) => {
+  const getInspectionWarning = (vehicleId: string | number, dateString: string) => {
     return inspectionSchedules.find(schedule => 
-      schedule.vehicle_id === vehicleId && 
+      String(schedule.vehicle_id) === String(vehicleId) && 
       schedule.is_warning && 
       schedule.is_in_period
     )
@@ -347,20 +408,31 @@ export function OperationPlanning() {
     })
 
     filteredVehicles.forEach((vehicle) => {
-      if (grouped[vehicle.name]) {
-        grouped[vehicle.name].push(vehicle)
+      const type = vehicle.vehicle_type || vehicle.name || "その他"
+      if (!grouped[type]) {
+        grouped[type] = []
       }
+      grouped[type].push(vehicle)
     })
 
     // 各機種内で機械番号順にソート
     Object.keys(grouped).forEach((type) => {
-      grouped[type].sort((a, b) => (a.machine_number || "").localeCompare(b.machine_number || ""))
+      grouped[type].sort((a, b) => (a.machine_number || "").localeCompare(b.machine_number || "", 'ja', { numeric: true }))
     })
 
     // 空の機種を除外
     const result: Record<string, Vehicle[]> = {}
+    
+    // まずVEHICLE_TYPE_ORDERの順に並べる
+    VEHICLE_TYPE_ORDER.forEach(type => {
+      if (grouped[type]?.length > 0) {
+        result[type] = grouped[type]
+      }
+    })
+    
+    // その他の機種を追加
     Object.entries(grouped).forEach(([type, vehicles]) => {
-      if (vehicles.length > 0) {
+      if (!VEHICLE_TYPE_ORDER.includes(type) && vehicles.length > 0) {
         result[type] = vehicles
       }
     })
@@ -383,11 +455,11 @@ export function OperationPlanning() {
   }
 
   // 前日から継続する計画を取得（前日開始で当日終了の計画のみ）
-  const getPreviousDayOvernightPlans = (vehicleId: number, date: string) => {
+  const getPreviousDayOvernightPlans = (vehicleId: string | number, date: string) => {
     const targetDate = date.split('T')[0]
     
     const prevPlans = operationPlans.filter((p) => {
-      if (p.vehicle_id !== vehicleId) return false
+      if (String(p.vehicle_id) !== String(vehicleId)) return false
       
       const planDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
       const endDate = p.end_date ? (typeof p.end_date === 'string' ? p.end_date.split('T')[0] : p.end_date) : planDate
@@ -407,9 +479,10 @@ export function OperationPlanning() {
   }
 
   // 特定の車両と日付の全運用計画を取得（複数）- 当日開始の計画のみ
-  const getPlansForVehicleAndDate = (vehicleId: number, date: string) => {
+  const getPlansForVehicleAndDate = (vehicleId: string | number, date: string) => {
     // 全計画を確認（最初の呼び出しのみ）
-    if (vehicleId === filteredVehicles[0]?.id && date === getDateString(1)) {
+    const firstVehicleId = filteredVehicles[0]?.id
+    if (String(vehicleId) === String(firstVehicleId) && date === getDateString(1)) {
       console.log("=== 計画検索デバッグ ===")
       console.log("検索条件:", { vehicleId, date })
       console.log("全運用計画:", operationPlans.length, "件")
@@ -419,29 +492,17 @@ export function OperationPlanning() {
     const plans = operationPlans.filter((p) => {
       // 日付を正規化して比較（タイムスタンプがある場合は日付部分のみ取得）
       const planDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
-      // 当日開始の計画のみを取得
-      return p.vehicle_id === vehicleId && planDate === date
-    }).sort((a, b) => {
-      // 勤務形態の優先順位: night(夜間) > day_night(昼夜) > day(昼間)
-      const shiftOrder = { night: 0, day_night: 1, day: 2 }
-      const aOrder = shiftOrder[a.shift_type as keyof typeof shiftOrder] ?? 3
-      const bOrder = shiftOrder[b.shift_type as keyof typeof shiftOrder] ?? 3
-      
-      if (aOrder !== bOrder) {
-        return aOrder - bOrder
-      }
-      
-      // 同じshift_typeの場合は開始時刻でソート
-      return (a.start_time || '').localeCompare(b.start_time || '')
+      // 当日開始の計画のみを取得（文字列として比較）
+      return String(p.vehicle_id) === String(vehicleId) && planDate === date
     })
     
     return plans
   }
 
   // 検修期間中かどうかを判定（plan_dateからend_dateまで）
-  const isInMaintenancePeriod = (vehicleId: number, date: string): OperationPlan | undefined => {
+  const isInMaintenancePeriod = (vehicleId: string | number, date: string): OperationPlan | undefined => {
     return operationPlans.find((plan) => {
-      if (plan.vehicle_id !== vehicleId || plan.shift_type !== 'maintenance') return false
+      if (String(plan.vehicle_id) !== String(vehicleId) || plan.shift_type !== 'maintenance') return false
       
       const planStartDate = typeof plan.plan_date === 'string' ? plan.plan_date.split('T')[0] : plan.plan_date
       const planEndDate = plan.end_date 
@@ -465,6 +526,11 @@ export function OperationPlanning() {
     setCurrentMonth(newDate.toISOString().slice(0, 7))
   }
 
+  // カレンダービューから計画を編集
+  const handleCalendarPlanClick = (plan: OperationPlan) => {
+    handleCellClick(plan.vehicle_id, plan.plan_date.split("T")[0], plan)
+  }
+
   const getShiftBadgeColor = (shiftType: string) => {
     switch (shiftType) {
       case "day":
@@ -482,7 +548,7 @@ export function OperationPlanning() {
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
 
   // セルクリック時の処理（新規計画作成または編集）
-  const handleCellClick = (vehicleId: number, date: string, planToEdit?: OperationPlan) => {
+  const handleCellClick = (vehicleId: string | number, date: string, planToEdit?: OperationPlan) => {
     console.log('セルクリック:', { vehicleId, date, planToEdit })
     
     // エラー状態をリセット
@@ -496,112 +562,34 @@ export function OperationPlanning() {
     if (planToEdit) {
       // 既存計画の編集
       setEditingPlan(planToEdit)
-      const planDate = planToEdit.plan_date.split('T')[0]
-      const endDate = planToEdit.end_date ? planToEdit.end_date.split('T')[0] : planDate
-      console.log('編集モード - 日付:', { planDate, endDate })
+      const planDate = typeof planToEdit.plan_date === 'string' ? planToEdit.plan_date.split('T')[0] : planToEdit.plan_date
+      const endDate = planToEdit.end_date ? (typeof planToEdit.end_date === 'string' ? planToEdit.end_date.split('T')[0] : planToEdit.end_date) : ""
       setPlanForm({
         vehicle_id: planToEdit.vehicle_id.toString(),
         plan_date: planDate,
         end_date: endDate,
-        shift_type: planToEdit.shift_type,
+        shift_type: planToEdit.shift_type || "day",
+        inspection_type_id: "",
         start_time: planToEdit.start_time || "08:00",
         end_time: planToEdit.end_time || "17:00",
-        planned_distance: planToEdit.planned_distance || 0,
         departure_base_id: planToEdit.departure_base_id?.toString() || "",
         arrival_base_id: planToEdit.arrival_base_id?.toString() || "",
+        planned_distance: planToEdit.planned_distance || 0,
         notes: planToEdit.notes || "",
       })
     } else {
-      // 新規計画作成 - 最後の運用計画の到着基地を出発基地として自動設定
-      console.log('=== 新規計画作成 ===')
-      console.log('対象日:', date)
-      console.log('車両ID:', vehicleId)
-      
-      // 同日の既存計画を取得
-      const sameDayPlans = operationPlans
-        .filter(p => {
-          if (p.vehicle_id !== vehicleId) return false
-          const pDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
-          return pDate === date
-        })
-        .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
-      
-      // 前日以前の計画を取得
-      const previousDayPlans = operationPlans
-        .filter(p => {
-          if (p.vehicle_id !== vehicleId) return false
-          
-          const pDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
-          const pEndDate = p.end_date ? (typeof p.end_date === 'string' ? p.end_date.split('T')[0] : p.end_date) : pDate
-          
-          // 前日以前に開始し、対象日以前に終了した計画
-          return pDate < date || (pDate < date && pEndDate <= date)
-        })
-        .sort((a, b) => {
-          const aEndDate = a.end_date ? (typeof a.end_date === 'string' ? a.end_date.split('T')[0] : a.end_date) : 
-                          (typeof a.plan_date === 'string' ? a.plan_date.split('T')[0] : a.plan_date)
-          const bEndDate = b.end_date ? (typeof b.end_date === 'string' ? b.end_date.split('T')[0] : b.end_date) : 
-                          (typeof b.plan_date === 'string' ? b.plan_date.split('T')[0] : b.plan_date)
-          
-          const dateCompare = bEndDate.localeCompare(aEndDate)
-          if (dateCompare !== 0) return dateCompare
-          return (b.end_time || '').localeCompare(a.end_time || '')
-        })
-      
-      let lastArrivalBaseId = ""
-      let lastPlanInfo = null
-      
-      // 同日に既存計画がある場合、最後の計画の到着基地を使用
-      if (sameDayPlans.length > 0) {
-        const lastSameDayPlan = sameDayPlans[sameDayPlans.length - 1]
-        lastArrivalBaseId = lastSameDayPlan.arrival_base_id?.toString() || ""
-        lastPlanInfo = {
-          date: date,
-          time: lastSameDayPlan.end_time,
-          plan: lastSameDayPlan
-        }
-        console.log(`✓ 同日の計画あり: ${sameDayPlans.length}件`)
-        console.log('同日計画:', sameDayPlans.map(p => ({
-          start_time: p.start_time,
-          end_time: p.end_time,
-          departure_base_id: p.departure_base_id,
-          arrival_base_id: p.arrival_base_id
-        })))
-      } 
-      // 同日に計画がない場合、前日以前の最終計画を使用
-      else if (previousDayPlans.length > 0) {
-        const lastPreviousPlan = previousDayPlans[0]
-        lastArrivalBaseId = lastPreviousPlan.arrival_base_id?.toString() || ""
-        const lastEndDate = lastPreviousPlan.end_date ? 
-          (typeof lastPreviousPlan.end_date === 'string' ? lastPreviousPlan.end_date.split('T')[0] : lastPreviousPlan.end_date) : 
-          (typeof lastPreviousPlan.plan_date === 'string' ? lastPreviousPlan.plan_date.split('T')[0] : lastPreviousPlan.plan_date)
-        lastPlanInfo = {
-          date: lastEndDate,
-          time: lastPreviousPlan.end_time,
-          plan: lastPreviousPlan
-        }
-        console.log(`✓ 前日の計画: ${previousDayPlans.length}件`)
-      }
-      
-      if (lastPlanInfo) {
-        const lastArrivalBase = allBases.find(b => b.id === lastPlanInfo.plan.arrival_base_id)
-        console.log(`✓ 最終留置: ${lastPlanInfo.date} ${lastPlanInfo.time} → ${lastArrivalBase?.base_name || '不明'} (ID: ${lastArrivalBaseId})`)
-      } else {
-        console.log('✗ 前回の計画なし - 出発基地は手動で選択してください')
-      }
-      
-      console.log('設定する出発基地ID:', lastArrivalBaseId)
       setEditingPlan(null)
       setPlanForm({
         vehicle_id: vehicleId.toString(),
         plan_date: date,
-        end_date: date,
+        end_date: "",
         shift_type: "day",
+        inspection_type_id: "",
         start_time: "08:00",
         end_time: "17:00",
-        planned_distance: 0,
-        departure_base_id: lastArrivalBaseId,
+        departure_base_id: "",
         arrival_base_id: "",
+        planned_distance: 0,
         notes: "",
       })
     }
@@ -615,6 +603,22 @@ export function OperationPlanning() {
       console.log('=== 保存処理開始 ===')
       console.log('フォームの入力値:', planForm)
       
+      // 日付のバリデーション
+      if (!planForm.plan_date) {
+        setError("計画日を入力してください。")
+        return
+      }
+      
+      // 車両IDのバリデーション
+      if (!planForm.vehicle_id) {
+        setError("車両を選択してください。")
+        return
+      }
+      
+      // UUID形式の文字列としてそのまま使用
+      const vehicleId = planForm.vehicle_id
+      console.log('Vehicle ID (UUID):', vehicleId)
+      
       // 日付をローカルタイムゾーン（T00:00:00）として明示的に扱う
       const normalizedPlanDate = planForm.plan_date.includes('T') 
         ? planForm.plan_date.split('T')[0] 
@@ -626,7 +630,7 @@ export function OperationPlanning() {
       console.log('正規化された日付:', { normalizedPlanDate, normalizedEndDate })
       
       const planData = {
-        vehicle_id: Number.parseInt(planForm.vehicle_id),
+        vehicle_id: vehicleId,
         plan_date: normalizedPlanDate,
         end_date: normalizedEndDate,
         shift_type: planForm.shift_type,
@@ -865,12 +869,14 @@ export function OperationPlanning() {
             const pDate = typeof p.plan_date === 'string' ? p.plan_date.split('T')[0] : p.plan_date
             const pEndDate = p.end_date ? (typeof p.end_date === 'string' ? p.end_date.split('T')[0] : p.end_date) : pDate
             
-            // 計画日が新規計画より前、または同日で終了時刻が開始時刻より前（厳密に<を使用）
+            // 終了日時（end_date + end_time）が新規計画の開始日時（plan_date + start_time）より前
+            // 1. 終了日が新規計画開始日より前
             if (pEndDate < planData.plan_date) return true
-            if (pDate === planData.plan_date && (p.end_time || '') < planData.start_time) return true
+            // 2. 終了日が同じで、終了時刻が開始時刻より前（厳密に<）
+            if (pEndDate === planData.plan_date && (p.end_time || '') < planData.start_time) return true
             return false
           })
-          .pop()
+          .pop() // 時系列でソート済みなので最後の要素が直前の計画
         
         // 3. 新規計画の直後の計画を見つける
         const nextPlan = allVehiclePlans
@@ -884,13 +890,31 @@ export function OperationPlanning() {
             return false
           })
         
-        console.log('前後の計画チェック:', { previousPlan, nextPlan })
+        console.log('前後の計画チェック:', { 
+          previousPlan: previousPlan ? {
+            date: previousPlan.plan_date,
+            endDate: previousPlan.end_date,
+            time: `${previousPlan.start_time}-${previousPlan.end_time}`,
+            bases: `${previousPlan.departure_base_id}->${previousPlan.arrival_base_id}`
+          } : null,
+          nextPlan: nextPlan ? {
+            date: nextPlan.plan_date,
+            time: `${nextPlan.start_time}-${nextPlan.end_time}`,
+            bases: `${nextPlan.departure_base_id}->${nextPlan.arrival_base_id}`
+          } : null,
+          newPlan: {
+            date: planData.plan_date,
+            endDate: planData.end_date,
+            time: `${planData.start_time}-${planData.end_time}`,
+            bases: `${planData.departure_base_id}->${planData.arrival_base_id}`
+          }
+        })
         
         // 4. 前の計画の到着基地と新規計画の出発基地の整合性チェック
         if (previousPlan && previousPlan.arrival_base_id && planData.departure_base_id) {
-          if (previousPlan.arrival_base_id !== planData.departure_base_id) {
-            const prevArrivalBase = allBases.find(b => b.id === previousPlan.arrival_base_id)
-            const newDepartureBase = allBases.find(b => b.id === planData.departure_base_id)
+          if (previousPlan.arrival_base_id?.toString() !== planData.departure_base_id?.toString()) {
+            const prevArrivalBase = allBases.find(b => b.id?.toString() === previousPlan.arrival_base_id?.toString())
+            const newDepartureBase = allBases.find(b => b.id?.toString() === planData.departure_base_id?.toString())
             const vehicle = allVehicles.find(v => v.id === planData.vehicle_id)
             const prevEndDate = previousPlan.end_date ? 
               (typeof previousPlan.end_date === 'string' ? previousPlan.end_date.split('T')[0] : previousPlan.end_date) : 
@@ -921,9 +945,9 @@ export function OperationPlanning() {
           const daysDiff = Math.floor((nextDateObj.getTime() - newEndDateObj.getTime()) / (1000 * 60 * 60 * 24))
           
           if (daysDiff <= 1) {
-            if (nextPlan.departure_base_id !== planData.arrival_base_id) {
-              const newArrivalBase = allBases.find(b => b.id === planData.arrival_base_id)
-              const nextDepartureBase = allBases.find(b => b.id === nextPlan.departure_base_id)
+            if (nextPlan.departure_base_id?.toString() !== planData.arrival_base_id?.toString()) {
+              const newArrivalBase = allBases.find(b => b.id?.toString() === planData.arrival_base_id?.toString())
+              const nextDepartureBase = allBases.find(b => b.id?.toString() === nextPlan.departure_base_id?.toString())
               const vehicle = allVehicles.find(v => v.id === planData.vehicle_id)
               const [year, month, day] = nextDate.split('-').map(Number)
               
@@ -1112,12 +1136,17 @@ export function OperationPlanning() {
     }
   }
 
-  if (loading) {
-    return <div className="flex justify-center p-8">読み込み中...</div>
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* ローディングオーバーレイ */}
+      {loading && (
+        <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <p className="text-gray-600 font-medium">データを読み込んでいます...</p>
+          </div>
+        </div>
+      )}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -1394,34 +1423,67 @@ export function OperationPlanning() {
       </Card>
 
       {/* 運用計画表 */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <span>{currentMonth} 運用計画表</span>
-            <Badge variant="outline" className="text-blue-600">
-              計画作成・編集
-            </Badge>
-          </CardTitle>
-          <div className="text-sm text-gray-600">
-            セルをクリックして運用計画を作成・編集できます。青色は計画済み、グレーは未計画を表示します。
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr>
-                  <th className="border p-2 bg-gray-50 text-left min-w-24">機種</th>
-                  <th className="border p-2 bg-gray-50 text-left min-w-32">機械番号</th>
-                  {days.map((day) => (
-                    <th key={day} className="border p-1 bg-gray-50 text-center min-w-32">
-                      {day}
-                    </th>
-                  ))}
-                </tr>
+      <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "table" | "calendar")}>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center space-x-2">
+                  <span>{currentMonth} 運用計画</span>
+                  <Badge variant="outline" className="text-blue-600">
+                    計画作成・編集
+                  </Badge>
+                </CardTitle>
+                <div className="text-sm text-gray-600 mt-2">
+                  {viewMode === "table" 
+                    ? "セルをクリックして運用計画を作成・編集できます。青色は計画済み、グレーは未計画を表示します。"
+                    : "カレンダー形式で運用計画を表示します。日付をクリックして詳細を確認できます。"
+                  }
+                </div>
+              </div>
+              <TabsList>
+                <TabsTrigger value="table" className="flex items-center space-x-1">
+                  <span>表形式</span>
+                </TabsTrigger>
+                <TabsTrigger value="calendar" className="flex items-center space-x-1">
+                  <Calendar className="w-4 h-4" />
+                  <span>カレンダー</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <TabsContent value="table" className="mt-0">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border p-2 bg-gray-50 text-left min-w-24">機種</th>
+                      <th className="border p-2 bg-gray-50 text-left min-w-32">機械番号</th>
+                      {days.map((day) => (
+                        <th key={day} className="border p-1 bg-gray-50 text-center min-w-32">
+                          {day}
+                        </th>
+                      ))}
+                    </tr>
               </thead>
               <tbody>
-                {Object.entries(vehiclesByType).map(([vehicleType, vehicles]) =>
+                {Object.entries(vehiclesByType).length === 0 ? (
+                  <tr>
+                    <td colSpan={days.length + 2} className="border p-8 text-center">
+                      <div className="flex flex-col items-center space-y-2 text-gray-500">
+                        <Car className="w-12 h-12 text-gray-400" />
+                        <p className="font-medium">表示する車両がありません</p>
+                        <p className="text-sm">
+                          {selectedOfficeId !== "all" || selectedVehicleTypes.length > 0 || selectedMachineNumbers.length > 0
+                            ? "フィルター条件を変更してください"
+                            : "車両データを追加してください"}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  Object.entries(vehiclesByType).map(([vehicleType, vehicles]) =>
                   vehicles.map((vehicle) => (
                     <tr key={vehicle.id}>
                       <td className="border p-2 bg-blue-50">
@@ -1432,7 +1494,6 @@ export function OperationPlanning() {
                       </td>
                       <td className="border p-2 bg-blue-50">
                         <div className="font-medium">{vehicle.machine_number}</div>
-                        <div className="text-sm text-gray-600">{vehicle.base_location}</div>
                       </td>
                       {days.map((day) => {
                         const dateString = getDateString(day)
@@ -1554,7 +1615,7 @@ export function OperationPlanning() {
                                         </div>
                                         {plan.departure_base_id && plan.arrival_base_id && (
                                           <div className="text-xs text-amber-700 mt-0.5">
-                                            {allBases.find((b) => b.id === plan.departure_base_id)?.base_name} → {allBases.find((b) => b.id === plan.arrival_base_id)?.base_name}
+                                            {allBases.find((b) => b.id?.toString() === plan.departure_base_id?.toString())?.base_name || '不明'} → {allBases.find((b) => b.id?.toString() === plan.arrival_base_id?.toString())?.base_name || '不明'}
                                           </div>
                                         )}
                                       </div>
@@ -1628,7 +1689,7 @@ export function OperationPlanning() {
                                     </div>
                                     {plan.departure_base_id && plan.arrival_base_id && (
                                       <div className="text-xs text-gray-500 mt-0.5">
-                                        {allBases.find((b) => b.id === plan.departure_base_id)?.base_name} → {allBases.find((b) => b.id === plan.arrival_base_id)?.base_name}
+                                        {allBases.find((b) => b.id?.toString() === plan.departure_base_id?.toString())?.base_name || '不明'} → {allBases.find((b) => b.id?.toString() === plan.arrival_base_id?.toString())?.base_name || '不明'}
                                       </div>
                                     )}
                                           </div>
@@ -1660,12 +1721,25 @@ export function OperationPlanning() {
                       })}
                     </tr>
                   ))
+                  )
                 )}
               </tbody>
             </table>
           </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+        
+        <TabsContent value="calendar" className="mt-0">
+          <OperationCalendarView
+            operationPlans={filteredOperationPlans}
+            currentMonth={currentMonth}
+            allBases={allBases}
+            onMonthChange={navigateMonth}
+            onPlanClick={handleCalendarPlanClick}
+          />
+        </TabsContent>
+      </CardContent>
+    </Card>
+  </Tabs>
 
       {/* 計画編集モーダル */}
       <Dialog open={showPlanModal} onOpenChange={setShowPlanModal}>
@@ -1698,26 +1772,6 @@ export function OperationPlanning() {
 
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vehicle">車両</Label>
-                <Select 
-                  value={planForm.vehicle_id} 
-                  onValueChange={(value) => setPlanForm({ ...planForm, vehicle_id: value })}
-                  disabled={!!editingPlan}
-                >
-                  <SelectTrigger id="vehicle">
-                    <SelectValue placeholder="車両を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allVehicles.map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                        {vehicle.name} - {vehicle.machine_number}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="plan_date">計画日（開始日）</Label>
                 <Input
@@ -1853,11 +1907,37 @@ export function OperationPlanning() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">なし</SelectItem>
-                      {availableBases.map((base) => (
-                        <SelectItem key={base.id} value={base.id.toString()}>
-                          {base.base_name}
-                        </SelectItem>
-                      ))}
+                      {(() => {
+                        const { officeBases, otherBases } = getAvailableBasesForPlan(planForm.vehicle_id)
+                        return (
+                          <>
+                            {officeBases.length > 0 && (
+                              <>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">
+                                  管轄基地
+                                </div>
+                                {officeBases.map((base) => (
+                                  <SelectItem key={base.id} value={base.id.toString()}>
+                                    {base.base_name}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                            {otherBases.length > 0 && (
+                              <>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 border-t">
+                                  その他の基地
+                                </div>
+                                {otherBases.map((base) => (
+                                  <SelectItem key={base.id} value={base.id.toString()}>
+                                    {base.base_name}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )
+                      })()}
                     </SelectContent>
                   </Select>
                   {baseFieldErrors.departure && baseConflictDetails.departure && (
@@ -1942,11 +2022,37 @@ export function OperationPlanning() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">なし</SelectItem>
-                      {availableBases.map((base) => (
-                        <SelectItem key={base.id} value={base.id.toString()}>
-                          {base.base_name}
-                        </SelectItem>
-                      ))}
+                      {(() => {
+                        const { officeBases, otherBases } = getAvailableBasesForPlan(planForm.vehicle_id)
+                        return (
+                          <>
+                            {officeBases.length > 0 && (
+                              <>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-gray-500">
+                                  管轄基地
+                                </div>
+                                {officeBases.map((base) => (
+                                  <SelectItem key={base.id} value={base.id.toString()}>
+                                    {base.base_name}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                            {otherBases.length > 0 && (
+                              <>
+                                <div className="px-2 py-1.5 text-xs font-semibold text-gray-500 border-t">
+                                  その他の基地
+                                </div>
+                                {otherBases.map((base) => (
+                                  <SelectItem key={base.id} value={base.id.toString()}>
+                                    {base.base_name}
+                                  </SelectItem>
+                                ))}
+                              </>
+                            )}
+                          </>
+                        )
+                      })()}
                     </SelectContent>
                   </Select>
                   {baseFieldErrors.arrival && baseConflictDetails.arrival && (
