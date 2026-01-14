@@ -1,3 +1,4 @@
+
 import express from 'express';
 import db from '../db.js';
 import { getTablePath } from '../lib/db-routing.js';
@@ -18,6 +19,12 @@ router.get('/', async (req, res) => {
         operation_date, 
         start_time, 
         end_time, 
+        actual_start_time,
+        actual_end_time,
+        actual_distance,
+        departure_base_id,
+        arrival_base_id,
+        is_as_planned,
         status, 
         notes, 
         created_at, 
@@ -79,6 +86,12 @@ router.post('/', async (req, res) => {
       operation_date,
       start_time,
       end_time,
+      actual_start_time,
+      actual_end_time,
+      actual_distance,
+      departure_base_id,
+      arrival_base_id,
+      is_as_planned,
       status,
       notes,
     } = req.body;
@@ -91,9 +104,15 @@ router.post('/', async (req, res) => {
         operation_date, 
         start_time, 
         end_time, 
+        actual_start_time,
+        actual_end_time,
+        actual_distance,
+        departure_base_id,
+        arrival_base_id,
+        is_as_planned,
         status, 
         notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *`,
       [
         schedule_id,
@@ -101,6 +120,12 @@ router.post('/', async (req, res) => {
         operation_date,
         start_time,
         end_time,
+        actual_start_time,
+        actual_end_time,
+        actual_distance,
+        departure_base_id,
+        arrival_base_id,
+        is_as_planned,
         status,
         notes,
       ]
@@ -126,6 +151,12 @@ router.put('/:id', async (req, res) => {
       operation_date,
       start_time,
       end_time,
+      actual_start_time,
+      actual_end_time,
+      actual_distance,
+      departure_base_id,
+      arrival_base_id,
+      is_as_planned,
       status,
       notes,
     } = req.body;
@@ -139,10 +170,16 @@ router.put('/:id', async (req, res) => {
         operation_date = $3,
         start_time = $4,
         end_time = $5,
-        status = $6,
-        notes = $7,
+        actual_start_time = $6,
+        actual_end_time = $7,
+        actual_distance = $8,
+        departure_base_id = $9,
+        arrival_base_id = $10,
+        is_as_planned = $11,
+        status = $12,
+        notes = $13,
         updated_at = CURRENT_TIMESTAMP
-      WHERE record_id = $8
+      WHERE record_id = $14
       RETURNING *`,
       [
         schedule_id,
@@ -150,6 +187,12 @@ router.put('/:id', async (req, res) => {
         operation_date,
         start_time,
         end_time,
+        actual_start_time,
+        actual_end_time,
+        actual_distance,
+        departure_base_id,
+        arrival_base_id,
+        is_as_planned,
         status,
         notes,
         id,

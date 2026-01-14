@@ -18,6 +18,7 @@ router.get('/', async (req, res) => {
         m.office_id,
         o.office_name,
         m.notes as description,
+        m.last_inspection_date,
         m.created_at,
         m.updated_at
       FROM master_data.machines m
@@ -55,6 +56,7 @@ router.get('/:id', async (req, res) => {
         m.office_id,
         o.office_name,
         m.notes as description,
+        m.last_inspection_date,
         m.created_at,
         m.updated_at
       FROM master_data.machines m
@@ -74,6 +76,34 @@ router.get('/:id', async (req, res) => {
       error: '機械マスタの取得に失敗しました',
       details: error.message 
     });
+  }
+});
+
+// 検修完了日の更新
+router.patch('/:id/inspection-completion', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { completion_date } = req.body;
+    
+    if (!completion_date) {
+      return res.status(400).json({ error: '完了日が指定されていません' });
+    }
+
+    const result = await db.query(`
+      UPDATE master_data.machines 
+      SET last_inspection_date = $1, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `, [completion_date, id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '機械が見つかりません' });
+    }
+
+    res.json({ success: true, machine: result.rows[0] });
+  } catch (error) {
+    console.error('検修完了日更新エラー:', error);
+    res.status(500).json({ error: '更新に失敗しました' });
   }
 });
 

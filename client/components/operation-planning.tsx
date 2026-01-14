@@ -1238,6 +1238,34 @@ export function OperationPlanning() {
                 <p className="text-sm text-blue-600">
                   {isPastMonth ? "過去月のため編集はできません" : "セルをクリックして運用計画を作成・編集できます"}
                 </p>
+                
+                {/* 検査予定の表示 */}
+                {inspectionSchedules.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(() => {
+                      // 検査種別ごとに集計
+                      const summaryMap = new Map();
+                      inspectionSchedules.forEach(s => {
+                        const key = `${s.inspection_type}`;
+                        if (!summaryMap.has(key)) {
+                          summaryMap.set(key, {
+                            type: s.inspection_type,
+                            duration: s.duration_days,
+                            machines: []
+                          });
+                        }
+                        summaryMap.get(key).machines.push(s.machine_number);
+                      });
+
+                      return Array.from(summaryMap.values()).map((summary, idx) => (
+                        <div key={idx} className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-md border border-orange-200 flex items-center shadow-sm animate-pulse">
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          <span>今月に <strong>{summary.type}</strong> があります。({summary.machines.join(', ')}) 検修期間は<strong>{summary.duration || '未設定'}</strong>日です。</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
             <div className="text-right">

@@ -7,9 +7,9 @@ export async function GET() {
     
     const queryText = `
       SELECT
-        type_id as id,
+        id,
         type_name,
-        'routine' as category,
+        category,
         0 as interval_days,
         description,
         created_at

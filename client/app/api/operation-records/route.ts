@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       let query = `
         SELECT or_table.*, 
                or_table.record_id as id,
-               or_table.operation_date as record_date,
+               TO_CHAR(or_table.operation_date, 'YYYY-MM-DD') as record_date,
                m.machine_number, mt.type_name as vehicle_type, mt.model_name as model,
                mo.office_name, mo.office_code,
                db.base_name as departure_base_name, db.location as departure_location,
@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
         LEFT JOIN master_data.machines m ON or_table.vehicle_id::text = m.id::text
         LEFT JOIN master_data.machine_types mt ON m.machine_type_id::text = mt.id::text
         LEFT JOIN master_data.managements_offices mo ON m.office_id::text = mo.office_id::text
-        LEFT JOIN master_data.bases db ON m.assigned_base_id::text = db.base_id::text
-        LEFT JOIN master_data.bases ab ON m.assigned_base_id::text = ab.base_id::text
+        LEFT JOIN master_data.bases db ON or_table.departure_base_id::text = db.base_id::text
+        LEFT JOIN master_data.bases ab ON or_table.arrival_base_id::text = ab.base_id::text
       `
       const params: any[] = []
       let paramIndex = 1
@@ -267,8 +267,10 @@ export async function POST(request: NextRequest) {
       vehicle_id,
       record_date,
       shift_type,
-      start_time,
-      end_time,
+      actual_start_time,
+      start_time, // 互換性のため
+      actual_end_time,
+      end_time,   // 互換性のため
       actual_distance,
       departure_base_id,
       arrival_base_id,
@@ -276,35 +278,46 @@ export async function POST(request: NextRequest) {
       notes,
     } = body
 
+    // フロントエンドからのパラメータを適切にマッピング
+    const startTime = actual_start_time || start_time
+    const endTime = actual_end_time || end_time
+    
+    // 日付を YYYY-MM-DD 形式に正規化（タイムゾーン問題を回避）
+    const normalizedDate = typeof record_date === 'string' 
+      ? record_date.split('T')[0] 
+      : record_date
+
     const dbType = getDatabaseType()
 
     if (dbType === "postgresql") {
       const query = `
         INSERT INTO operations.operation_records (
           vehicle_id,
-          record_date,
+          operation_date,
           shift_type,
-          start_time,
-          end_time,
+          actual_start_time,
+          actual_end_time,
           actual_distance,
           departure_base_id,
           arrival_base_id,
           status,
-          notes
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+          notes,
+          is_as_planned
+        ) VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         RETURNING *
       `
       const params = [
         vehicle_id,
-        record_date,
-        shift_type,
-        start_time,
-        end_time,
+        normalizedDate,
+        shift_type || 'day',
+        startTime,
+        endTime,
         actual_distance,
         departure_base_id,
         arrival_base_id,
         status,
         notes,
+        body.is_as_planned || false,
       ]
 
       const result = await executeQuery(query, params)

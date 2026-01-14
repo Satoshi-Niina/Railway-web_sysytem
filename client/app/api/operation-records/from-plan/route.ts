@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (dbType === "postgresql") {
       // 運用計画を取得
       const plans = await executeQuery(
-        `SELECT * FROM operation_plans WHERE id = $1`,
+        `SELECT * FROM operations.operation_plans WHERE id = $1`,
         [plan_id]
       )
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
       // 既に実績が存在するかチェック
       const existingRecords = await executeQuery(
-        `SELECT * FROM operation_records WHERE operation_plan_id = $1`,
+        `SELECT * FROM operations.operation_records WHERE operation_plan_id = $1`,
         [plan_id]
       )
 
@@ -45,28 +45,28 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // 運用計画から運用実績を作成
-      const result = await executeQuery(
-        `INSERT INTO operation_records (
-          operation_plan_id, vehicle_id, record_date, shift_type,
+      const query = `
+        INSERT INTO operations.operation_records (
+          operation_plan_id, vehicle_id, operation_date, shift_type,
           start_time, end_time, actual_distance, 
           departure_base_id, arrival_base_id, 
           notes, status
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
-        [
-          plan.id,
-          plan.vehicle_id,
-          plan.plan_date,
-          plan.shift_type,
-          plan.start_time,
-          plan.end_time,
-          plan.planned_distance || 0, // 計画距離を実績距離の初期値とする
-          plan.departure_base_id,
-          plan.arrival_base_id,
-          plan.notes || "",
-          "completed" // デフォルトで完了状態
-        ]
-      )
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+        RETURNING *, operation_date as record_date, record_id as id`
+      
+      const result = await executeQuery(query, [
+        plan.id,
+        plan.vehicle_id,
+        plan.plan_date,
+        plan.shift_type,
+        plan.start_time,
+        plan.end_time,
+        plan.planned_distance || 0, // 計画距離を実績距離の初期値とする
+        plan.departure_base_id,
+        plan.arrival_base_id,
+        plan.notes || "",
+        "completed" // デフォルトで完了状態
+      ])
 
       return NextResponse.json(result[0])
     } else {
@@ -134,7 +134,7 @@ export async function PUT(request: NextRequest) {
 
       // 既に実績が存在するものを除外
       const existingRecordPlanIds = await executeQuery(
-        `SELECT operation_plan_id FROM operation_records WHERE operation_plan_id = ANY($1)`,
+        `SELECT operation_plan_id FROM operations.operation_records WHERE operation_plan_id = ANY($1)`,
         [plans.map((p: any) => p.id)]
       )
 
@@ -145,12 +145,13 @@ export async function PUT(request: NextRequest) {
       const createdRecords = []
       for (const plan of plansToConvert) {
         const result = await executeQuery(
-          `INSERT INTO operation_records (
-            operation_plan_id, vehicle_id, record_date, shift_type,
+          `INSERT INTO operations.operation_records (
+            operation_plan_id, vehicle_id, operation_date, shift_type,
             start_time, end_time, actual_distance,
             departure_base_id, arrival_base_id,
             notes, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
+          RETURNING *, operation_date as record_date, record_id as id`,
           [
             plan.id,
             plan.vehicle_id,

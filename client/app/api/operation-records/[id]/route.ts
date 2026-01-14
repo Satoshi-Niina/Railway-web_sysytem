@@ -12,7 +12,9 @@ export async function GET(
     if (dbType === "postgresql") {
       const query = `
         SELECT or_table.*, 
-               v.machine_number, v.vehicle_type, v.model,
+               or_table.record_id as id,
+               or_table.operation_date as record_date,
+               v.machine_number, mt.type_name as vehicle_type, mt.model_name as model,
                mo.office_name, mo.office_code,
                db.base_name as departure_base_name,
                ab.base_name as arrival_base_name
@@ -21,7 +23,7 @@ export async function GET(
         LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
         LEFT JOIN master_data.bases db ON or_table.departure_base_id = db.id
         LEFT JOIN master_data.bases ab ON or_table.arrival_base_id = ab.id
-        WHERE or_table.id = $1
+        WHERE or_table.record_id = $1
       `
       const result = await executeQuery(query, [id])
       
@@ -82,13 +84,24 @@ export async function PUT(
       record_date,
       shift_type,
       start_time,
+      actual_start_time,
       end_time,
+      actual_end_time,
       actual_distance,
       departure_base_id,
       arrival_base_id,
       status,
       notes,
     } = body
+
+    // フロントエンドパラメータの互換性確保
+    const startTime = actual_start_time || start_time
+    const endTime = actual_end_time || end_time
+    
+    // 日付を YYYY-MM-DD 形式に正規化（タイムゾーン問題を回避）
+    const normalizedDate = typeof record_date === 'string' 
+      ? record_date.split('T')[0] 
+      : record_date
 
     const dbType = getDatabaseType()
 
@@ -97,30 +110,32 @@ export async function PUT(
         UPDATE operations.operation_records
         SET 
           vehicle_id = $1,
-          record_date = $2,
+          operation_date = $2::date,
           shift_type = $3,
-          start_time = $4,
-          end_time = $5,
+          actual_start_time = $4,
+          actual_end_time = $5,
           actual_distance = $6,
           departure_base_id = $7,
           arrival_base_id = $8,
           status = $9,
           notes = $10,
+          is_as_planned = $11,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = $11
+        WHERE record_id = $12
         RETURNING *
       `
       const params = [
         vehicle_id,
-        record_date,
-        shift_type,
-        start_time,
-        end_time,
+        normalizedDate,
+        shift_type || 'day',
+        startTime,
+        endTime,
         actual_distance,
         departure_base_id,
         arrival_base_id,
         status,
         notes,
+        body.is_as_planned || false,
         id,
       ]
 
@@ -169,8 +184,8 @@ export async function DELETE(
     if (dbType === "postgresql") {
       const query = `
         DELETE FROM operations.operation_records
-        WHERE id = $1
-        RETURNING id
+        WHERE record_id = $1
+        RETURNING record_id as id
       `
       const result = await executeQuery(query, [id])
       

@@ -9,6 +9,7 @@ export interface Vehicle {
   acquisition_date: string
   management_office: string
   management_office_id?: number
+  last_inspection_date?: string
   created_at: string
   updated_at: string
 }
@@ -37,28 +38,56 @@ export interface ManagementOffice {
 }
 
 export interface OperationPlan {
-  schedule_id: number
-  vehicle_id: number
-  schedule_date: string
-  description?: string
-  status: string
-  created_at: string
-  updated_at: string
+  id: number
+  vehicle_id: number | string  // DBはTEXT型、UUIDや機械番号文字列が入る
+  plan_date: string
+  end_date?: string | null
+  shift_type: 'day' | 'night' | 'day_night' | 'maintenance'
+  start_time?: string | null
+  end_time?: string | null
+  departure_base_id?: number | null
+  arrival_base_id?: number | null
+  planned_distance?: number | null
+  status?: string
+  notes?: string | null
+  created_at?: string
+  updated_at?: string
   vehicle?: Vehicle
+  departure_base?: Base
+  arrival_base?: Base
+  machine_number?: string  // JOIN結果で取得
+  inspection_type_id?: number | string | null
+  // 旧フィールド（互換性のため残す）
+  schedule_id?: number
+  schedule_date?: string
+  description?: string
 }
 
 export interface OperationRecord {
-  record_id: number
-  schedule_id: number
-  vehicle_id: number
-  operation_date: string
-  start_time: string
-  end_time: string
+  id: number
+  vehicle_id: number | string  // DBはTEXT型、UUIDや機械番号文字列が入る
+  record_date: string
+  shift_type: 'day' | 'night' | 'day_night'
+  actual_start_time?: string | null
+  actual_end_time?: string | null
+  departure_base_id?: number | null
+  arrival_base_id?: number | null
+  actual_distance?: number | null
   status: string
-  notes?: string
-  created_at: string
-  updated_at: string
+  notes?: string | null
+  is_as_planned?: boolean
+  created_at?: string
+  updated_at?: string
   vehicle?: Vehicle
+  departure_base?: Base
+  arrival_base?: Base
+  machine_number?: string
+  // 旧フィールド（互換性のため残す）
+  record_id?: number
+  schedule_id?: number
+  operation_date?: string
+  start_time?: string
+  end_time?: string
 }
 
 export interface InspectionPlan {
@@ -233,6 +262,9 @@ export interface VehicleInspectionSchedule {
   is_warning: boolean
   is_in_period: boolean
   days_until_inspection: number
+  inspection_type?: string
+  inspection_category?: string
+  duration_days?: number
 }
 
 // 検査種別マスタ

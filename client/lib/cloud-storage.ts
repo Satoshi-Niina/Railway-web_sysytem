@@ -47,16 +47,7 @@ export async function uploadFile(
   return `https://storage.googleapis.com/${BUCKET_NAME}/${filePath}`
 }
 
-// ファイル削除（ローカルストレージ）
-export async function deleteFile(fileUrl: string): Promise<boolean> {
-  try {
-    if (STORAGE_TYPE !== 'local') {
-      return false
-    }
-
-    // URLからファイルパスを抽出 (/storage/folder/filename.jpg -> folder/filename.jpg)
-    const urlPath = fileUrl.replace(/^\/storage\//, '')
-    const GCS）
+// ファイル削除
 export async function deleteFile(fileUrl: string): Promise<boolean> {
   try {
     // URLからファイルパスを抽出
@@ -126,11 +117,11 @@ export async function getStorageUsage(): Promise<{
   backups: number
   total: number
 }> {
-  const folders = Object.values(STORAGE_FOLDERS)
+  const folders = Object.entries(STORAGE_FOLDERS)
   const usage: any = {}
   let total = 0
 
-  for (const folder of folders) {
+  for (const [key, folder] of folders) {
     try {
       const [files] = await bucket.getFiles({
         prefix: `${folder}/`,
@@ -140,6 +131,14 @@ export async function getStorageUsage(): Promise<{
       for (const file of files) {
         const [metadata] = await file.getMetadata()
         folderSize += parseInt(metadata.size || '0')
+      }
+      usage[key.toLowerCase()] = folderSize
+      total += folderSize
+    } catch (error) {
+      console.error(`Failed to get usage for ${folder}:`, error)
+      usage[key.toLowerCase()] = 0
+    }
+  }
 
   return {
     failures: usage.failures || 0,
@@ -168,4 +167,4 @@ export function normalizeFileName(fileName: string): string {
     .replace(/[^a-zA-Z0-9.-]/g, '_') // 特殊文字をアンダースコアに置換
     .replace(/_{2,}/g, '_') // 連続するアンダースコアを1つに
     .toLowerCase()
-} 
+}
