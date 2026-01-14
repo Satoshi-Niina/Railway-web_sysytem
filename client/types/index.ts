@@ -3,6 +3,7 @@ export interface Vehicle {
   name: string
   vehicle_type: string
   model: string
+  model_name?: string
   base_location: string
   machine_number: string
   manufacturer: string
