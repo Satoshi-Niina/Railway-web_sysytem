@@ -2,7 +2,7 @@
 # Client (Next.js) 用 Dockerfile
 # ===================================
 
-FROM node:20-alpine AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.3 --activate
 COPY package.json pnpm-lock.yaml ./
 
 # 依存関係をインストール
-RUN pnpm install
+RUN pnpm install --no-frozen-lockfile
 
 # ソースコードをコピー
 COPY . .
@@ -28,7 +28,7 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm build
 
 # 本番ステージ
-FROM node:20-alpine AS runner
+FROM node:20 AS runner
 
 WORKDIR /app
 
@@ -36,7 +36,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.3 --activate
 
 # 本番用依存関係のみインストール
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
-RUN pnpm install --prod
+RUN pnpm install --prod --no-frozen-lockfile
 
 # ビルド成果物をコピー
 COPY --from=builder /app/.next ./.next
