@@ -3,8 +3,8 @@
     // Node.js 20 + TypeScript ESM最適化
     "target": "ES2023",
     "lib": ["dom", "dom.iterable", "ES2023"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "moduleDetection": "force",
     
     // JSX設定
