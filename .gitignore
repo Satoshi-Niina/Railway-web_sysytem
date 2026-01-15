@@ -152,3 +152,22 @@ logs/
 *.bak
 *.backup
 *.sql.bak
+
+# Cloud SQL Proxy
+cloud-sql-proxy.exe
+cloud-sql-proxy
+
+# Executable files
+*.exe
+
+# Agent/Gemini files
+.agent/
+.gemini/
+
+# Local env files with secrets
+.env
+.env.local
+*.local
+
+# pnpm store
+.pnpm-store/

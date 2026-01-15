@@ -14,6 +14,7 @@ import basesRoutes from './routes/bases.js';
 import officesRoutes from './routes/offices.js';
 import machineTypesRoutes from './routes/machine-types.js';
 import machinesRoutes from './routes/machines.js';
+import maintenanceSchedulesRoutes from './routes/maintenance-schedules.js';
 
 // ESMで__dirnameを取得
 const __filename = fileURLToPath(import.meta.url);
@@ -78,6 +79,7 @@ app.use('/api/bases', basesRoutes);
 app.use('/api/offices', officesRoutes);
 app.use('/api/machine-types', machineTypesRoutes);
 app.use('/api/machines', machinesRoutes);
+app.use('/api/maintenance-schedules', maintenanceSchedulesRoutes);
 
 // 簡単なテスト用ルート
 app.get('/api/health', (req, res) => {

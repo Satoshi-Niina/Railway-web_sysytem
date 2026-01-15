@@ -5,6 +5,54 @@ import { getTablePath } from '../lib/db-routing.js';
 
 const router = express.Router();
 
+// GET /api/operation-records/maintenance-history - 検修履歴の取得
+router.get('/maintenance-history', async (req, res) => {
+  try {
+    const { office_id, machine_type_id, machine_number } = req.query;
+    
+    // inspections.inspectionsテーブルから完了済みの検修実績を取得
+    let query = `
+      SELECT 
+        i.id,
+        i.vehicle_id,
+        v.machine_number,
+        mt.model_name as machine_type,
+        i.inspection_type,
+        i.completion_date,
+        i.notes
+      FROM inspections.inspections i
+      LEFT JOIN master_data.vehicles v ON i.vehicle_id = v.id
+      LEFT JOIN master_data.machine_types mt ON v.machine_type_id = mt.id
+      WHERE i.status = 'completed'
+    `;
+    
+    const params = [];
+    if (office_id && office_id !== 'all') {
+      params.push(office_id);
+      query += ` AND v.office_id = $${params.length}`;
+    }
+    if (machine_type_id && machine_type_id !== 'all') {
+      params.push(machine_type_id);
+      query += ` AND v.machine_type_id = $${params.length}`;
+    }
+    if (machine_number && machine_number !== 'all') {
+      params.push(machine_number);
+      query += ` AND v.machine_number = $${params.length}`;
+    }
+    
+    query += ` ORDER BY i.completion_date DESC LIMIT 50`;
+    
+    const result = await db.query(query, params);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('検修履歴取得エラー:', error);
+    res.status(500).json({ 
+      error: '検修履歴の取得に失敗しました',
+      details: error.message 
+    });
+  }
+});
+
 // GET /api/operation-records - 運用実績の一覧取得（月フィルタ対応）
 router.get('/', async (req, res) => {
   try {

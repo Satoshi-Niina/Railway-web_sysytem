@@ -320,12 +320,18 @@ function getSchemaForTableFallback(tableName: string): { schema: string; table: 
   const tableSchemaMap: Record<string, string> = {
     // master_data スキーマ
     'managements_offices': 'master_data',
+    'management_offices': 'master_data',
     'bases': 'master_data',
     'machine_types': 'master_data',
     'machine-types': 'master_data', // ハイフン形式もサポート
     'machines': 'master_data',
     'vehicles': 'master_data',
+    'vehicle_types': 'master_data',
     'inspection_types': 'master_data',
+    'maintenance_base_dates': 'master_data',
+    'maintenance_plans': 'master_data',
+    'inspection_schedules': 'master_data',
+    'vehicle_inspection_schedules': 'master_data',
     
     // operations スキーマ
     'operation_plans': 'operations',
@@ -337,6 +343,8 @@ function getSchemaForTableFallback(tableName: string): { schema: string; table: 
     'inspection_plans': 'inspections',
     'inspections': 'inspections',
     'maintenance_cycles': 'inspections',
+    'vehicle_inspection_records': 'inspections',
+    'inspection_cycle_order': 'inspections',
     
     // maintenance スキーマ
     'failures': 'maintenance',
@@ -344,9 +352,15 @@ function getSchemaForTableFallback(tableName: string): { schema: string; table: 
     'monthly_maintenance_plans': 'maintenance',
   }
   
-  const schema = tableSchemaMap[tableName] || 'public'
+  // テーブル名エイリアス（実際のDBテーブル名への変換）
+  const tableNameAlias: Record<string, string> = {
+    'management_offices': 'managements_offices',
+  }
+  
+  const actualTableName = tableNameAlias[tableName] || tableName
+  const schema = tableSchemaMap[tableName] || tableSchemaMap[actualTableName] || 'public'
   // テーブル名はハイフンをアンダースコアに変換
-  const physicalTable = tableName.replace(/-/g, '_')
+  const physicalTable = actualTableName.replace(/-/g, '_')
   
   return { schema, table: physicalTable }
 }

@@ -151,6 +151,90 @@ export interface TravelRecord {
   departure_location: string
   arrival_location: string
   distance: number
+  purpose: string
+  created_at: string
+  updated_at: string
+  vehicle?: Vehicle
+}
+
+// 検修関連の型定義
+export interface MaintenanceSchedule {
+  vehicle_id: string | number
+  machine_number: string
+  machine_type: string
+  inspection_type_id: number
+  inspection_type: string
+  category: string
+  base_date: string
+  base_date_source: 'completion' | 'manual' | 'purchase' | 'system'
+  cycle_months: number
+  duration_days: number
+  next_scheduled_date: string
+  days_until: number
+  is_warning: boolean
+  office_id?: number
+  office_name?: string
+}
+
+export interface MaintenanceBaseDate {
+  id: number
+  vehicle_id: string | number
+  inspection_type_id: number
+  base_date: string
+  source: 'completion' | 'manual' | 'purchase' | 'system'
+  notes?: string
+  created_at: string
+  updated_at: string
+  machine_number?: string
+  machine_type?: string
+  inspection_type?: string
+}
+
+export interface MaintenancePlan {
+  id: number
+  vehicle_id: string | number
+  inspection_type_id: number
+  planned_start_date: string
+  planned_end_date: string
+  actual_start_date?: string
+  actual_end_date?: string
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  notes?: string
+  created_at: string
+  updated_at: string
+  machine_number?: string
+  inspection_type?: string
+}
+
+export interface InspectionWarning {
+  inspection_type: string
+  inspection_type_id: number
+  months_until: number
+  scheduled_date: string
+  duration_days: number
+  warning_level: 'high' | 'medium'
+  warning_start_date: string
+}
+
+export interface MaintenanceScheduleDisplay {
+  date: string
+  inspection_type: string
+  duration_days: number
+  days_until: number
+  is_warning: boolean
+  vehicle_id: string | number
+  machine_number: string
+}
+
+export interface TravelRecord {
+  id: number
+  vehicle_id: number
+  record_date: string
+  departure_time: string
+  arrival_time: string
+  departure_location: string
+  arrival_location: string
+  distance: number
   fuel_consumption?: number
   created_at: string
   updated_at: string

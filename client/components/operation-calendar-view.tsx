@@ -20,6 +20,7 @@ interface DayEvent {
   plan: OperationPlan
   color: string
   label: string
+  isContinuation: boolean
 }
 
 export function OperationCalendarView({
@@ -62,31 +63,37 @@ export function OperationCalendarView({
 
       // 期間内の日付かチェック
       if (planDate && dateString >= planDate && dateString <= endDate) {
+        const isContinuation = dateString > planDate
         let color = "bg-blue-100 border-blue-400 text-blue-800"
         let label = ""
 
-        switch (plan.shift_type) {
-          case "day":
-            color = "bg-yellow-100 border-yellow-400 text-yellow-800"
-            label = "昼間"
-            break
-          case "night":
-            color = "bg-blue-700 border-blue-900 text-white"
-            label = "夜間"
-            break
-          case "day_night":
-            color = "bg-purple-100 border-purple-400 text-purple-800"
-            label = "昼夜"
-            break
-          case "maintenance":
-            color = "bg-red-100 border-red-400 text-red-800"
-            label = "検修"
-            break
-          default:
-            label = "運用"
+        if (isContinuation) {
+          color = "bg-blue-50 border-blue-200 text-blue-700"
+          label = "前日継続"
+        } else {
+          switch (plan.shift_type) {
+            case "day":
+              color = "bg-yellow-100 border-yellow-400 text-yellow-800"
+              label = "昼間"
+              break
+            case "night":
+              color = "bg-blue-700 border-blue-900 text-white"
+              label = "夜間"
+              break
+            case "day_night":
+              color = "bg-purple-100 border-purple-400 text-purple-800"
+              label = "昼夜"
+              break
+            case "maintenance":
+              color = "bg-red-100 border-red-400 text-red-800"
+              label = "検修"
+              break
+            default:
+              label = "運用"
+          }
         }
 
-        events.push({ plan, color, label })
+        events.push({ plan, color, label, isContinuation })
       }
     })
 
@@ -215,7 +222,7 @@ export function OperationCalendarView({
                   {events.slice(0, 3).map((event, eventIdx) => (
                     <div
                       key={eventIdx}
-                      className={`text-xs p-1 rounded border ${event.color} truncate`}
+                      className={`p-1.5 rounded border ${event.color} transition-all hover:brightness-95 mb-1`}
                       onClick={(e) => {
                         e.stopPropagation()
                         if (onPlanClick) {
@@ -223,9 +230,24 @@ export function OperationCalendarView({
                         }
                       }}
                     >
-                      <div className="font-semibold">{event.label}</div>
-                      <div className="text-[10px]">
-                        {event.plan.machine_number || `車両${event.plan.vehicle_id}`}
+                      <div className="flex justify-between items-start font-bold text-[13px]">
+                        <span>{event.label}</span>
+                        <span className="text-[11px] opacity-90">
+                          {event.plan.start_time?.slice(0, 5)} - {event.plan.end_time?.slice(0, 5)}
+                        </span>
+                      </div>
+                      <div className="text-[12px] mt-0.5 space-y-0.5 leading-tight">
+                        <div className="truncate font-medium">
+                          {event.plan.machine_number || `車両${event.plan.vehicle_id}`}
+                        </div>
+                        {(event.plan.departure_base_id || event.plan.arrival_base_id) && (
+                          <div className={`text-[11px] opacity-90 truncate flex items-center gap-0.5 ${event.plan.shift_type === 'night' ? 'text-white/90' : 'text-gray-600'}`}>
+                            <MapPin className="w-3 h-3" />
+                            <span>
+                              {getBaseName(event.plan.departure_base_id)} → {getBaseName(event.plan.arrival_base_id)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

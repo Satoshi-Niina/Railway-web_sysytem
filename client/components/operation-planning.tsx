@@ -6,19 +6,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Calendar, ChevronLeft, ChevronRight, Car, AlertCircle, Building, Filter, Copy, Edit, Trash2, FileText } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Car, AlertCircle, Building, Filter, Copy, Edit, Trash2, FileText, Settings } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-import type { Vehicle, OperationPlan, Base, Office, VehicleInspectionSchedule } from "@/types"
+import type { Vehicle, OperationPlan, Base, Office, VehicleInspectionSchedule, MaintenanceSchedule } from "@/types"
 import { apiCall, isDatabaseConfigured } from "@/lib/api-client"
 import { OperationCalendarView } from "./operation-calendar-view"
+import { MaintenanceScheduleBadge } from "./maintenance-schedule-badge"
+import { SystemSettings } from "./system-settings"
 
 // 検修タイプの型定義
 interface InspectionType {
@@ -27,6 +30,23 @@ interface InspectionType {
   category: string
   interval_months?: number
   description?: string
+}
+
+// 事業所の型定義
+interface Office {
+  id?: string
+  office_id: string
+  office_name: string
+  area?: string
+}
+
+// 機種タイプの型定義
+interface MachineType {
+  id: number | string
+  type_name: string
+  model_name?: string
+  manufacturer?: string
+  category?: string
 }
 
 // ファイル保存ダイアログの型定義
@@ -63,6 +83,7 @@ export function OperationPlanning() {
   const [allOffices, setAllOffices] = useState<Office[]>([])
   const [inspectionSchedules, setInspectionSchedules] = useState<VehicleInspectionSchedule[]>([])
   const [inspectionTypes, setInspectionTypes] = useState<InspectionType[]>([])
+  const [maintenanceSchedules, setMaintenanceSchedules] = useState<MaintenanceSchedule[]>([])
   const [masterMachineTypes, setMasterMachineTypes] = useState<any[]>([])
   const [masterMachines, setMasterMachines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,7 +116,10 @@ export function OperationPlanning() {
   const [selectedMachineNumbers, setSelectedMachineNumbers] = useState<string[]>([])
   
   // ビュー切り替え状態
-  const [viewMode, setViewMode] = useState<"table" | "calendar">("table")
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("calendar")
+  
+  // メインタブ状態（運用計画 or 設定）
+  const [mainTab, setMainTab] = useState<"operations" | "settings">("operations")
 
   const currentDate = new Date()
   const selectedDate = new Date(currentMonth + "-01")
@@ -212,6 +236,18 @@ export function OperationPlanning() {
         setInspectionTypes([])
       }
 
+      // 検修スケジュールデータの取得
+      try {
+        const maintenanceData = await apiCall<MaintenanceSchedule[]>(
+          `maintenance-schedules?month=${currentMonth}`
+        )
+        setMaintenanceSchedules(maintenanceData)
+        console.log("検修スケジュールデータ:", maintenanceData.length, "件")
+      } catch (error) {
+        // 検修スケジュールは必須ではないので空配列のまま（エラーログも出力しない）
+        setMaintenanceSchedules([])
+      }
+
       console.log("=== データ取得完了 ===")
       console.log("運用計画データ:", plansData.length, "件")
       console.log("運用計画サンプル:", JSON.stringify(plansData[0], null, 2))
@@ -285,6 +321,51 @@ export function OperationPlanning() {
     const filteredVehicleIds = filteredVehicles.map(v => v.id)
     return operationPlans.filter(plan => filteredVehicleIds.includes(plan.vehicle_id))
   }, [operationPlans, filteredVehicles])
+
+  // フィルタリングされた検修スケジュールを取得
+  const filteredMaintenanceSchedules = useMemo(() => {
+    const filteredVehicleIds = filteredVehicles.map(v => v.id)
+    return maintenanceSchedules.filter(schedule => filteredVehicleIds.includes(schedule.vehicle_id))
+  }, [maintenanceSchedules, filteredVehicles])
+
+  // 機種・機械番号フィルター変更時に検修スケジュールを再取得
+  useEffect(() => {
+    const fetchFilteredMaintenanceSchedules = async () => {
+      if (selectedVehicleTypes.length === 0 && selectedMachineNumbers.length === 0) {
+        // フィルターがクリアされた場合は全体を再取得
+        try {
+          const maintenanceData = await apiCall<MaintenanceSchedule[]>(
+            `maintenance-schedules?month=${currentMonth}`
+          )
+          setMaintenanceSchedules(maintenanceData)
+        } catch (error) {
+          setMaintenanceSchedules([])
+        }
+        return
+      }
+
+      // 個別にフィルタリングされた検修スケジュールを取得
+      const params = new URLSearchParams({ month: currentMonth })
+      if (selectedVehicleTypes.length > 0) {
+        params.append('machine_type', selectedVehicleTypes.join(','))
+      }
+      if (selectedMachineNumbers.length > 0) {
+        params.append('machine_number', selectedMachineNumbers.join(','))
+      }
+
+      try {
+        const maintenanceData = await apiCall<MaintenanceSchedule[]>(
+          `maintenance-schedules?${params.toString()}`
+        )
+        setMaintenanceSchedules(maintenanceData)
+      } catch (error) {
+        // エラーは静かに処理
+        setMaintenanceSchedules([])
+      }
+    }
+
+    fetchFilteredMaintenanceSchedules()
+  }, [selectedVehicleTypes, selectedMachineNumbers, currentMonth])
 
   // 各フィルターで利用可能な事業所リストを取得（全ての事業所を表示）
   const availableOffices = useMemo(() => {
@@ -395,6 +476,26 @@ export function OperationPlanning() {
       String(schedule.vehicle_id) === String(vehicleId) && 
       schedule.is_warning && 
       schedule.is_in_period
+    )
+  }
+
+  // 検修スケジュール取得（特定日付）
+  const getMaintenanceScheduleForDate = (vehicleId: string | number, dateString: string) => {
+    return filteredMaintenanceSchedules.find(
+      (schedule) => {
+        if (schedule.vehicle_id.toString() !== vehicleId.toString()) return false
+        
+        const scheduleDate = new Date(schedule.next_scheduled_date).toISOString().slice(0, 10)
+        const checkDate = new Date(dateString).toISOString().slice(0, 10)
+        
+        // 予定日の当日または予定日から期間内をチェック
+        const scheduleDateObj = new Date(scheduleDate)
+        const checkDateObj = new Date(checkDate)
+        const endDateObj = new Date(scheduleDateObj)
+        endDateObj.setDate(endDateObj.getDate() + (schedule.duration_days - 1))
+        
+        return checkDateObj >= scheduleDateObj && checkDateObj <= endDateObj
+      }
     )
   }
 
@@ -1138,15 +1239,29 @@ export function OperationPlanning() {
 
   return (
     <div className="space-y-6 relative">
-      {/* ローディングオーバーレイ */}
-      {loading && (
-        <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="text-gray-600 font-medium">データを読み込んでいます...</p>
-          </div>
-        </div>
-      )}
+      {/* メインタブ切り替え */}
+      <Tabs value={mainTab} onValueChange={(value) => setMainTab(value as "operations" | "settings")}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="operations" className="flex items-center gap-2">
+            <Calendar className="w-4 h-4" />
+            運用計画
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            検修設定
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="operations" className="space-y-6">
+          {/* ローディングオーバーレイ */}
+          {loading && (
+            <div className="absolute inset-0 bg-white/80 z-50 flex items-center justify-center">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <p className="text-gray-600 font-medium">データを読み込んでいます...</p>
+              </div>
+            </div>
+          )}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -1470,12 +1585,12 @@ export function OperationPlanning() {
                 </div>
               </div>
               <TabsList>
-                <TabsTrigger value="table" className="flex items-center space-x-1">
-                  <span>表形式</span>
-                </TabsTrigger>
                 <TabsTrigger value="calendar" className="flex items-center space-x-1">
                   <Calendar className="w-4 h-4" />
                   <span>カレンダー</span>
+                </TabsTrigger>
+                <TabsTrigger value="table" className="flex items-center space-x-1">
+                  <span>表形式</span>
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -1667,6 +1782,19 @@ export function OperationPlanning() {
                                     {/* 検修期間外の通常表示 */}
                                     {!maintenancePlan && (
                                       <>
+                                        {/* 検修予定バッジ */}
+                                        {(() => {
+                                          const schedule = getMaintenanceScheduleForDate(vehicle.id, dateString)
+                                          if (schedule) {
+                                            return (
+                                              <div className="mb-1">
+                                                <MaintenanceScheduleBadge schedule={schedule} compact={true} />
+                                              </div>
+                                            )
+                                          }
+                                          return null
+                                        })()}
+                                        
                                         {/* 検査予告バッジ */}
                                         {(() => {
                                           const warning = getInspectionWarning(vehicle.id, dateString)
@@ -1857,7 +1985,34 @@ export function OperationPlanning() {
                     <Label htmlFor="inspection_type">検修種別</Label>
                     <Select 
                       value={planForm.inspection_type_id} 
-                      onValueChange={(value) => setPlanForm({ ...planForm, inspection_type_id: value })}
+                      onValueChange={async (value) => {
+                        setPlanForm({ ...planForm, inspection_type_id: value })
+                        
+                        // 検修種別が選択された場合、期間を自動設定
+                        if (value && planForm.vehicle_id && planForm.plan_date) {
+                          try {
+                            const schedule = await apiCall<MaintenanceSchedule>(
+                              `maintenance-schedules/${planForm.vehicle_id}/${value}`
+                            )
+                            
+                            if (schedule && schedule.duration_days) {
+                              // 開始日から期間を計算して終了日を設定
+                              const startDate = new Date(planForm.plan_date)
+                              const endDate = new Date(startDate)
+                              endDate.setDate(endDate.getDate() + schedule.duration_days - 1)
+                              
+                              setPlanForm(prev => ({
+                                ...prev,
+                                inspection_type_id: value,
+                                end_date: endDate.toISOString().slice(0, 10)
+                              }))
+                            }
+                          } catch (error) {
+                            // エラーは静かに処理
+                            console.error("検修期間の取得に失敗:", error)
+                          }
+                        }
+                      }}
                     >
                       <SelectTrigger id="inspection_type">
                         <SelectValue placeholder="検修種別を選択" />
@@ -1870,7 +2025,8 @@ export function OperationPlanning() {
                         ) : (
                           inspectionTypes.map((type) => (
                             <SelectItem key={type.id} value={type.id.toString()}>
-                              {type.type_name}・{type.interval_months}ヶ月
+                              {type.type_name}
+                              {type.interval_months && ` (${type.interval_months}ヶ月周期)`}
                             </SelectItem>
                           ))
                         )}
@@ -2141,6 +2297,12 @@ export function OperationPlanning() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <SystemSettings />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
