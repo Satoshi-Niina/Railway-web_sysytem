@@ -23,11 +23,13 @@ export async function apiCall<T = any>(
     return response.json()
   }
 
-  // エンドポイントの正規化: 先頭の/を削除し、API_BASE_URLと結合
+  // エンドポイントの正規化
+  // API_BASE_URLの末尾のスラッシュと、endpointの先頭のスラッシュを適切に処理
+  const baseUrl = API_BASE_URL.replace(/\/+$/, '') // 末尾のスラッシュを削除
   const cleanEndpoint = endpoint.replace(/^\/+/, '') // 先頭のスラッシュを削除
-  const url = `${API_BASE_URL}/${cleanEndpoint}`
+  const url = `${baseUrl}/${cleanEndpoint}`
   
-  console.log('API Call:', url, '(base:', API_BASE_URL, 'endpoint:', cleanEndpoint, ')')
+  console.log('API Call:', url, { baseUrl, cleanEndpoint })
   
   const defaultOptions: RequestInit = {
     headers: {
