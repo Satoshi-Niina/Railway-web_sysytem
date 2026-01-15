@@ -13,7 +13,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.3 --activate
 COPY package.json pnpm-lock.yaml ./
 
 # 依存関係をインストール（本番用）
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --prod
 
 # ソースコードをコピー
 COPY . .
