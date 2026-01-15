@@ -26,10 +26,11 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
 # ビルド時の環境変数
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 
 # Next.jsアプリをビルド
-RUN pnpm build || (echo "Build failed. Checking for errors..." && pnpm build --debug ; exit 1)
+# 詳細なログを出力するために標準のビルドコマンドを実行
+RUN pnpm build
 
 # 本番ステージ
 FROM node:20 AS runner

@@ -17,7 +17,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: asia-northeast1
+  REGION: asia-northeast2
   SERVICE_NAME: railway-server
 
 jobs:
