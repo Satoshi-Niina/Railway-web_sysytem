@@ -27,9 +27,10 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 # ビルド時の環境変数
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=2048"
+# ビルド時のコード参照エラーを防ぐためのダミー値
+ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 
 # Next.jsアプリをビルド
-# 詳細なログを出力するために標準のビルドコマンドを実行
 RUN pnpm build
 
 # 本番ステージ
