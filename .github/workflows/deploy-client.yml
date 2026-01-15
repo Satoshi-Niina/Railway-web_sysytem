@@ -41,6 +41,10 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
+      - name: List files (Debug)
+        working-directory: ./client
+        run: ls -la
+
       - name: Build Docker image
         working-directory: ./client
         run: |
