@@ -31,9 +31,9 @@ export function InspectionPlanList() {
     try {
       setError(null)
       const [inspectionPlansData, vehiclesData, basesData] = await Promise.all([
-        apiCall<InspectionPlan[]>("/api/inspection-plans"),
-        apiCall<Vehicle[]>("/api/vehicles"),
-        apiCall<Base[]>("/api/bases"),
+        apiCall<InspectionPlan[]>("inspection-plans"),
+        apiCall<Vehicle[]>("vehicles"),
+        apiCall<Base[]>("bases"),
       ])
 
       setInspectionPlans(inspectionPlansData)

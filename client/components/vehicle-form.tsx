@@ -12,6 +12,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { MonthPicker } from "@/components/ui/month-picker"
 import type { Vehicle } from "@/types/database"
 
+import { apiCall } from "@/lib/api-client"
+
 interface ManagementOffice {
   id: number
   office_name: string
@@ -45,16 +47,9 @@ export function VehicleForm({ onSubmit, onCancel, editingVehicle }: VehicleFormP
       try {
         console.log('Fetching management offices...')
         // 事業所データを取得
-        const officesResponse = await fetch('/api/management-offices')
-        console.log('Offices response status:', officesResponse.status)
-        
-        if (officesResponse.ok) {
-          const officesData = await officesResponse.json()
-          console.log('Offices data received:', officesData)
-          setOffices(officesData)
-        } else {
-          console.error('Failed to fetch offices:', officesResponse.status, officesResponse.statusText)
-        }
+        const officesData = await apiCall<ManagementOffice[]>('management-offices')
+        console.log('Offices data received:', officesData)
+        setOffices(officesData)
       } catch (error) {
         console.error('Error fetching data:', error)
       }
@@ -68,9 +63,9 @@ export function VehicleForm({ onSubmit, onCancel, editingVehicle }: VehicleFormP
     setLoading(true)
 
     try {
-      const url = editingVehicle 
-        ? `/api/vehicles/${editingVehicle.id}`
-        : "/api/vehicles"
+      const endpoint = editingVehicle 
+        ? `vehicles/${editingVehicle.id}`
+        : "vehicles"
       
       const method = editingVehicle ? "PUT" : "POST"
 
@@ -82,29 +77,20 @@ export function VehicleForm({ onSubmit, onCancel, editingVehicle }: VehicleFormP
         management_office_id: formData.management_office_id || null,
       }
 
-      console.log("Sending request to:", url)
+      console.log("Sending request to:", endpoint)
       console.log("Request method:", method)
       console.log("Request body:", requestBody)
 
-      const response = await fetch(url, {
+      const vehicle = await apiCall(endpoint, {
         method: method,
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(requestBody),
       })
 
-      if (response.ok) {
-        const vehicle = await response.json()
-        console.log("Response received:", vehicle)
-        onSubmit(vehicle)
-      } else {
-        const errorData = await response.json()
-        console.error("Failed to save vehicle:", errorData)
-        alert(`保存に失敗しました: ${errorData.error || '不明なエラー'}`)
-      }
+      console.log("Response received:", vehicle)
+      onSubmit(vehicle)
     } catch (error) {
       console.error("Error saving vehicle:", error)
+      alert(`保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`)
     } finally {
       setLoading(false)
     }

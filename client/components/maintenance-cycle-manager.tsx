@@ -48,8 +48,8 @@ export function MaintenanceCycleManager() {
     try {
       setError(null)
       const [cyclesData, vehiclesData] = await Promise.all([
-        apiCall<MaintenanceCycle[]>("/api/maintenance-cycles"),
-        apiCall<Vehicle[]>("/api/vehicles"),
+        apiCall<MaintenanceCycle[]>("maintenance-cycles"),
+        apiCall<Vehicle[]>("vehicles"),
       ])
 
       setCycles(cyclesData)
@@ -123,16 +123,12 @@ export function MaintenanceCycleManager() {
             console.log("Update cycle:", cycleData)
           } else {
             // 新規作成
-            const response = await fetch("/api/maintenance-cycles", {
+            const newCycle = await apiCall<MaintenanceCycle>("maintenance-cycles", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
               body: JSON.stringify(cycleData),
             })
 
-            if (response.ok) {
-              const newCycle = await response.json()
-              setCycles([...cycles, newCycle])
-            }
+            setCycles((prev) => [...prev, newCycle])
           }
         } else {
           // モックデータ更新

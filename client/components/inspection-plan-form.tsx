@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Car } from "lucide-react"
 import type { InspectionPlan, Vehicle, Base } from "@/types"
+import { apiCall } from "@/lib/api-client"
 
 // データベース設定の確認
 const isDatabaseConfigured = (): boolean => {
@@ -79,9 +80,8 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
         }
 
         if (isDatabaseConfigured()) {
-          const response = await fetch("/api/inspection-plans", {
+          const newPlan = await apiCall<InspectionPlan>("inspection-plans", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               vehicle_id: vehicleId,
               inspection_type: formData.inspection_type,
@@ -91,10 +91,7 @@ export function InspectionPlanForm({ vehicles, bases, onSubmit, onCancel }: Insp
             }),
           })
 
-          if (response.ok) {
-            const newPlan = await response.json()
-            newPlans.push(newPlan)
-          }
+          newPlans.push(newPlan)
         } else {
           // モックデータを作成
           const mockPlan: InspectionPlan = {

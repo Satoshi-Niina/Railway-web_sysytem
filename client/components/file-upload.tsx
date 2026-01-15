@@ -9,6 +9,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/components/ui/use-toast"
 import { Upload, X, CheckCircle, AlertCircle } from "lucide-react"
 import { STORAGE_FOLDERS, StorageFolder } from "@/lib/cloud-storage"
+import { apiCall } from "@/lib/api-client"
 
 interface FileUploadProps {
   folder: StorageFolder
@@ -96,12 +97,10 @@ export default function FileUpload({
       })
       formData.append('folder', folder)
 
-      const response = await fetch('/api/upload', {
+      const result = await apiCall<any>('upload', {
         method: 'POST',
         body: formData,
       })
-
-      const result = await response.json()
 
       if (result.success) {
         const newUploadedFiles: UploadedFile[] = result.uploadedFiles.map((url: string, index: number) => ({
@@ -145,23 +144,15 @@ export default function FileUpload({
 
   const removeUploadedFile = async (fileUrl: string) => {
     try {
-      const response = await fetch(`/api/upload?url=${encodeURIComponent(fileUrl)}`, {
+      await apiCall(`upload?url=${encodeURIComponent(fileUrl)}`, {
         method: 'DELETE',
       })
 
-      if (response.ok) {
-        setUploadedFiles(prev => prev.filter(file => file.url !== fileUrl))
-        toast({
-          title: "成功",
-          description: "ファイルを削除しました",
-        })
-      } else {
-        toast({
-          title: "エラー",
-          description: "ファイルの削除に失敗しました",
-          variant: "destructive",
-        })
-      }
+      setUploadedFiles(prev => prev.filter(file => file.url !== fileUrl))
+      toast({
+        title: "成功",
+        description: "ファイルを削除しました",
+      })
     } catch (error) {
       console.error('Delete error:', error)
       toast({

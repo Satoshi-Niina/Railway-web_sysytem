@@ -23,6 +23,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
+import { apiCall } from "@/lib/api-client"
 import type { Vehicle, Base, ManagementOffice, OperationAssignment } from "@/types"
 
 // データベース設定の確認
@@ -65,26 +66,14 @@ export function OperationPlanChart() {
       // データベースから基地を読み込み
       let bases: any[] = []
       try {
-        const basesResponse = await fetch("/api/maintenance-bases")
-        if (basesResponse.ok) {
-          const maintenanceBases = await basesResponse.json()
-          const bases = maintenanceBases.map((base: any) => ({
-            id: base.id,
-            base_name: base.base_name,
-            location: base.location || "",
-            management_office_id: base.management_office_id,
-            created_at: base.created_at,
-          }))
-        } else {
-          console.error("基地の取得に失敗しました:", basesResponse.status, basesResponse.statusText)
-          // モックデータを使用
-          bases = [
-            { id: 1, base_name: "東京基地", location: "東京都", management_office_id: 1, created_at: new Date().toISOString() },
-            { id: 2, base_name: "大阪基地", location: "大阪府", management_office_id: 2, created_at: new Date().toISOString() },
-            { id: 3, base_name: "名古屋基地", location: "愛知県", management_office_id: 1, created_at: new Date().toISOString() }
-          ]
-          setError("基地データの取得に失敗しました。モックデータを表示しています。")
-        }
+        const maintenanceBases = await apiCall<any[]>('maintenance-bases')
+        bases = maintenanceBases.map((base: any) => ({
+          id: base.id,
+          base_name: base.base_name,
+          location: base.location || "",
+          management_office_id: base.management_office_id,
+          created_at: base.created_at,
+        }))
       } catch (error) {
         console.error("基地データの取得エラー:", error)
         // モックデータを使用
@@ -99,18 +88,7 @@ export function OperationPlanChart() {
       // データベースから事業所を読み込み
       let offices: any[] = []
       try {
-        const officesResponse = await fetch("/api/management-offices")
-        if (officesResponse.ok) {
-          offices = await officesResponse.json()
-        } else {
-          console.error("事業所の取得に失敗しました:", officesResponse.status, officesResponse.statusText)
-          // モックデータを使用
-          offices = [
-            { id: 1, office_name: "東京事業所", office_code: "OFF001", station_1: "東京駅", station_2: "新宿駅", station_3: "渋谷駅", station_4: "池袋駅", station_5: "上野駅", station_6: "品川駅" },
-            { id: 2, office_name: "大阪事業所", office_code: "OFF002", station_1: "大阪駅", station_2: "梅田駅", station_3: "難波駅", station_4: "天王寺駅", station_5: "新大阪駅", station_6: "京橋駅" }
-          ]
-          setError("事業所データの取得に失敗しました。モックデータを表示しています。")
-        }
+        offices = await apiCall<any[]>('management-offices')
       } catch (error) {
         console.error("事業所データの取得エラー:", error)
         // モックデータを使用
@@ -124,35 +102,20 @@ export function OperationPlanChart() {
       // データベースから車両を読み込み
       let vehicles: any[] = []
       try {
-        const vehiclesResponse = await fetch("/api/vehicles")
-        if (vehiclesResponse.ok) {
-          const vehicleData = await vehiclesResponse.json()
-          const vehicles = vehicleData.map((vehicle: any) => ({
-            id: vehicle.id,
-            name: vehicle.vehicle_type,
-            model: vehicle.model,
-            base_location: vehicle.base_location || vehicle.base_name || "",
-            machine_number: vehicle.machine_number,
-            manufacturer: vehicle.manufacturer,
-            acquisition_date: vehicle.acquisition_date,
-            management_office: vehicle.office_name || vehicle.management_office,
-            management_office_id: vehicle.management_office_id,
-            created_at: vehicle.created_at,
-            updated_at: vehicle.updated_at,
-          }))
-        } else {
-          console.error("車両の取得に失敗しました:", vehiclesResponse.status, vehiclesResponse.statusText)
-          // モックデータを使用
-          vehicles = [
-            { id: 1, name: "モータカー", model: "MC-100", base_location: "東京基地", machine_number: "MC001", manufacturer: "日立", acquisition_date: "2020-01-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-            { id: 2, name: "MCR", model: "MC-150", base_location: "東京基地", machine_number: "MC002", manufacturer: "日立", acquisition_date: "2020-02-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-            { id: 3, name: "鉄トロ（10t）", model: "TT-200", base_location: "大阪基地", machine_number: "TT001", manufacturer: "川崎", acquisition_date: "2020-03-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-            { id: 4, name: "鉄トロ（15t）", model: "TT-250", base_location: "大阪基地", machine_number: "TT002", manufacturer: "川崎", acquisition_date: "2020-04-01", management_office: "大阪事業所", management_office_id: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-            { id: 5, name: "箱トロ", model: "HP-300", base_location: "名古屋基地", machine_number: "HP001", manufacturer: "三菱", acquisition_date: "2020-05-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-            { id: 6, name: "ホッパー車", model: "HP-350", base_location: "名古屋基地", machine_number: "HP002", manufacturer: "三菱", acquisition_date: "2020-06-01", management_office: "東京事業所", management_office_id: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-          ]
-          setError("車両データの取得に失敗しました。モックデータを表示しています。")
-        }
+        const vehicleData = await apiCall<any[]>('vehicles')
+        vehicles = vehicleData.map((vehicle: any) => ({
+          id: vehicle.id,
+          name: vehicle.vehicle_type,
+          model: vehicle.model,
+          base_location: vehicle.base_location || vehicle.base_name || "",
+          machine_number: vehicle.machine_number,
+          manufacturer: vehicle.manufacturer,
+          acquisition_date: vehicle.acquisition_date,
+          management_office: vehicle.office_name || vehicle.management_office,
+          management_office_id: vehicle.management_office_id,
+          created_at: vehicle.created_at,
+          updated_at: vehicle.updated_at,
+        }))
       } catch (error) {
         console.error("車両データの取得エラー:", error)
         // モックデータを使用
@@ -170,13 +133,7 @@ export function OperationPlanChart() {
       // データベースから運用計画を読み込み
       let operationPlans: any[] = []
       try {
-        const plansResponse = await fetch(`/api/operation-plans?month=${currentMonth}`)
-        if (plansResponse.ok) {
-          operationPlans = await plansResponse.json()
-        } else {
-          console.error("運用計画の取得に失敗しました:", plansResponse.status, plansResponse.statusText)
-          // 運用計画は必須ではないのでエラーを設定しない
-        }
+        operationPlans = await apiCall<any[]>(`operation-plans?month=${currentMonth}`)
       } catch (error) {
         console.error("運用計画データの取得エラー:", error)
         // 運用計画は必須ではないのでエラーを設定しない

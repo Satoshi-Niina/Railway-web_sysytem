@@ -35,6 +35,7 @@ import {
   CheckCircle,
   Clock,
 } from "lucide-react"
+import { apiCall } from "@/lib/api-client"
 
 interface MaintenanceCycle {
   id: number
@@ -84,12 +85,7 @@ export default function MaintenanceCyclesPage() {
         params.append("is_active", filterActive.toString())
       }
 
-      const response = await fetch(`/api/maintenance-cycles?${params.toString()}`)
-      if (!response.ok) {
-        throw new Error("検修周期の取得に失敗しました")
-      }
-
-      const data = await response.json()
+      const data = await apiCall<MaintenanceCycle[]>(`maintenance-cycles?${params.toString()}`)
       setCycles(data)
     } catch (error) {
       console.error("Error fetching cycles:", error)
@@ -101,20 +97,13 @@ export default function MaintenanceCyclesPage() {
 
   const handleCreateCycle = async () => {
     try {
-      const response = await fetch("/api/maintenance-cycles", {
+      await apiCall("maintenance-cycles", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           ...formData,
           cycle_days: parseInt(formData.cycle_days),
         }),
       })
-
-      if (!response.ok) {
-        throw new Error("検修周期の作成に失敗しました")
-      }
 
       await fetchCycles()
       setShowCreateModal(false)
@@ -127,17 +116,10 @@ export default function MaintenanceCyclesPage() {
 
   const handleUpdateCycle = async (id: number, updates: Partial<MaintenanceCycle>) => {
     try {
-      const response = await fetch(`/api/maintenance-cycles/${id}`, {
+      await apiCall(`maintenance-cycles/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(updates),
       })
-
-      if (!response.ok) {
-        throw new Error("検修周期の更新に失敗しました")
-      }
 
       await fetchCycles()
       setEditingCycle(null)
@@ -151,13 +133,9 @@ export default function MaintenanceCyclesPage() {
     if (!confirm("この検修周期を削除しますか？")) return
 
     try {
-      const response = await fetch(`/api/maintenance-cycles/${id}`, {
+      await apiCall(`maintenance-cycles/${id}`, {
         method: "DELETE",
       })
-
-      if (!response.ok) {
-        throw new Error("検修周期の削除に失敗しました")
-      }
 
       await fetchCycles()
     } catch (error) {

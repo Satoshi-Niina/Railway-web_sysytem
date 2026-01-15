@@ -202,16 +202,11 @@ export function MaintenanceBaseDatesManager() {
       const formData = new FormData()
       formData.append('file', importFile)
 
-      const response = await fetch('/api/maintenance-base-dates/import', {
+      const result = await apiCall<{ imported: number }>('maintenance-base-dates/import', {
         method: 'POST',
         body: formData
       })
 
-      if (!response.ok) {
-        throw new Error('インポートに失敗しました')
-      }
-
-      const result = await response.json()
       setSuccess(`${result.imported}件の起算日をインポートしました`)
       setShowImportDialog(false)
       setImportFile(null)

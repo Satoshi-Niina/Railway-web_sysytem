@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Plus, Clock, MapPin, CheckCircle, Wrench } from "lucide-react"
 import type { Vehicle, Base, OperationPlan, OperationRecord, InspectionPlan } from "@/types/enhanced"
+import { apiCall } from "@/lib/api-client"
 
 export function EnhancedOperationChart() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -34,20 +35,12 @@ export function EnhancedOperationChart() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [plansRes, recordsRes, inspectionsRes, vehiclesRes, basesRes] = await Promise.all([
-        fetch(`/api/operation-plans?month=${currentMonth}`),
-        fetch(`/api/operation-records?month=${currentMonth}`),
-        fetch(`/api/inspection-plans?month=${currentMonth}`),
-        fetch("/api/vehicles"),
-        fetch("/api/bases"),
-      ])
-
       const [plansData, recordsData, inspectionsData, vehiclesData, basesData] = await Promise.all([
-        plansRes.json(),
-        recordsRes.json(),
-        inspectionsRes.json(),
-        vehiclesRes.json(),
-        basesRes.json(),
+        apiCall<OperationPlan[]>(`operation-plans?month=${currentMonth}`),
+        apiCall<OperationRecord[]>(`operation-records?month=${currentMonth}`),
+        apiCall<InspectionPlan[]>(`inspection-plans?month=${currentMonth}`),
+        apiCall<Vehicle[]>("vehicles"),
+        apiCall<Base[]>("bases"),
       ])
 
       setOperationPlans(plansData)
@@ -416,9 +409,8 @@ function OperationPlanModal({
     setLoading(true)
 
     try {
-      const response = await fetch("/api/operation-plans", {
+      const newPlan = await apiCall<OperationPlan>("operation-plans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           vehicle_id: Number.parseInt(formData.vehicle_id),
           plan_date: formData.plan_date,
@@ -432,21 +424,18 @@ function OperationPlanModal({
         }),
       })
 
-      if (response.ok) {
-        const newPlan = await response.json()
-        onSubmit(newPlan)
-        setFormData({
-          vehicle_id: "",
-          plan_date: "",
-          shift_type: "day",
-          start_time: "",
-          end_time: "",
-          planned_distance: "",
-          departure_base_id: "",
-          arrival_base_id: "",
-          notes: "",
-        })
-      }
+      onSubmit(newPlan)
+      setFormData({
+        vehicle_id: "",
+        plan_date: "",
+        shift_type: "day",
+        start_time: "",
+        end_time: "",
+        planned_distance: "",
+        departure_base_id: "",
+        arrival_base_id: "",
+        notes: "",
+      })
     } catch (error) {
       console.error("Error creating operation plan:", error)
     } finally {

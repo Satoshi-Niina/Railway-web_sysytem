@@ -60,9 +60,9 @@ export function VehicleList() {
       if (selectedStatus !== "all") params.append("status", selectedStatus)
 
       const [vehiclesData, officesData, basesData] = await Promise.all([
-        apiCall<Vehicle[]>(`/api/vehicles?${params.toString()}`),
-        apiCall<ManagementOffice[]>("/api/management-offices"),
-        apiCall<Base[]>("/api/bases"),
+        apiCall<Vehicle[]>(`vehicles?${params.toString()}`),
+        apiCall<ManagementOffice[]>("management-offices"),
+        apiCall<Base[]>("bases"),
       ])
 
       console.log('Fetched vehicles data:', vehiclesData)

@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import { saveAs } from 'file-saver'
 import { VehicleForm } from "@/components/vehicle-form"
+import { apiCall } from "@/lib/api-client"
 
 interface Vehicle {
   id: number
@@ -73,12 +74,9 @@ export default function VehiclesPage() {
   // 車両データを取得する関数を外部化
   const fetchVehicles = async () => {
     try {
-      const response = await fetch('/api/vehicles')
-      if (response.ok) {
-        const vehiclesData = await response.json()
-        setVehicles(vehiclesData)
-        setFilteredVehicles(vehiclesData)
-      }
+      const vehiclesData = await apiCall<Vehicle[]>("vehicles")
+      setVehicles(vehiclesData)
+      setFilteredVehicles(vehiclesData)
     } catch (error) {
       console.error('車両データの取得に失敗:', error)
       toast({
@@ -95,11 +93,8 @@ export default function VehiclesPage() {
     // 事業所データを取得
     const fetchOffices = async () => {
       try {
-        const response = await fetch('/api/management-offices')
-        if (response.ok) {
-          const officesData = await response.json()
-          setOffices(officesData)
-        }
+        const officesData = await apiCall<ManagementOffice[]>("management-offices")
+        setOffices(officesData)
       } catch (error) {
         console.error('事業所データの取得に失敗:', error)
         // モックデータをフォールバックとして使用
@@ -195,27 +190,16 @@ export default function VehiclesPage() {
     if (!confirm('この車両を削除しますか？')) return
 
     try {
-      const response = await fetch(`/api/vehicles/${id}`, {
-        method: 'DELETE'
+      await apiCall(`vehicles/${id}`, {
+        method: "DELETE",
       })
 
-      if (response.ok) {
-        // サーバーから最新データを再取得
-        await fetchVehicles()
-        toast({
-          title: "削除完了",
-          description: "車両を削除しました",
-        })
-      } else {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        console.error("Delete error response:", errorData)
-        console.error("Response status:", response.status)
-        toast({
-          title: "削除エラー",
-          description: errorData.details || errorData.error || "車両の削除に失敗しました",
-          variant: "destructive",
-        })
-      }
+      // サーバーから最新データを再取得
+      await fetchVehicles()
+      toast({
+        title: "削除完了",
+        description: "車両を削除しました",
+      })
     } catch (error) {
       console.error('車両の削除に失敗:', error)
       toast({

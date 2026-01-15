@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Calendar, Filter, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react"
 import type { Vehicle, OperationPlan, OperationRecord, InspectionPlan } from "@/types"
+import { apiCall } from "@/lib/api-client"
 
 export function BaseOperationChart() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
@@ -31,18 +32,11 @@ export function BaseOperationChart() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [plansRes, recordsRes, inspectionsRes, vehiclesRes] = await Promise.all([
-        fetch(`/api/operation-plans?month=${currentMonth}`),
-        fetch(`/api/operation-records?month=${currentMonth}`),
-        fetch(`/api/inspection-plans?month=${currentMonth}`),
-        fetch("/api/vehicles"),
-      ])
-
       const [plansData, recordsData, inspectionsData, vehiclesData] = await Promise.all([
-        plansRes.json(),
-        recordsRes.json(),
-        inspectionsRes.json(),
-        vehiclesRes.json(),
+        apiCall<OperationPlan[]>(`operation-plans?month=${currentMonth}`),
+        apiCall<OperationRecord[]>(`operation-records?month=${currentMonth}`),
+        apiCall<InspectionPlan[]>(`inspection-plans?month=${currentMonth}`),
+        apiCall<Vehicle[]>("vehicles"),
       ])
 
       setOperationPlans(plansData || [])

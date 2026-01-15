@@ -1175,7 +1175,7 @@ export function OperationPlanning() {
       prevMonth.setMonth(prevMonth.getMonth() - 1)
       const prevMonthString = prevMonth.toISOString().slice(0, 7)
 
-      const prevPlans = await apiCall<OperationPlan[]>(`/api/operation-plans?month=${prevMonthString}`)
+      const prevPlans = await apiCall<OperationPlan[]>(`operation-plans?month=${prevMonthString}`)
 
       // 前月の計画を当月にコピー
       const copyPromises = prevPlans.map((plan) => {

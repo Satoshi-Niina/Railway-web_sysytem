@@ -1,7 +1,7 @@
 // 環境変数からAPIベースURLを取得
 // 開発環境: /api (Next.js API routes)
 // 本番環境: 環境変数 NEXT_PUBLIC_API_URL で指定
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
 
 // 汎用API呼び出し関数
 // endpoint: エンドポイント名のみを指定 (例: "vehicles", "operation-plans")
@@ -169,49 +169,27 @@ const mockVehicles = [
 // API呼び出し用のユーティリティ関数
 const apiClient = {
   async get<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`)
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`)
-    }
-    return response.json()
+    return apiCall<T>(endpoint, { method: 'GET' });
   },
 
   async post<T>(endpoint: string, data: any): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    return apiCall<T>(endpoint, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(data),
-    })
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`)
-    }
-    return response.json()
+    });
   },
 
   async put<T>(endpoint: string, data: any): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    return apiCall<T>(endpoint, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify(data),
-    })
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`)
-    }
-    return response.json()
+    });
   },
 
   async delete<T>(endpoint: string): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    return apiCall<T>(endpoint, {
       method: "DELETE",
-    })
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.statusText}`)
-    }
-    return response.json()
+    });
   },
 }
 
@@ -250,8 +228,8 @@ export function clearCache(): void {
 }
 
 // キャッシュ付きのAPI呼び出し
-export async function cachedFetch(url: string, options?: RequestInit, ttl?: number): Promise<any> {
-  const cacheKey = `${url}-${JSON.stringify(options || {})}`
+export async function cachedFetch(endpoint: string, options?: RequestInit, ttl?: number): Promise<any> {
+  const cacheKey = `${endpoint}-${JSON.stringify(options || {})}`
   
   // キャッシュから取得を試行
   const cached = getFromCache(cacheKey)
@@ -259,13 +237,8 @@ export async function cachedFetch(url: string, options?: RequestInit, ttl?: numb
     return cached
   }
 
-  // API呼び出し
-  const response = await fetch(url, options)
-  if (!response.ok) {
-    throw new Error(`API call failed: ${response.status}`)
-  }
-
-  const data = await response.json()
+  // apiCallを使用して呼び出し
+  const data = await apiCall(endpoint, options)
   
   // キャッシュに保存
   setCache(cacheKey, data, ttl)
@@ -275,17 +248,17 @@ export async function cachedFetch(url: string, options?: RequestInit, ttl?: numb
 
 // 事業所データの取得（キャッシュ付き）
 export async function getManagementOffices() {
-  return cachedFetch('/api/management-offices', {}, 2 * 60 * 1000) // 2分キャッシュ
+  return cachedFetch('management-offices', {}, 2 * 60 * 1000) // 2分キャッシュ
 }
 
 // 保守基地データの取得（キャッシュ付き）
 export async function getMaintenanceBases() {
-  return cachedFetch('/api/maintenance-bases', {}, 2 * 60 * 1000) // 2分キャッシュ
+  return cachedFetch('bases', {}, 2 * 60 * 1000) // 2分キャッシュ
 }
 
 // 車両データの取得（キャッシュ付き）
 export async function getVehicles() {
-  return cachedFetch('/api/vehicles', {}, 1 * 60 * 1000) // 1分キャッシュ
+  return cachedFetch('vehicles', {}, 1 * 60 * 1000) // 1分キャッシュ
 }
 
 // データ作成・更新・削除時はキャッシュをクリア
@@ -392,7 +365,7 @@ export const fetchVehicles = async () => {
   }
 
   try {
-    const response = await apiClient.get("/api/vehicles")
+    const response = await apiClient.get("vehicles")
     return response
   } catch (error) {
     console.error("Error fetching vehicles:", error)
@@ -406,7 +379,7 @@ export const fetchBases = async () => {
   }
 
   try {
-    const response = await apiClient.get("/api/bases")
+    const response = await apiClient.get("bases")
     return response
   } catch (error) {
     console.error("Error fetching bases:", error)
@@ -420,7 +393,7 @@ export const fetchManagementOffices = async () => {
   }
 
   try {
-    const response = await apiClient.get("/api/management-offices")
+    const response = await apiClient.get("management-offices")
     return response
   } catch (error) {
     console.error("Error fetching management offices:", error)
