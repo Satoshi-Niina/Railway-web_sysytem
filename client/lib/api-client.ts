@@ -24,12 +24,19 @@ export async function apiCall<T = any>(
   }
 
   // エンドポイントの正規化
-  // API_BASE_URLの末尾のスラッシュと、endpointの先頭のスラッシュを適切に処理
-  const baseUrl = API_BASE_URL.replace(/\/+$/, '') // 末尾のスラッシュを削除
+  // API_BASE_URLの末尾のスラッシュを処理
+  let baseUrl = API_BASE_URL.replace(/\/+$/, '') // 末尾のスラッシュを削除
+  
+  // baseUrl がドメインのみで /api を含んでいない場合、自動的に付与
+  // ただし、 baseUrl が "/api" (相対パス) でない場合のみ
+  if (baseUrl !== "/api" && !baseUrl.includes("/api") && (baseUrl.startsWith('http://') || baseUrl.startsWith('https://'))) {
+    baseUrl = `${baseUrl}/api`
+  }
+
   const cleanEndpoint = endpoint.replace(/^\/+/, '') // 先頭のスラッシュを削除
   const url = `${baseUrl}/${cleanEndpoint}`
   
-  console.log('API Call:', url, { baseUrl, cleanEndpoint })
+  console.log('API Call:', url, { baseUrl, cleanEndpoint, originalBase: API_BASE_URL })
   
   const defaultOptions: RequestInit = {
     headers: {
