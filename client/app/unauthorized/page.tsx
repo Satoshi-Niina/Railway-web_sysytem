@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ShieldAlert, ArrowLeft, Lock, Users, Phone, Mail } from "lucide-react"
-import Link from "next/link"
 
 // 動的レンダリングを強制
 export const dynamic = 'force-dynamic'
@@ -50,11 +49,6 @@ function UnauthorizedContent() {
   }
 
   const message = getMessage()
-
-  const handleLogout = () => {
-    localStorage.clear()
-    router.push("/login")
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">
