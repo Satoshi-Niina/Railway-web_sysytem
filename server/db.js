@@ -40,10 +40,10 @@ if (process.env.NODE_ENV === 'production' && process.env.CLOUD_SQL_CONNECTION_NA
       // pg supports host via query param for socket
       dbUrl.searchParams.set('host', socketPath);
       
-      connectionString = dbUrl.toString();
-      // decodeURIComponent is needed because URL.toString() encodes the path (e.g. %2Fcloudsql%2F...)
-      // but 'pg' might expect raw path or handled correctly. 
-      // Actually standard proper URI for socket: postgresql://user:pass@/dbname?host=/cloudsql/instance
+      // Fix: URL.toString() URL-encodes the path (e.g., %2Fcloudsql%2F...), causing connection failures.
+      // We manually decode just the host parameter to ensure it is a valid socket path.
+      connectionString = dbUrl.toString().replace(/%2F/g, '/');
+
       console.log('🔄 Modified connection string for Cloud SQL Socket usage');
     }
   } catch (e) {
