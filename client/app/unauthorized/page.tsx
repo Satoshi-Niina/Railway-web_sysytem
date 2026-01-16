@@ -134,22 +134,15 @@ function UnauthorizedContent() {
             {/* アクションボタン */}
             <div className="flex flex-col sm:flex-row gap-3 pt-4">
               <Button
-                onClick={handleLogout}
+                onClick={() => {
+                  const dashboardURL = process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3002'
+                  window.location.href = dashboardURL
+                }}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 size="lg"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                ログイン画面に戻る
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="flex-1 border-slate-300 hover:bg-slate-50"
-                size="lg"
-              >
-                <Link href="/">
-                  ダッシュボードに戻る
-                </Link>
+                ダッシュボードに戻る
               </Button>
             </div>
           </CardContent>

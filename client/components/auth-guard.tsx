@@ -25,6 +25,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   async function checkAuth() {
     try {
+      console.log('🔍 認証チェック開始...')
+      
       // 1. URLパラメータからユーザー情報を取得（ダッシュボードからの遷移）
       let user = getUserFromURL()
       
@@ -33,21 +35,21 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         user = getUserFromStorage()
       }
 
-      // 3. ユーザー情報がない場合 → ログイン画面へ
+      console.log('📋 ユーザー情報:', user)
+
+      // 3. ユーザー情報がない場合 → ダッシュボードへリダイレクト
       if (!user) {
-        console.warn('ユーザー情報が見つかりません。ログイン画面へ遷移します。')
-        router.push('/login')
-        setIsLoading(false)
+        console.warn('⚠️ ユーザー情報が見つかりません。ダッシュボードへリダイレクトします。')
+        redirectToDashboard()
         return
       }
 
-      // 4. 一般ユーザー（viewer）の場合 → ログイン画面へ
-      //    ログイン画面でDBのusersテーブルと照合して管理者権限がないか確認
+      // 4. 一般ユーザー（viewer）の場合 → アクセス拒否
       if (isGeneralUser(user)) {
-        console.warn('一般ユーザーです。ログイン画面で管理者権限を確認します:', user.role)
-        localStorage.setItem('dashboardUser', JSON.stringify(user))
-        router.push('/login')
-        setIsLoading(false)
+        console.warn('❌ 一般ユーザーはアクセスできません:', user.role)
+        localStorage.setItem('userName', user.username)
+        localStorage.setItem('userRole', user.role)
+        router.push('/unauthorized?reason=role')
         return
       }
 
@@ -59,12 +61,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         localStorage.setItem('userRole', user.role)
         setIsAuthorized(true)
       } else {
-        console.warn('アクセス権限がありません:', user.role)
+        console.warn('⚠️ アクセス権限がありません:', user.role)
+        localStorage.setItem('userName', user.username)
+        localStorage.setItem('userRole', user.role)
         router.push('/unauthorized?reason=role')
       }
     } catch (error) {
-      console.error('認証チェックエラー:', error)
-      router.push('/login')
+      console.error('❌ 認証チェックエラー:', error)
+      redirectToDashboard()
     } finally {
       setIsLoading(false)
     }
