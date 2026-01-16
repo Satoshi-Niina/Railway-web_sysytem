@@ -9,6 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Train, Lock, User, AlertCircle, Loader2 } from "lucide-react"
 
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic'
+
 export default function LoginPage() {
   const router = useRouter()
   const [username, setUsername] = useState("")

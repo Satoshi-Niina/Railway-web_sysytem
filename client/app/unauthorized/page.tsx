@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ShieldAlert, ArrowLeft, Lock, Users, Phone, Mail } from "lucide-react"
 import Link from "next/link"
 
-export default function UnauthorizedPage() {
+// 動的レンダリングを強制
+export const dynamic = 'force-dynamic'
+
+function UnauthorizedContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const reason = searchParams.get("reason")
@@ -159,5 +162,20 @@ export default function UnauthorizedPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function UnauthorizedPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto" />
+          <p className="mt-4 text-slate-600">読み込み中...</p>
+        </div>
+      </div>
+    }>
+      <UnauthorizedContent />
+    </Suspense>
   )
 }
