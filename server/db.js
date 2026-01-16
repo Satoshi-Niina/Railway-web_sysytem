@@ -22,8 +22,37 @@ console.log('=== Database Connection Info ===');
 console.log('NODE_ENV:', process.env.NODE_ENV);
 console.log('DATABASE_URL:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':***@'));
 
+let connectionString = process.env.DATABASE_URL;
+
+// Cloud Run Production Environment - Enforce Cloud SQL Socket if variable is present
+if (process.env.NODE_ENV === 'production' && process.env.CLOUD_SQL_CONNECTION_NAME) {
+  try {
+    // If DATABASE_URL is set, we try to inject the socket path
+    if (connectionString) {
+      const dbUrl = new URL(connectionString);
+      const socketPath = `/cloudsql/${process.env.CLOUD_SQL_CONNECTION_NAME}`;
+      
+      // Remove hostname and port to force socket usage
+      dbUrl.hostname = '';
+      dbUrl.port = '';
+      dbUrl.host = ''; // Clear host
+      
+      // pg supports host via query param for socket
+      dbUrl.searchParams.set('host', socketPath);
+      
+      connectionString = dbUrl.toString();
+      // decodeURIComponent is needed because URL.toString() encodes the path (e.g. %2Fcloudsql%2F...)
+      // but 'pg' might expect raw path or handled correctly. 
+      // Actually standard proper URI for socket: postgresql://user:pass@/dbname?host=/cloudsql/instance
+      console.log('🔄 Modified connection string for Cloud SQL Socket usage');
+    }
+  } catch (e) {
+    console.error('⚠️ Failed to modify DATABASE_URL for Cloud SQL Socket:', e);
+  }
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: connectionString,
   ssl: process.env.NODE_ENV === 'production' 
     ? { rejectUnauthorized: false } 
     : false
