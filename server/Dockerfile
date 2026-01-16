@@ -1,8 +1,15 @@
 # ===================================
 # Server (Express.js) 用 Dockerfile
+# キャッシュバスティング強化版
 # ===================================
 
 FROM node:20-alpine
+
+# キャッシュバスティング用
+ARG CACHE_BUST=unknown
+ARG BUILD_TIMESTAMP=unknown
+LABEL cache.bust="${CACHE_BUST}"
+LABEL build.timestamp="${BUILD_TIMESTAMP}"
 
 WORKDIR /app
 

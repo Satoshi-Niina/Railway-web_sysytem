@@ -41,25 +41,47 @@ jobs:
       - name: Configure Docker for GCR
         run: gcloud auth configure-docker
 
+      - name: Enable Docker BuildKit and clear cache
+        run: |
+          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+          docker system prune -af --volumes
+          docker builder prune -af
+
       - name: List files (Debug)
         working-directory: ./server
         run: ls -la
 
       - name: Build Docker image
         working-directory: ./server
+        env:
+          DOCKER_BUILDKIT: 1
+          BUILDKIT_PROGRESS: plain
         run: |
-          docker build --no-cache -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} .
-          docker tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
+          TIMESTAMP=$(date +%s)
+          CACHE_BUST=$(uuidgen)
+          docker build \
+            --no-cache \
+            --pull \
+            --build-arg BUILDKIT_INLINE_CACHE=0 \
+            --build-arg CACHE_BUST="$CACHE_BUST" \
+            --build-arg BUILD_TIMESTAMP="$TIMESTAMP" \
+            --label "build.timestamp=$TIMESTAMP" \
+            --label "build.sha=${{ github.sha }}" \
+            --label "cache.bust=$CACHE_BUST" \
+            -t gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}-$TIMESTAMP .
+          docker tag gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}-$TIMESTAMP gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
 
       - name: Push Docker image
         run: |
-          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          TIMESTAMP=$(date +%s)
+          docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}-$TIMESTAMP
           docker push gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:latest
 
       - name: Deploy to Cloud Run
         run: |
+          TIMESTAMP=$(date +%s)
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --image gcr.io/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}-$TIMESTAMP \
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \

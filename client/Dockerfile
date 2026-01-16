@@ -1,8 +1,13 @@
 # ===================================
 # Client (Next.js) 用 Dockerfile
+# キャッシュバスティング強化版
 # ===================================
 
 FROM node:20 AS builder
+
+# キャッシュバスティング用（ビルド時に毎回変わる値）
+ARG CACHE_BUST=unknown
+ARG BUILD_TIMESTAMP=unknown
 
 WORKDIR /app
 
@@ -32,10 +37,19 @@ ENV NODE_OPTIONS="--max-old-space-size=2048"
 ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 
 # Next.jsアプリをビルド
-RUN pnpm build
+# キャッシュバスティング情報を表示
+RUN echo "Cache bust: ${CACHE_BUST}" && \
+    echo "Build timestamp: ${BUILD_TIMESTAMP}" && \
+    pnpm build
 
 # 本番ステージ
 FROM node:20 AS runner
+
+# キャッシュバスティング用
+ARG CACHE_BUST=unknown
+ARG BUILD_TIMESTAMP=unknown
+LABEL cache.bust="${CACHE_BUST}"
+LABEL build.timestamp="${BUILD_TIMESTAMP}"
 
 WORKDIR /app
 
