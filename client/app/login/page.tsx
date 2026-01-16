@@ -25,38 +25,48 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/auth/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      })
+      // 開発環境用：簡易ログイン（実際にはダッシュボードから来る想定）
+      // デモ用の管理者アカウント
+      const demoUsers: Record<string, { username: string; role: string; password: string }> = {
+        admin: { username: "admin", role: "admin", password: "admin123" },
+        operator: { username: "operator", role: "operator", password: "operator123" },
+        viewer: { username: "viewer", role: "viewer", password: "viewer123" },
+      }
 
-      const data = await response.json()
+      const user = demoUsers[username]
 
-      if (!response.ok) {
-        setError(data.error || "ログインに失敗しました")
+      if (!user || user.password !== password) {
+        setError("ユーザー名またはパスワードが正しくありません")
         setIsLoading(false)
         return
       }
 
-      // トークンとユーザー情報を保存
-      localStorage.setItem("authToken", data.token)
-      localStorage.setItem("userName", data.user.username)
-      localStorage.setItem("userRole", data.user.role)
+      // ユーザー情報をストレージに保存
+      const userInfo = {
+        id: username === "admin" ? 1 : username === "operator" ? 2 : 3,
+        username: user.username,
+        email: `${user.username}@example.com`,
+        role: user.role,
+        isActive: true,
+      }
+
+      localStorage.setItem("user", JSON.stringify(userInfo))
+      localStorage.setItem("userName", user.username)
+      localStorage.setItem("userRole", user.role)
 
       // 一般ユーザーの場合は即座にunauthorizedへ
-      if (data.user.role === "viewer") {
+      if (user.role === "viewer") {
+        setIsLoading(false)
         router.push("/unauthorized?reason=role")
         return
       }
 
       // 管理者・運用者の場合はホームへ
+      setIsLoading(false)
       router.push("/")
     } catch (error) {
       console.error("Login error:", error)
-      setError("サーバーとの通信に失敗しました")
+      setError("ログイン処理でエラーが発生しました")
       setIsLoading(false)
     }
   }
@@ -147,12 +157,22 @@ export default function LoginPage() {
               </Button>
             </form>
 
+            {/* デモアカウント情報 */}
+            <div className="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-xs text-amber-800 font-semibold mb-2">開発環境用デモアカウント：</p>
+              <div className="text-xs text-amber-700 space-y-1">
+                <p>• 管理者: admin / admin123</p>
+                <p>• 運用者: operator / operator123</p>
+                <p>• 閲覧者: viewer / viewer123 (アクセス拒否)</p>
+              </div>
+            </div>
+            
             {/* 注意事項 */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+            <div className="mt-3 p-4 bg-blue-50 rounded-lg">
               <p className="text-xs text-slate-600 text-center">
                 このシステムは認可されたユーザーのみがアクセス可能です。
                 <br />
-                アクセス権限が必要な場合は管理者にお問い合わせください。
+                本番環境ではダッシュボードから自動ログインされます。
               </p>
             </div>
           </CardContent>

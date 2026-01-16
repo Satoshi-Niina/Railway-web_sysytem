@@ -12,14 +12,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // ログインページとアンオーソライズドページは認証チェックをスキップ
-    if (pathname === '/login' || pathname === '/unauthorized') {
+    if (pathname?.startsWith('/login') || pathname?.startsWith('/unauthorized')) {
+      console.log('認証スキップ:', pathname)
       setIsAuthorized(true)
       setIsLoading(false)
       return
     }
 
+    console.log('認証チェック開始:', pathname)
     checkAuth()
-  }, [pathname, router])
+  }, [pathname])
 
   async function checkAuth() {
     try {
