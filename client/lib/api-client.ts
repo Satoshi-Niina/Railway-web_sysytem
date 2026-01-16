@@ -365,14 +365,19 @@ function getMockData(url: string) {
 
 // データベース設定の確認
 export const isDatabaseConfigured = (): boolean => {
+  // ブラウザ環境（windowが存在する場合）
+  if (typeof window !== 'undefined') {
+    // 開発環境では常にAPIリクエストを許可し、サーバー側のエラー判定に任せる
+    return true
+  }
+  
+  // サーバーサイド（Next.js API Routes / SSR）の場合
+  // process.env から直接取得（Next.jsが自動ロードすることを期待）
   return !!(process.env.NEXT_PUBLIC_DATABASE_URL || process.env.DATABASE_URL)
 }
 
 export const fetchVehicles = async () => {
-  if (!isDatabaseConfigured()) {
-    return []
-  }
-
+  // apiCall 自体の中で API_BASE_URL を使用しているため、ここでのチェックは不要または緩和
   try {
     const response = await apiClient.get("vehicles")
     return response
@@ -383,10 +388,6 @@ export const fetchVehicles = async () => {
 }
 
 export const fetchBases = async () => {
-  if (!isDatabaseConfigured()) {
-    return []
-  }
-
   try {
     const response = await apiClient.get("bases")
     return response
@@ -397,10 +398,6 @@ export const fetchBases = async () => {
 }
 
 export const fetchManagementOffices = async () => {
-  if (!isDatabaseConfigured()) {
-    return []
-  }
-
   try {
     const response = await apiClient.get("management-offices")
     return response

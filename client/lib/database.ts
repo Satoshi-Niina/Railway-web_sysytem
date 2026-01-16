@@ -12,11 +12,36 @@ export function resetPool() {
 
 export function getPool() {
   if (!pool) {
+    // サーバーサイドでのみ環境変数を再読み込み
+    if (!process.env.DATABASE_URL) {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const dotenv = require('dotenv');
+        
+        // clientディレクトリから見て一つ上のルートにある.env.developmentを探す
+        const rootPath = process.cwd();
+        const envPath = path.join(rootPath, '../.env.development');
+        
+        if (fs.existsSync(envPath)) {
+          console.log("✅ Loading environment variables from:", envPath)
+          dotenv.config({ path: envPath });
+        } else {
+          // もしcwdがすでにルートだった場合の考慮
+          const envPathRoot = path.join(rootPath, '.env.development');
+          if (fs.existsSync(envPathRoot)) {
+            dotenv.config({ path: envPathRoot });
+          }
+        }
+      } catch (e) {
+        console.error("⚠️ Failed to load root .env.development:", e)
+      }
+    }
+
     const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
 
     if (!databaseUrl) {
       console.error("❌ DATABASE_URL is not set!")
-      console.error("Environment variables available:", Object.keys(process.env).filter(k => k.includes('DB') || k.includes('DATABASE')))
       return null
     }
 
@@ -40,8 +65,15 @@ export function getPool() {
         console.error('Error message:', err.message)
       })
 
-      pool.on('connect', () => {
+      pool.on('connect', async (client) => {
         console.log('✅ New database connection established')
+        // 接続時にsearch_pathを設定
+        try {
+          await client.query('SET search_path TO master_data, operations, inspections, maintenance, public')
+          console.log('✅ search_path set to: master_data, operations, inspections, maintenance, public')
+        } catch (err) {
+          console.error('⚠️ Failed to set search_path:', err)
+        }
       })
 
       pool.on('remove', () => {

@@ -12,17 +12,21 @@ build/
 dist/
 
 # Environment variables
-# ローカル開発用の.env（シークレット情報含む）は除外
+.env
 .env.development
+.env.production
+.env.local
+.env.*.local
+*.json
+!package.json
+!tsconfig.json
+!package-lock.json
+!next-env.d.ts
 
-# Client環境変数（本番用.env.production.localのみ除外）
-
-# Server環境変数（本番用.env.production.localのみ除外）
-
-# 以下はGitに含める（テンプレートファイル）:
-# - .env.development (ローカル開発用テンプレート)
-# - client/.env.production (Client本番用テンプレート)
-# - server/.env.production (Server本番用テンプレート)
+# 以下はGitに含めない（シークレット情報を含むため）:
+# - client/.env.production
+# - server/.env.production
+# - Google Cloud Service Account Keys (*.json)
 
 # Vercel
 .vercel

@@ -27,22 +27,16 @@ console.log('NODE_ENV:', process.env.NODE_ENV);
 // 環境変数の読み込み
 // 開発環境: ルートの.env.development
 // 本番環境: server/.env.production または server/.env.production.local
+// 環境変数の読み込み
 const env = process.env.NODE_ENV || 'development';
 if (env === 'production') {
-  const prodLocalPath = resolve(__dirname, '.env.production.local');
   const prodPath = resolve(__dirname, '.env.production');
-  console.log('Loading production env from:', prodLocalPath, 'or', prodPath);
-  dotenv.config({ path: prodLocalPath });
+  console.log('Loading production env from:', prodPath);
   dotenv.config({ path: prodPath });
 } else {
   const devPath = resolve(__dirname, '../.env.development');
   console.log('Loading development env from:', devPath);
-  const result = dotenv.config({ path: devPath });
-  if (result.error) {
-    console.error('Error loading .env.development:', result.error);
-  } else {
-    console.log('Environment variables loaded successfully');
-  }
+  dotenv.config({ path: devPath });
 }
 
 console.log('DATABASE_URL:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':***@'));
