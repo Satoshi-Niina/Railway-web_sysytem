@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
@@ -12,7 +12,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // ログインページとアンオーソライズドページは認証チェックをスキップ
-    // ※ 管理者はログインページを使わず、ダッシュボードからの認証情報で直接アクセス
     if (pathname?.startsWith('/unauthorized')) {
       console.log('認証スキップ:', pathname)
       setIsAuthorized(true)
@@ -26,43 +25,39 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   async function checkAuth() {
     try {
-      console.log('🔍 認証チェック開始...')
-      console.log('現在のURL:', window.location.href)
+      console.log(' 認証チェック開始...')
       
-      // ローカル開発環境では認証をスキップ
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        console.log('🔓 ローカル環境: 認証スキップ')
+      // ローカル開発環境では認証をスキップ (localhost または IPv4 loopback)
+      if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+        console.log(' ローカル環境: 認証スキップ')
         setIsAuthorized(true)
         setIsLoading(false)
         return
       }
       
-      console.log('URLパラメータ:', window.location.search)
-      
-      // 1. URLパラメータからユーザー情報を取得（ダッシュボードからの遷移）
+      // 1. URLパラメータからユーザー情報を取得
       let user = getUserFromURL()
       
-      // 2. URLにない場合はストレージから取得
+      // 2. なければストレージから取得
       if (!user) {
         user = getUserFromStorage()
-        console.log('📋 ストレージからユーザー情報:', user)
+        if (user) console.log(' ストレージからユーザー情報:', user)
       } else {
-        console.log('🔗 URLからユーザー情報:', user)
+        console.log(' URLからユーザー情報:', user)
       }
 
-      // 3. ユーザー情報がない場合 → ダッシュボードへリダイレクト
+      // 3. ユーザー情報がない場合
       if (!user) {
-        console.warn('⚠️ ユーザー情報がありません - ダッシュボードへリダイレクト')
+        console.warn(' ユーザー情報がありません')
         setIsAuthorized(false)
         setIsLoading(false)
-        redirectToDashboard()
+        // デバッグモード：自動リダイレクトしない
         return
       }
 
-      // 4. 一般ユーザー（viewer）の場合 → アクセス拒否ページへ
+      // 4. 一般ユーザーの場合
       if (isGeneralUser(user)) {
-        console.warn('❌ 一般ユーザーはアクセスできません:', user.role)
-        // ユーザー名とロールを保存（unauthorized ページで表示）
+        console.warn(' 一般ユーザーはアクセスできません:', user.role)
         localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
         setIsAuthorized(false)
@@ -71,11 +66,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // 5. 管理者・運用者の場合 → アクセス許可（ログインページをスキップ）
+      // 5. アクセス許可
       if (canAccessSystem(user)) {
-        console.log('✅ 認証成功 - アクセス許可:', user.username, `(${user.role})`)
+        console.log(' 認証成功:', user.username)
         
-        // ユーザー情報を確実にストレージに保存
         const userInfo = {
           id: user.id,
           username: user.username,
@@ -85,71 +79,45 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
           iat: user.iat
         }
         localStorage.setItem('user', JSON.stringify(userInfo))
-        localStorage.setItem('userName', user.displayName || user.username)
-        localStorage.setItem('userRole', user.role)
-        if (user.department) {
-          localStorage.setItem('userDepartment', user.department)
-        }
         
         setIsAuthorized(true)
         setIsLoading(false)
       } else {
-        console.warn('⚠️ アクセス権限がありません:', user.role)
-        localStorage.setItem('userName', user.displayName || user.username)
-        localStorage.setItem('userRole', user.role)
+        console.warn(' 権限なし:', user.role)
         setIsAuthorized(false)
         setIsLoading(false)
         router.push('/unauthorized?reason=role')
       }
     } catch (error) {
-      console.error('❌ 認証チェックエラー:', error)
-      // エラー時はダッシュボードへリダイレクト
-      redirectToDashboard()
-    } finally {
+      console.error(' 認証チェックエラー:', error)
+      setIsAuthorized(false)
       setIsLoading(false)
     }
   }
 
-  function redirectToDashboard() {
-    const dashboardURL = getDashboardURL()
-    console.log('🔄 ダッシュボードにリダイレクト:', dashboardURL)
-    
-    // 本番環境では自動的にリダイレクトせず、メッセージを表示
-    // （デバッグのため）
-    console.log('⚠️ リダイレクトは実行しません。コンソールログを確認してください。')
-    setIsAuthorized(false)
-    setIsLoading(false)
-  }
-
-  // ローディング中
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="animate-spin h-12 w-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto" />
-          <p className="text-slate-600 font-medium">認証確認中...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-gray-600">認証確認中...</p>
         </div>
       </div>
     )
   }
 
-  // 認証失敗
   if (isAuthorized === false) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center p-8">
-        <div className="max-w-2xl w-full bg-white rounded-lg shadow-xl p-8">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">認証エラー</h1>
-          <p className="text-slate-700 mb-4">ユーザー情報を取得できませんでした。</p>
-          <div className="bg-slate-100 p-4 rounded-lg mb-4 overflow-auto max-h-96">
-            <p className="text-sm font-mono">コンソールログを確認してください（F12キーで開発者ツールを開く）</p>
-            <pre className="text-xs mt-2">URL: {typeof window !== 'undefined' ? window.location.href : ''}</pre>
+      <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-xl font-bold text-red-600 mb-2">認証エラー</h2>
+          <p className="text-gray-700 mb-4">ユーザー情報を取得できませんでした。</p>
+          <div className="bg-gray-100 p-3 rounded text-xs font-mono overflow-auto mb-4">
+            Details in console logs (F12)
           </div>
-          <button 
-            onClick={() => {
-              const dashboardURL = getDashboardURL()
-              window.location.href = dashboardURL
-            }}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+          <button
+            onClick={() => window.location.href = getDashboardURL()}
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
           >
             ダッシュボードに戻る
           </button>
@@ -158,6 +126,5 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  // 認証成功
   return <>{children}</>
 }
