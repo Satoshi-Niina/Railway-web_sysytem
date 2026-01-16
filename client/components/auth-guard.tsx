@@ -33,39 +33,38 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         user = getUserFromStorage()
       }
 
-      // 3. ユーザー情報がない場合
+      // 3. ユーザー情報がない場合 → ログイン画面へ
       if (!user) {
-        console.warn('ユーザー情報が見つかりません。ダッシュボードにリダイレクトします。')
-        redirectToDashboard()
+        console.warn('ユーザー情報が見つかりません。ログイン画面へ遷移します。')
+        router.push('/login')
+        setIsLoading(false)
         return
       }
 
-      // 4. 一般ユーザー（viewer）の場合はアクセス拒否
+      // 4. 一般ユーザー（viewer）の場合 → ログイン画面へ
+      //    ログイン画面でDBのusersテーブルと照合して管理者権限がないか確認
       if (isGeneralUser(user)) {
-        console.warn('一般ユーザーはアクセスできません:', user.role)
-        localStorage.setItem('userName', user.username)
-        localStorage.setItem('userRole', user.role)
-        router.push('/unauthorized?reason=role')
+        console.warn('一般ユーザーです。ログイン画面で管理者権限を確認します:', user.role)
+        localStorage.setItem('dashboardUser', JSON.stringify(user))
+        router.push('/login')
+        setIsLoading(false)
         return
       }
 
-      // 5. システムへのアクセス権限チェック
-      if (!canAccessSystem(user)) {
+      // 5. 管理者・運用者の場合 → 直接アクセス許可
+      if (canAccessSystem(user)) {
+        console.log('✅ ダッシュボードから認証成功:', user.username, user.role)
+        localStorage.setItem('user', JSON.stringify(user))
+        localStorage.setItem('userName', user.username)
+        localStorage.setItem('userRole', user.role)
+        setIsAuthorized(true)
+      } else {
         console.warn('アクセス権限がありません:', user.role)
-        localStorage.setItem('userName', user.username)
-        localStorage.setItem('userRole', user.role)
         router.push('/unauthorized?reason=role')
-        return
       }
-
-      // 6. 認証成功
-      console.log('✅ 認証成功:', user.username, user.role)
-      localStorage.setItem('userName', user.username)
-      localStorage.setItem('userRole', user.role)
-      setIsAuthorized(true)
     } catch (error) {
       console.error('認証チェックエラー:', error)
-      redirectToDashboard()
+      router.push('/login')
     } finally {
       setIsLoading(false)
     }

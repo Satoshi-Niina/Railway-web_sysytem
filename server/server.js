@@ -15,6 +15,7 @@ import officesRoutes from './routes/offices.js';
 import machineTypesRoutes from './routes/machine-types.js';
 import machinesRoutes from './routes/machines.js';
 import maintenanceSchedulesRoutes from './routes/maintenance-schedules.js';
+import authRoutes from './routes/auth.js';
 
 // ESMで__dirnameを取得
 const __filename = fileURLToPath(import.meta.url);
@@ -63,6 +64,9 @@ app.use(cors({
   credentials: true 
 }));
 app.use(express.json());
+
+// 認証ルート（CORS対象外・認証不要）
+app.use('/api/auth', authRoutes);
 
 app.use('/api/inspections', inspectionRoutes);
 app.use('/api/inspection-types', inspectionTypesRoutes);
