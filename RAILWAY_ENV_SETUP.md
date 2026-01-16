@@ -1,10 +1,29 @@
 # Railway 環境変数設定ガイド
 
-## 重要：本番環境で認証を有効にするための設定
+## 🚨 **緊急：デプロイ後に必ず設定が必要な環境変数** 🚨
 
-Railway の環境変数に以下を設定してください。
+Railway ダッシュボードで以下の環境変数を**すべて**設定してください。
+設定後、必ず **Redeploy** を実行してください。
 
-### 必須環境変数
+---
+
+## 必須環境変数一覧
+
+### **1. データベース接続（サーバー用）** ⚠️ 最重要
+```bash
+DATABASE_URL=postgresql://ユーザー名:パスワード@ホスト:ポート/データベース名
+```
+
+**例：**
+```bash
+DATABASE_URL=postgresql://postgres:your_password@35.221.xxx.xxx:5432/webappdb
+```
+
+**確認方法：**
+- Cloud SQL インスタンスのIPアドレスを使用
+- パブリックIPまたはCloud SQL Proxyを経由
+
+### **2. 認証設定（クライアント用）**
 
 #### ダッシュボード認証を**有効**にする場合（推奨）
 ```bash
@@ -16,6 +35,28 @@ NEXT_PUBLIC_DASHBOARD_URL=https://your-dashboard-url.com
 ```bash
 NEXT_PUBLIC_ENABLE_AUTH=false
 ```
+
+**注意：**
+- `NEXT_PUBLIC_ENABLE_AUTH=false` の場合、誰でもアクセス可能になります
+- 本番環境では必ず `true` に設定してください
+
+### **3. CORS設定（サーバー用）**
+```bash
+ALLOWED_ORIGINS=https://your-client-url.railway.app,https://your-dashboard-url.com
+```
+
+**説明：**
+- クライアントとダッシュボードのURLをカンマ区切りで指定
+- Railway の自動生成URLまたはカスタムドメイン
+
+### **4. Node.js環境**
+```bash
+NODE_ENV=production
+```
+
+**自動設定：** Railwayが自動的に設定するため、通常は不要です
+
+---
 
 ## ダッシュボードからのトークン構造
 
