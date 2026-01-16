@@ -52,6 +52,11 @@ export function getUserFromURL(): UserInfo | null {
     // 取得したユーザー情報をストレージに保存
     localStorage.setItem('user', JSON.stringify(user))
     
+    // URLからパラメータを削除（リロード時に再度チェックしないように）
+    const url = new URL(window.location.href)
+    url.searchParams.delete('user')
+    window.history.replaceState({}, '', url.toString())
+    
     return user
   } catch (error) {
     console.error('Failed to parse user from URL:', error)

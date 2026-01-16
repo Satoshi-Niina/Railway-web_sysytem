@@ -38,44 +38,59 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       // 1. URLパラメータからユーザー情報を取得（ダッシュボードからの遷移）
       let user = getUserFromURL()
       
-      // 2. ストレージからユーザー情報を取得
+      // 2. URLにない場合はストレージから取得
       if (!user) {
         user = getUserFromStorage()
+        console.log('📋 ストレージからユーザー情報取得:', user)
+      } else {
+        console.log('🔗 URLパラメータからユーザー情報取得:', user)
       }
-
-      console.log('📋 ユーザー情報:', user)
 
       // 3. ユーザー情報がない場合 → ダッシュボードへリダイレクト
       if (!user) {
-        console.warn('⚠️ ユーザー情報が見つかりません。')
-        console.log('🔒 ダッシュボードへリダイレクト')
+        console.warn('⚠️ ユーザー情報が見つかりません。ダッシュボードへリダイレクトします。')
         redirectToDashboard()
         return
       }
 
-      // 4. 一般ユーザー（viewer）の場合 → アクセス拒否
+      // 4. 一般ユーザー（viewer）の場合 → アクセス拒否ページへ
       if (isGeneralUser(user)) {
         console.warn('❌ 一般ユーザーはアクセスできません:', user.role)
+        // ユーザー名とロールを保存（unauthorized ページで表示）
         localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
+        setIsAuthorized(false)
+        setIsLoading(false)
         router.push('/unauthorized?reason=role')
         return
       }
 
-      // 5. 管理者・運用者の場合 → 直接アクセス許可
+      // 5. 管理者・運用者の場合 → アクセス許可
       if (canAccessSystem(user)) {
-        console.log('✅ ダッシュボードから認証成功:', user.username, user.role)
-        localStorage.setItem('user', JSON.stringify(user))
+        console.log('✅ 認証成功 - アクセス許可:', user.username, `(${user.role})`)
+        
+        // ユーザー情報を確実にストレージに保存
+        const userInfo = {
+          id: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          role: user.role,
+          department: user.department,
+          iat: user.iat
+        }
+        localStorage.setItem('user', JSON.stringify(userInfo))
         localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
         if (user.department) {
           localStorage.setItem('userDepartment', user.department)
         }
+        
         setIsAuthorized(true)
       } else {
         console.warn('⚠️ アクセス権限がありません:', user.role)
         localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
+        setIsAuthorized(false)
         router.push('/unauthorized?reason=role')
       }
     } catch (error) {
