@@ -87,6 +87,26 @@ pnpm dev
 - Cloud Build API、Cloud Run API が有効化済み
 - gcloud CLI がインストール済み
 
+### GitHubシークレットの設定
+
+GitHubリポジトリの Settings > Secrets and variables > Actions で以下のシークレットを設定:
+
+| シークレット名 | 説明 | 例 |
+|---------------|------|-----|
+| `GCP_PROJECT_ID` | GCPプロジェクトID | `maint-vehicle-management` |
+| `GCP_SA_KEY` | サービスアカウントキー（JSON） | `{"type":"service_account",...}` |
+| `CLOUD_SQL_INSTANCE_CONNECTION_NAME` | Cloud SQLインスタンス接続名 | `project:region:instance` |
+| `DATABASE_URL_PRODUCTION` | 本番用DB接続文字列（Unix socket） | `postgresql://user:pass@/db?host=/cloudsql/project:region:instance` |
+| `NEXT_PUBLIC_APP_URL` | ClientアプリURL | `https://railway-client-xxx.run.app` |
+| `NEXT_PUBLIC_API_URL` | ServerアプリURL | `https://railway-server-xxx.run.app/api` |
+| `SESSION_SECRET` | セッション秘密鍵 | ランダム文字列 |
+| `ALLOWED_ORIGINS` | CORS許可オリジン | `https://railway-client-xxx.run.app` |
+
+**重要**: 本番環境用の `DATABASE_URL_PRODUCTION` は以下の形式を使用:
+```
+postgresql://postgres:PASSWORD@/webappdb?host=/cloudsql/maint-vehicle-management:asia-northeast2:free-trial-first-project
+```
+
 ### デプロイ手順
 
 #### 1. GCPプロジェクトを設定
