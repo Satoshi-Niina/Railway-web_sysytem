@@ -7,6 +7,12 @@ const __dirname = path.dirname(__filename);
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  // キャッシュを無効化（本番デプロイ時のキャッシュ問題を回避）
+  generateBuildId: async () => {
+    // タイムスタンプベースのビルドIDで毎回新しいビルドを強制
+    return `build-${Date.now()}`
+  },
   serverExternalPackages: ['pg'],
   outputFileTracingRoot: path.join(__dirname, '../'),
   eslint: {

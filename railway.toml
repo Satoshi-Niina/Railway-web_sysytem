@@ -1,0 +1,25 @@
+[build]
+# ビルドコマンド
+builder = "nixpacks"
+watchPatterns = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+
+[build.env]
+# Next.jsのテレメトリを無効化
+NEXT_TELEMETRY_DISABLED = "1"
+# ビルドキャッシュを無効化
+NIXPACKS_NO_CACHE = "1"
+
+[deploy]
+# ヘルスチェック設定
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# 環境変数
+[deploy.env]
+NODE_ENV = "production"
+
+# キャッシュ設定（無効化）
+[deploy.cache]
+enabled = false

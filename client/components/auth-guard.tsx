@@ -76,16 +76,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   function redirectToDashboard() {
     const dashboardURL = getDashboardURL()
-    console.log('ダッシュボードにリダイレクト:', dashboardURL)
+    console.log('🔄 ダッシュボードにリダイレクト:', dashboardURL)
     clearUserInfo()
     
-    // ダッシュボードURLが設定されている場合はリダイレクト
-    if (dashboardURL && dashboardURL !== 'http://localhost:3002') {
-      window.location.href = dashboardURL
-    } else {
-      // 開発環境ではログインページへ
-      router.push('/login')
-    }
+    // ダッシュボードURLへリダイレクト
+    window.location.href = dashboardURL
   }
 
   // ローディング中

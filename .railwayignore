@@ -1,0 +1,41 @@
+# Railwayデプロイ時に無視するファイル
+# キャッシュファイルを確実に無視
+
+# Next.js
+.next/
+.next/cache/
+out/
+
+# Build artifacts
+dist/
+build/
+
+# Cache
+.turbo/
+.eslintcache
+node_modules/.cache/
+
+# Environment files (本番環境は環境変数を使用)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Temp files
+*.tmp
+*.temp
