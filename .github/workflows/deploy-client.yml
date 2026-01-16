@@ -3,6 +3,7 @@
 # ===================================
 # GitHub Actionsワークフロー
 # mainブランチへのプッシュ時に自動デプロイ
+# Update: Fix auth guard trigger
 
 name: Deploy Client to Cloud Run
 
