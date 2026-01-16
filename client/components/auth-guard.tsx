@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { getUserFromStorage, getUserFromURL, canAccessSystem, isGeneralUser, clearUserInfo, getDashboardURL, isAuthEnabled } from "@/lib/auth-guard"
+import { getUserFromStorage, getUserFromURL, canAccessSystem, isGeneralUser, getDashboardURL } from "@/lib/auth-guard"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()

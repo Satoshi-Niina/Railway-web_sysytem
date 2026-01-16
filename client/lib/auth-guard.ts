@@ -51,31 +51,82 @@ export function getUserFromURL(): UserInfo | null {
 
   try {
     const params = new URLSearchParams(window.location.search)
-    const userParam = params.get('user')
     
-    if (!userParam) {
-      console.log('ℹ️ URLにユーザーパラメータがありません')
-      return null
+    // auth_token パラメータを確認（JWTトークン）
+    const authToken = params.get('auth_token')
+    if (authToken) {
+      console.log('🔑 auth_tokenパラメータを検出:', authToken.substring(0, 50) + '...')
+      
+      // JWTトークンをデコード（ペイロード部分を取得）
+      try {
+        const parts = authToken.split('.')
+        if (parts.length !== 3) {
+          console.error('❌ 不正なJWTトークン形式')
+          return null
+        }
+        
+        // Base64デコード（ペイロード部分）
+        const payload = parts[1]
+        if (!payload) {
+          console.error('❌ JWTペイロードが空です')
+          return null
+        }
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+        const decoded = JSON.parse(atob(base64))
+        console.log('✅ JWTデコード成功:', decoded)
+        
+        const user: UserInfo = {
+          id: decoded.id,
+          username: decoded.username,
+          displayName: decoded.displayName,
+          role: decoded.role,
+          department: decoded.department,
+          iat: decoded.iat
+        }
+        
+        // 取得したユーザー情報をストレージに保存
+        localStorage.setItem('user', JSON.stringify(user))
+        console.log('💾 ユーザー情報をlocalStorageに保存しました')
+        
+        // URLからパラメータを削除
+        const url = new URL(window.location.href)
+        url.searchParams.delete('auth_token')
+        window.history.replaceState({}, '', url.toString())
+        console.log('🔗 auth_tokenパラメータを削除しました')
+        
+        return user
+      } catch (decodeError) {
+        console.error('❌ JWTデコードエラー:', decodeError)
+        return null
+      }
     }
-
-    const user = JSON.parse(decodeURIComponent(userParam))
-    console.log('✅ URLからユーザー情報を取得:', { 
-      username: user.username, 
-      role: user.role,
-      displayName: user.displayName 
-    })
     
-    // 取得したユーザー情報をストレージに保存
-    localStorage.setItem('user', JSON.stringify(user))
-    console.log('💾 ユーザー情報をlocalStorageに保存しました')
+    // 旧形式: user パラメータ（互換性のため）
+    const userParam = params.get('user')
+    if (userParam) {
+      console.log('ℹ️ userパラメータを検出（旧形式）')
+      const user = JSON.parse(decodeURIComponent(userParam))
+      console.log('✅ URLからユーザー情報を取得:', { 
+        username: user.username, 
+        role: user.role,
+        displayName: user.displayName 
+      })
+      
+      // 取得したユーザー情報をストレージに保存
+      localStorage.setItem('user', JSON.stringify(user))
+      console.log('💾 ユーザー情報をlocalStorageに保存しました')
+      
+      // URLからパラメータを削除
+      const url = new URL(window.location.href)
+      url.searchParams.delete('user')
+      window.history.replaceState({}, '', url.toString())
+      console.log('🔗 URLパラメータを削除しました')
+      
+      return user
+    }
     
-    // URLからパラメータを削除（リロード時に再度チェックしないように）
-    const url = new URL(window.location.href)
-    url.searchParams.delete('user')
-    window.history.replaceState({}, '', url.toString())
-    console.log('🔗 URLパラメータを削除しました')
-    
-    return user
+    console.log('ℹ️ URLにauth_token/userパラメータがありません')
+    return null
   } catch (error) {
     console.error('❌ URLからのユーザー情報取得に失敗:', error)
     return null
