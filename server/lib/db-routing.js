@@ -9,7 +9,7 @@ const CACHE_TTL = 60000; // 1 minute
  * @param {string} appId 
  * @returns {Promise<string>}
  */
-export async function getTablePath(logicalResourceName, appId = 'equipment') {
+export async function getTablePath(logicalResourceName, appId = 'railway-maintenance') {
   const cacheKey = `${appId}:${logicalResourceName}`;
   const cached = routingCache.get(cacheKey);
 
