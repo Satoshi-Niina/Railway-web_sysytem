@@ -11,7 +11,7 @@ const nextConfig = {
   // キャッシュを無効化（本番デプロイ時のキャッシュ問題を回避）
   generateBuildId: async () => {
     // タイムスタンプベースのビルドIDで毎回新しいビルドを強制
-    return `build-${Date.now()}`
+    return `build-${Date.now()}-${process.env.NODE_ENV || 'production'}`
   },
   serverExternalPackages: ['pg'],
   outputFileTracingRoot: path.join(__dirname, '../'),
