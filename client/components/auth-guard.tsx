@@ -41,15 +41,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (!user) {
         console.warn('⚠️ ユーザー情報が見つかりません。')
         
-        // 開発環境では認証なしでアクセス許可（テスト用）
+        // 開発環境では認証なしでアクセス許可（ローカルテスト用）
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔓 開発環境: 認証なしでアクセスを許可')
+          console.log('🔓 開発環境: トークンなしで直接起動を許可')
           setIsAuthorized(true)
           setIsLoading(false)
           return
         }
         
-        // 本番環境ではダッシュボードへリダイレクト
+        // 本番環境ではダッシュボードへリダイレクト（トークン取得のため）
+        console.log('🔒 本番環境: ダッシュボードへリダイレクト')
         redirectToDashboard()
         return
       }
@@ -84,6 +85,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         console.log('🔓 開発環境: エラーが発生しましたがアクセスを許可')
         setIsAuthorized(true)
       } else {
+        // 本番環境ではダッシュボードへリダイレクト
+        console.log('🔒 本番環境: エラー発生のためダッシュボードへリダイレクト')
         redirectToDashboard()
       }
     } finally {

@@ -105,6 +105,18 @@ function UnauthorizedContent() {
               </div>
             </div>
 
+            {/* 一般ユーザー向け案内 */}
+            <Alert className="border-amber-200 bg-amber-50">
+              <ShieldAlert className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-slate-700">
+                <p className="font-semibold mb-2">一般ユーザーの方へ</p>
+                <p className="text-sm">
+                  ダッシュボードに戻り、運用管理者の権限でログインしてください。
+                  アクセス権限が必要な場合は、システム管理者にお問い合わせください。
+                </p>
+              </AlertDescription>
+            </Alert>
+
             {/* お問い合わせセクション */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 space-y-3">
               <h3 className="font-semibold text-slate-800">
@@ -137,6 +149,16 @@ function UnauthorizedContent() {
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 ダッシュボードに戻る
+              </Button>
+              <Button
+                onClick={() => {
+                  window.close()
+                }}
+                variant="outline"
+                className="flex-1 border-slate-300 hover:bg-slate-50"
+                size="lg"
+              >
+                このウィンドウを閉じる
               </Button>
             </div>
           </CardContent>
