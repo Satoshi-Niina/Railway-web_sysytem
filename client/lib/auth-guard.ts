@@ -47,6 +47,7 @@ export function getUserFromURL(): UserInfo | null {
         }
         
         localStorage.setItem('user', JSON.stringify(user))
+        localStorage.setItem('authToken', authToken)
         
         // Clean URL
         const url = new URL(window.location.href)

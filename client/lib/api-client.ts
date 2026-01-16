@@ -38,9 +38,19 @@ export async function apiCall<T = any>(
   
   console.log('API Call:', url, { baseUrl, cleanEndpoint, originalBase: API_BASE_URL })
   
+  // 認証トークンの取得 (localStorageから)
+  let authHeader = {};
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      authHeader = { 'Authorization': `Bearer ${token}` };
+    }
+  }
+
   const defaultOptions: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
+      ...authHeader,
       ...options.headers,
     },
   }
