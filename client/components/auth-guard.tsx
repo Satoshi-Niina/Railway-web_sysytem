@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { getUserFromStorage, getUserFromURL, canAccessSystem, isGeneralUser, clearUserInfo, getDashboardURL } from "@/lib/auth-guard"
+import { getUserFromStorage, getUserFromURL, canAccessSystem, isGeneralUser, clearUserInfo, getDashboardURL, isAuthEnabled } from "@/lib/auth-guard"
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -27,6 +27,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔍 認証チェック開始...')
       
+      // 0. 認証が無効化されている場合はスキップ
+      if (!isAuthEnabled()) {
+        console.log('🔓 認証無効: 直接アクセスを許可')
+        setIsAuthorized(true)
+        setIsLoading(false)
+        return
+      }
+      
       // 1. URLパラメータからユーザー情報を取得（ダッシュボードからの遷移）
       let user = getUserFromURL()
       
@@ -37,20 +45,10 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
       console.log('📋 ユーザー情報:', user)
 
-      // 3. ユーザー情報がない場合 → 開発環境では許可、本番環境ではダッシュボードへ
+      // 3. ユーザー情報がない場合 → ダッシュボードへリダイレクト
       if (!user) {
         console.warn('⚠️ ユーザー情報が見つかりません。')
-        
-        // 開発環境では認証なしでアクセス許可（ローカルテスト用）
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔓 開発環境: トークンなしで直接起動を許可')
-          setIsAuthorized(true)
-          setIsLoading(false)
-          return
-        }
-        
-        // 本番環境ではダッシュボードへリダイレクト（トークン取得のため）
-        console.log('🔒 本番環境: ダッシュボードへリダイレクト')
+        console.log('🔒 ダッシュボードへリダイレクト')
         redirectToDashboard()
         return
       }
@@ -58,7 +56,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       // 4. 一般ユーザー（viewer）の場合 → アクセス拒否
       if (isGeneralUser(user)) {
         console.warn('❌ 一般ユーザーはアクセスできません:', user.role)
-        localStorage.setItem('userName', user.username)
+        localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
         router.push('/unauthorized?reason=role')
         return
@@ -68,25 +66,28 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (canAccessSystem(user)) {
         console.log('✅ ダッシュボードから認証成功:', user.username, user.role)
         localStorage.setItem('user', JSON.stringify(user))
-        localStorage.setItem('userName', user.username)
+        localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
+        if (user.department) {
+          localStorage.setItem('userDepartment', user.department)
+        }
         setIsAuthorized(true)
       } else {
         console.warn('⚠️ アクセス権限がありません:', user.role)
-        localStorage.setItem('userName', user.username)
+        localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
         router.push('/unauthorized?reason=role')
       }
     } catch (error) {
       console.error('❌ 認証チェックエラー:', error)
       
-      // 開発環境ではエラー時もアクセス許可
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔓 開発環境: エラーが発生しましたがアクセスを許可')
+      // 認証が無効の場合はエラー時もアクセス許可
+      if (!isAuthEnabled()) {
+        console.log('🔓 認証無効: エラーが発生しましたがアクセスを許可')
         setIsAuthorized(true)
       } else {
-        // 本番環境ではダッシュボードへリダイレクト
-        console.log('🔒 本番環境: エラー発生のためダッシュボードへリダイレクト')
+        // 認証有効時はダッシュボードへリダイレクト
+        console.log('🔒 認証有効: エラー発生のためダッシュボードへリダイレクト')
         redirectToDashboard()
       }
     } finally {

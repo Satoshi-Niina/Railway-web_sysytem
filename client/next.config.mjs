@@ -10,8 +10,11 @@ const nextConfig = {
   poweredByHeader: false,
   // キャッシュを無効化（本番デプロイ時のキャッシュ問題を回避）
   generateBuildId: async () => {
-    // タイムスタンプベースのビルドIDで毎回新しいビルドを強制
-    return `build-${Date.now()}-${process.env.NODE_ENV || 'production'}`
+    // タイムスタンプ + 環境 + ランダム値でビルドIDを生成し、キャッシュを完全回避
+    const timestamp = Date.now()
+    const env = process.env.NODE_ENV || 'production'
+    const random = Math.random().toString(36).substring(7)
+    return `build-${timestamp}-${env}-${random}`
   },
   serverExternalPackages: ['pg'],
   outputFileTracingRoot: path.join(__dirname, '../'),

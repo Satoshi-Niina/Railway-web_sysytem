@@ -7,9 +7,13 @@
 export interface UserInfo {
   id: number
   username: string
-  email: string
+  displayName?: string  // 表示名（Emergency-Assistanceで必要）
   role: string
-  isActive: boolean
+  department?: string   // 所属部署（Emergency-Assistanceで必要）
+  iat?: number         // 発行時刻
+  // 互換性のために保持（古いダッシュボード対応）
+  email?: string
+  isActive?: boolean
 }
 
 /**
@@ -61,7 +65,9 @@ export function getUserFromURL(): UserInfo | null {
  */
 export function canAccessSystem(user: UserInfo | null): boolean {
   if (!user) return false
-  if (!user.isActive) return false
+  
+  // isActiveが存在する場合のみチェック（互換性保持）
+  if (user.isActive !== undefined && !user.isActive) return false
 
   // 管理者（admin）と運用管理者（operator）のみアクセス可能
   const allowedRoles = ['admin', 'operator', 'system_admin', 'operation_manager']
@@ -95,4 +101,24 @@ export function clearUserInfo(): void {
  */
 export function getDashboardURL(): string {
   return process.env.NEXT_PUBLIC_DASHBOARD_URL || 'http://localhost:3002'
+}
+
+/**
+ * 認証が有効かどうかをチェック
+ * - NEXT_PUBLIC_ENABLE_AUTH=false の場合は認証スキップ
+ * - NEXT_PUBLIC_DASHBOARD_URL が未設定の場合は認証スキップ（開発環境）
+ */
+export function isAuthEnabled(): boolean {
+  // 明示的に認証無効化されている場合
+  if (process.env.NEXT_PUBLIC_ENABLE_AUTH === 'false') {
+    return false
+  }
+  
+  // ダッシュボードURLが未設定の場合は開発環境とみなして認証スキップ
+  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL
+  if (!dashboardUrl || dashboardUrl === 'http://localhost:3002') {
+    return false
+  }
+  
+  return true
 }

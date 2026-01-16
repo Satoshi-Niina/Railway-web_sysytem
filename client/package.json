@@ -5,6 +5,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.3",
   "scripts": {
+    "prebuild": "node -e \"const fs = require('fs'); const path = '.next'; if (fs.existsSync(path)) fs.rmSync(path, { recursive: true, force: true });\"",
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
