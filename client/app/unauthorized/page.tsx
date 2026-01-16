@@ -110,10 +110,12 @@ function UnauthorizedContent() {
               <ShieldAlert className="h-4 w-4 text-amber-600" />
               <AlertDescription className="text-slate-700">
                 <p className="font-semibold mb-2">一般ユーザーの方へ</p>
-                <p className="text-sm">
-                  ダッシュボードに戻り、運用管理者の権限でログインしてください。
-                  アクセス権限が必要な場合は、システム管理者にお問い合わせください。
-                </p>
+                <div className="text-sm space-y-2">
+                  <p>このアプリを閉じて、管理権限のあるユーザーでログインしてください。</p>
+                  <p className="font-medium text-amber-700">
+                    ※ダッシュボードに戻り、ログアウトしてから管理者権限のあるユーザーで再度ログインしてください。
+                  </p>
+                </div>
               </AlertDescription>
             </Alert>
 

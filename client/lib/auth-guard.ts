@@ -25,12 +25,20 @@ export function getUserFromStorage(): UserInfo | null {
   try {
     // ダッシュボードアプリから渡されるユーザー情報を確認
     const userStr = localStorage.getItem('user') || sessionStorage.getItem('user')
-    if (!userStr) return null
+    if (!userStr) {
+      console.log('⚠️ ストレージにユーザー情報がありません')
+      return null
+    }
 
     const user = JSON.parse(userStr)
+    console.log('✅ ストレージからユーザー情報を取得:', { 
+      username: user.username, 
+      role: user.role,
+      displayName: user.displayName 
+    })
     return user
   } catch (error) {
-    console.error('Failed to parse user info:', error)
+    console.error('❌ ユーザー情報の解析に失敗:', error)
     return null
   }
 }
@@ -45,21 +53,31 @@ export function getUserFromURL(): UserInfo | null {
     const params = new URLSearchParams(window.location.search)
     const userParam = params.get('user')
     
-    if (!userParam) return null
+    if (!userParam) {
+      console.log('ℹ️ URLにユーザーパラメータがありません')
+      return null
+    }
 
     const user = JSON.parse(decodeURIComponent(userParam))
+    console.log('✅ URLからユーザー情報を取得:', { 
+      username: user.username, 
+      role: user.role,
+      displayName: user.displayName 
+    })
     
     // 取得したユーザー情報をストレージに保存
     localStorage.setItem('user', JSON.stringify(user))
+    console.log('💾 ユーザー情報をlocalStorageに保存しました')
     
     // URLからパラメータを削除（リロード時に再度チェックしないように）
     const url = new URL(window.location.href)
     url.searchParams.delete('user')
     window.history.replaceState({}, '', url.toString())
+    console.log('🔗 URLパラメータを削除しました')
     
     return user
   } catch (error) {
-    console.error('Failed to parse user from URL:', error)
+    console.error('❌ URLからのユーザー情報取得に失敗:', error)
     return null
   }
 }

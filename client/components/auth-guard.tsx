@@ -12,7 +12,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // ログインページとアンオーソライズドページは認証チェックをスキップ
-    if (pathname?.startsWith('/login') || pathname?.startsWith('/unauthorized')) {
+    // ※ 管理者はログインページを使わず、ダッシュボードからの認証情報で直接アクセス
+    if (pathname?.startsWith('/unauthorized')) {
       console.log('認証スキップ:', pathname)
       setIsAuthorized(true)
       setIsLoading(false)
@@ -49,6 +50,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       // 3. ユーザー情報がない場合 → ダッシュボードへリダイレクト
       if (!user) {
         console.warn('⚠️ ユーザー情報が見つかりません。ダッシュボードへリダイレクトします。')
+        setIsAuthorized(false)
+        setIsLoading(false)
         redirectToDashboard()
         return
       }
@@ -65,7 +68,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         return
       }
 
-      // 5. 管理者・運用者の場合 → アクセス許可
+      // 5. 管理者・運用者の場合 → アクセス許可（ログインページをスキップ）
       if (canAccessSystem(user)) {
         console.log('✅ 認証成功 - アクセス許可:', user.username, `(${user.role})`)
         
@@ -86,11 +89,13 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         }
         
         setIsAuthorized(true)
+        setIsLoading(false)
       } else {
         console.warn('⚠️ アクセス権限がありません:', user.role)
         localStorage.setItem('userName', user.displayName || user.username)
         localStorage.setItem('userRole', user.role)
         setIsAuthorized(false)
+        setIsLoading(false)
         router.push('/unauthorized?reason=role')
       }
     } catch (error) {
@@ -113,10 +118,20 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   function redirectToDashboard() {
     const dashboardURL = getDashboardURL()
     console.log('🔄 ダッシュボードにリダイレクト:', dashboardURL)
-    clearUserInfo()
     
-    // ダッシュボードURLへリダイレクト
-    window.location.href = dashboardURL
+    // ユーザー情報はクリアしない（ダッシュボード側で管理）
+    // clearUserInfo()
+    
+    // 現在のアプリを閉じて、ダッシュボードに戻る
+    // window.openerがある場合は、ダッシュボードから開かれたウィンドウなので閉じる
+    if (window.opener) {
+      console.log('📱 ダッシュボードから開かれたウィンドウを閉じます')
+      window.close()
+    } else {
+      // 直接アクセスの場合はダッシュボードにリダイレクト
+      console.log('🌐 ダッシュボードにリダイレクトします')
+      window.location.href = dashboardURL
+    }
   }
 
   // ローディング中
