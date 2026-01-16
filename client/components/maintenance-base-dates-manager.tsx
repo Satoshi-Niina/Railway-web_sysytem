@@ -346,14 +346,17 @@ export function MaintenanceBaseDatesManager() {
 
   // フィルターされた機械リスト
   const filteredVehicles = vehicles.filter(vehicle => {
-    // 事業所フィルター
-    if (selectedOfficeId !== "all" && vehicle.office_id !== selectedOfficeId) {
-      return false
+    // 事業所フィルター (office_id または management_office_id をチェック)
+    if (selectedOfficeId !== "all") {
+      const vehicleOfficeId = (vehicle as any).office_id?.toString() || vehicle.management_office_id?.toString()
+      if (vehicleOfficeId !== selectedOfficeId) {
+        return false
+      }
     }
     
     // 機種フィルター (machine_type_id で比較)
     if (selectedMachineType !== "all") {
-      const vehicleTypeId = vehicle.machine_type_id?.toString()
+      const vehicleTypeId = vehicle.machine_type_id?.toString() || (vehicle as any).machine_type_id?.toString()
       if (vehicleTypeId !== selectedMachineType) {
         return false
       }
@@ -375,35 +378,66 @@ export function MaintenanceBaseDatesManager() {
 
   // 機種リスト（現在の事業所フィルターに応じて）
   const availableMachineTypes = useMemo(() => {
+    console.log('=== availableMachineTypes calculation ===')
+    console.log('selectedOfficeId:', selectedOfficeId)
+    console.log('vehicles count:', vehicles.length)
+    
     // 事業所が「すべて」の場合：全機種を表示
     if (selectedOfficeId === "all") {
+      console.log('Returning all machine types:', machineTypes.length)
       return machineTypes
     }
     
     // 事業所が選択されている場合：その事業所の機械が持つ機種のみを表示
-    const vehiclesInOffice = vehicles.filter(
-      v => v.office_id?.toString() === selectedOfficeId
-    )
+    const vehiclesInOffice = vehicles.filter(v => {
+      // office_id または management_office_id をチェック（APIによって異なるため）
+      const vehicleOfficeId = (v as any).office_id?.toString() || v.management_office_id?.toString()
+      const matches = vehicleOfficeId === selectedOfficeId
+      if (matches) {
+        console.log(`Vehicle ${v.machine_number} matches office ${selectedOfficeId}`)
+      }
+      return matches
+    })
+    
+    console.log('Vehicles in office:', vehiclesInOffice.length)
+    
     const typeIdsInOffice = vehiclesInOffice
-      .map(v => v.machine_type_id?.toString())
+      .map(v => v.machine_type_id?.toString() || (v as any).machine_type_id?.toString())
       .filter(Boolean)
     
+    console.log('Type IDs in office:', typeIdsInOffice)
+    
     const uniqueTypeIds = new Set(typeIdsInOffice)
-    return machineTypes.filter(mt => uniqueTypeIds.has(mt.id.toString()))
+    const filtered = machineTypes.filter(mt => uniqueTypeIds.has(mt.id.toString()))
+    
+    console.log('Filtered machine types:', filtered.length)
+    return filtered
   }, [vehicles, machineTypes, selectedOfficeId])
 
   // 機械番号のリスト（現在の事業所・機種フィルター条件に応じて）
   const availableMachineNumbers = useMemo(() => {
+    console.log('=== availableMachineNumbers calculation ===')
+    console.log('selectedOfficeId:', selectedOfficeId)
+    console.log('selectedMachineType:', selectedMachineType)
+    
     let filteredVehiclesList = vehicles
     
     // 事業所でフィルタリング
     if (selectedOfficeId !== "all") {
-      filteredVehiclesList = filteredVehiclesList.filter(v => v.office_id?.toString() === selectedOfficeId)
+      filteredVehiclesList = filteredVehiclesList.filter(v => {
+        const vehicleOfficeId = (v as any).office_id?.toString() || v.management_office_id?.toString()
+        return vehicleOfficeId === selectedOfficeId
+      })
+      console.log('After office filter:', filteredVehiclesList.length)
     }
     
     // 機種でフィルタリング
     if (selectedMachineType !== "all") {
-      filteredVehiclesList = filteredVehiclesList.filter(v => v.machine_type_id?.toString() === selectedMachineType)
+      filteredVehiclesList = filteredVehiclesList.filter(v => {
+        const vehicleTypeId = v.machine_type_id?.toString() || (v as any).machine_type_id?.toString()
+        return vehicleTypeId === selectedMachineType
+      })
+      console.log('After type filter:', filteredVehiclesList.length)
     }
     
     const machineNumbers = filteredVehiclesList
@@ -411,7 +445,9 @@ export function MaintenanceBaseDatesManager() {
       .filter(Boolean)
     
     // 重複を除去してソート（日本語の数値ソート対応）
-    return Array.from(new Set(machineNumbers)).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }))
+    const result = Array.from(new Set(machineNumbers)).sort((a, b) => a.localeCompare(b, 'ja', { numeric: true }))
+    console.log('Available machine numbers:', result)
+    return result
   }, [vehicles, selectedOfficeId, selectedMachineType])
 
   // 機種に応じた検修種別のフィルタリング
