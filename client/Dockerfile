@@ -23,8 +23,13 @@ RUN pnpm install --no-frozen-lockfile
 # ソースコードをコピー
 COPY . .
 
-# 環境変数（Railwayから自動的に渡される）
-# ARGは不要 - Railwayの環境変数を直接使用
+# 環境変数（GitHub ActionsとRailway両対応）
+# ARG: GitHub Actionsのビルド時に渡される
+# ENV: Railwayの実行時に渡される
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_DASHBOARD_URL
+ARG NEXT_PUBLIC_ENABLE_AUTH
 ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_DASHBOARD_URL=${NEXT_PUBLIC_DASHBOARD_URL}
