@@ -132,16 +132,7 @@ export function getDashboardURL(): string {
  * - NEXT_PUBLIC_DASHBOARD_URL が未設定の場合は認証スキップ（開発環境）
  */
 export function isAuthEnabled(): boolean {
-  // 明示的に認証無効化されている場合
-  if (process.env.NEXT_PUBLIC_ENABLE_AUTH === 'false') {
-    return false
-  }
-  
-  // ダッシュボードURLが未設定の場合は開発環境とみなして認証スキップ
-  const dashboardUrl = process.env.NEXT_PUBLIC_DASHBOARD_URL
-  if (!dashboardUrl || dashboardUrl === 'http://localhost:3002') {
-    return false
-  }
-  
+  // ダッシュボードからの認証を使用するため、常に有効
+  // ユーザー情報の有無で制御する
   return true
 }

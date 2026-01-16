@@ -27,14 +27,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   async function checkAuth() {
     try {
       console.log('🔍 認証チェック開始...')
-      
-      // 0. 認証が無効化されている場合はスキップ
-      if (!isAuthEnabled()) {
-        console.log('🔓 認証無効: 直接アクセスを許可')
-        setIsAuthorized(true)
-        setIsLoading(false)
-        return
-      }
+      console.log('現在のURL:', window.location.href)
+      console.log('URLパラメータ:', window.location.search)
       
       // 1. URLパラメータからユーザー情報を取得（ダッシュボードからの遷移）
       let user = getUserFromURL()
@@ -42,14 +36,14 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       // 2. URLにない場合はストレージから取得
       if (!user) {
         user = getUserFromStorage()
-        console.log('📋 ストレージからユーザー情報取得:', user)
+        console.log('📋 ストレージからユーザー情報:', user)
       } else {
-        console.log('🔗 URLパラメータからユーザー情報取得:', user)
+        console.log('🔗 URLからユーザー情報:', user)
       }
 
       // 3. ユーザー情報がない場合 → ダッシュボードへリダイレクト
       if (!user) {
-        console.warn('⚠️ ユーザー情報が見つかりません。ダッシュボードへリダイレクトします。')
+        console.warn('⚠️ ユーザー情報がありません - ダッシュボードへリダイレクト')
         setIsAuthorized(false)
         setIsLoading(false)
         redirectToDashboard()
@@ -100,16 +94,8 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       }
     } catch (error) {
       console.error('❌ 認証チェックエラー:', error)
-      
-      // 認証が無効の場合はエラー時もアクセス許可
-      if (!isAuthEnabled()) {
-        console.log('🔓 認証無効: エラーが発生しましたがアクセスを許可')
-        setIsAuthorized(true)
-      } else {
-        // 認証有効時はダッシュボードへリダイレクト
-        console.log('🔒 認証有効: エラー発生のためダッシュボードへリダイレクト')
-        redirectToDashboard()
-      }
+      // エラー時はダッシュボードへリダイレクト
+      redirectToDashboard()
     } finally {
       setIsLoading(false)
     }
