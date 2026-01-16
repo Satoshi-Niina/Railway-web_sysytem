@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
         m.updated_at
       FROM master_data.machines m
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN master_data.managements_offices o ON m.office_id::integer = o.office_id
+      LEFT JOIN master_data.management_offices o ON m.office_id::integer = o.office_id
       ORDER BY m.machine_number
     `);
     
@@ -61,7 +61,7 @@ router.get('/:id', async (req, res) => {
         m.updated_at
       FROM master_data.machines m
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN master_data.managements_offices o ON m.office_id::integer = o.office_id
+      LEFT JOIN master_data.management_offices o ON m.office_id::integer = o.office_id
       WHERE m.id = $1
     `, [id]);
     

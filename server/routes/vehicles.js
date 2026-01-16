@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN master_data.vehicle_types vt ON v.vehicle_type_id = vt.type_id
       LEFT JOIN master_data.machines m ON v.vehicle_number::text = m.machine_number OR v.vehicle_id::text = m.serial_number
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN master_data.managements_offices mo ON v.office_id = mo.office_id
+      LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
       LEFT JOIN master_data.bases b ON v.base_id = b.base_id
       ORDER BY v.vehicle_number
     `;

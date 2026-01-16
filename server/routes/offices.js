@@ -14,7 +14,7 @@ router.get('/', async (req, res) => {
         office_type,
         created_at,
         updated_at
-      FROM master_data.managements_offices
+      FROM master_data.management_offices
       ORDER BY office_code
     `;
     
@@ -39,7 +39,7 @@ router.get('/:id', async (req, res) => {
         office_type,
         created_at,
         updated_at
-      FROM master_data.managements_offices
+      FROM master_data.management_offices
       WHERE office_id = $1
     `;
     
@@ -62,7 +62,7 @@ router.post('/', async (req, res) => {
     const { office_name, office_code, office_type } = req.body;
     
     const query = `
-      INSERT INTO master_data.managements_offices 
+      INSERT INTO master_data.management_offices 
         (office_name, office_code, office_type)
       VALUES ($1, $2, $3)
       RETURNING *
@@ -83,7 +83,7 @@ router.put('/:id', async (req, res) => {
     const { office_name, office_code, office_type } = req.body;
     
     const query = `
-      UPDATE master_data.managements_offices 
+      UPDATE master_data.management_offices 
       SET office_name = $1, 
           office_code = $2, 
           office_type = $3,
@@ -111,7 +111,7 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
     
     const result = await db.query(
-      'DELETE FROM master_data.managements_offices WHERE office_id = $1 RETURNING *',
+      'DELETE FROM master_data.management_offices WHERE office_id = $1 RETURNING *',
       [id]
     );
     

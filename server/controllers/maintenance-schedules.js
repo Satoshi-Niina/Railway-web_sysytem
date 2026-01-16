@@ -70,7 +70,7 @@ export const getMaintenanceSchedules = async (req, res) => {
       LEFT JOIN schedules s ON (
         s.machine_id = mt.type_code OR s.machine_id = m.id::text
       ) AND s.inspection_type_id = it.id
-      LEFT JOIN master_data.managements_offices o ON m.office_id::integer = o.office_id
+      LEFT JOIN master_data.management_offices o ON m.office_id::integer = o.office_id
       WHERE s.cycle_months IS NOT NULL
     `;
     

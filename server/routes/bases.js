@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
         mo.office_name,
         mo.office_code
       FROM master_data.bases b
-      LEFT JOIN master_data.managements_offices mo ON b.office_id = mo.office_id
+      LEFT JOIN master_data.management_offices mo ON b.office_id = mo.office_id
       ORDER BY b.base_code
     `;
     
@@ -47,7 +47,7 @@ router.get('/:id', async (req, res) => {
         mo.office_name,
         mo.office_code
       FROM master_data.bases b
-      LEFT JOIN master_data.managements_offices mo ON b.office_id = mo.office_id
+      LEFT JOIN master_data.management_offices mo ON b.office_id = mo.office_id
       WHERE b.base_id = $1
     `;
     
