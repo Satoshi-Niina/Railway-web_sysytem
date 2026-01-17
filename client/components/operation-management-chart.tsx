@@ -2579,19 +2579,30 @@ export function OperationManagementChart() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="departure_base">出発基地</Label>
-                <Select 
-                  value={recordForm.departure_base_id} 
-                  onValueChange={(value: string) => {
-                    const isAsPlanned = selectedPlan 
-                      ? value === (selectedPlan.departure_base_id?.toString() || "none") && 
-                        recordForm.arrival_base_id === (selectedPlan.arrival_base_id?.toString() || "none")
-                      : false
+                {(() => {
+                  // 現在の留置基地を取得（この値が存在する場合は、その基地に固定される）
+                  const currentDetentionBase = getLastDetentionBase(
+                    recordForm.vehicle_id as any,
+                    recordForm.record_date,
+                    editingRecord?.id
+                  )
+                  const isLocked = !!currentDetentionBase
 
-                    setRecordForm({ 
-                      ...recordForm, 
-                      departure_base_id: value,
-                      is_as_planned: isAsPlanned
-                    })
+                  return (
+                  <Select 
+                    value={recordForm.departure_base_id} 
+                    disabled={isLocked} // 留置基地が特定されている場合は変更不可
+                    onValueChange={(value: string) => {
+                      const isAsPlanned = selectedPlan 
+                        ? value === (selectedPlan.departure_base_id?.toString() || "none") && 
+                          recordForm.arrival_base_id === (selectedPlan.arrival_base_id?.toString() || "none")
+                        : false
+
+                      setRecordForm({ 
+                        ...recordForm, 
+                        departure_base_id: value,
+                        is_as_planned: isAsPlanned
+                      })
                     
                     // 出発基地変更時に不整合を再チェック
                     if (value && value !== "none") {
@@ -2609,36 +2620,24 @@ export function OperationManagementChart() {
                     }
                   }}
                 >
-                  <SelectTrigger id="departure_base">
+                  <SelectTrigger id="departure_base" className={isLocked ? "bg-gray-100 text-gray-500" : ""}>
                     <SelectValue placeholder="出発基地を選択" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">なし</SelectItem>
                     {(() => {
-                      // 実績・計画を統合的に考慮して現在の留置基地を取得
-                      const currentDetentionBase = getLastDetentionBase(
-                        recordForm.vehicle_id as any,
-                        recordForm.record_date
-                      )
-                      
                       return (
                         <>
                           {filteredBasesForModal.length > 0 && (
                             <>
                               {filteredBasesForModal.filter(b => b.id).map((base) => {
-                                const isDetentionBase = currentDetentionBase && String(base.id) === String(currentDetentionBase)
-                                const isDisabled = currentDetentionBase && !isDetentionBase
-                                
+                                // isLockedの場合でも選択肢としては表示させる（valueとして表示されるように）
                                 return (
                                   <SelectItem 
                                     key={base.id} 
                                     value={base.id.toString()}
-                                    disabled={isDisabled}
-                                    className={isDisabled ? 'opacity-40 cursor-not-allowed' : ''}
                                   >
                                     {base.base_name}
-                                    {isDetentionBase && ' ✓ (留置中)'}
-                                    {isDisabled && ' (選択不可)'}
                                   </SelectItem>
                                 )
                               })}
@@ -2657,19 +2656,12 @@ export function OperationManagementChart() {
                                 </SelectItem>
                               )}
                               {otherBasesForModal.filter(b => b.id).map((base) => {
-                                const isDetentionBase = currentDetentionBase && String(base.id) === String(currentDetentionBase)
-                                const isDisabled = currentDetentionBase && !isDetentionBase
-                                
                                 return (
                                   <SelectItem 
                                     key={base.id} 
                                     value={base.id.toString()}
-                                    disabled={isDisabled}
-                                    className={isDisabled ? 'opacity-40 cursor-not-allowed' : ''}
                                   >
                                     {base.base_name}
-                                    {isDetentionBase && ' ✓ (留置中)'}
-                                    {isDisabled && ' (選択不可)'}
                                   </SelectItem>
                                 )
                               })}
@@ -2680,6 +2672,8 @@ export function OperationManagementChart() {
                     })()}
                   </SelectContent>
                 </Select>
+                  )
+                })()}
                 {!editingRecord && (() => {
                   // 実績優先で現在の留置基地を取得
                   const previousRecords = operationRecords
