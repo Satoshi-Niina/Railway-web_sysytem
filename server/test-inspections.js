@@ -18,26 +18,29 @@ async function test() {
   try {
     await client.connect();
     
-    // Check if vehicles have data
+    // Check vehicles table for vehicle_id = 1 (machine_number = 300)
     const res1 = await client.query(`
-      SELECT 
-        v.vehicle_id as id,
-        v.vehicle_id,
-        v.registration_number as machine_number,
-        v.registration_number as vehicle_number,
-        v.status,
-        v.office_id as management_office_id,
-        mo.office_name,
-        mt.type_code as vehicle_type,
-        mt.model_name as model_name
-      FROM master_data.vehicles v
-      LEFT JOIN master_data.machines m ON v.machine_id = m.id
-      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
-      LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
-      LIMIT 5
+      SELECT vehicle_id, registration_number, machine_id
+      FROM master_data.vehicles
+      WHERE registration_number = '300'
     `);
-    console.log('Vehicles data:', JSON.stringify(res1.rows, null, 2));
-    console.log('Total vehicles:', res1.rows.length);
+    console.log('Vehicle with registration_number 300:', res1.rows);
+    
+    // Check if there are plans for vehicle_id = 1 or for vehicle 300
+    const res2 = await client.query(`
+      SELECT DISTINCT vehicle_id 
+      FROM operations.operation_plans 
+      WHERE TO_CHAR(plan_date, 'YYYY-MM') = '2026-02'
+    `);
+    console.log('\nUnique vehicle_ids in operation_plans (2026-02):', res2.rows);
+    
+    // Check machines table for machine_number 300
+    const res3 = await client.query(`
+      SELECT id, machine_number, machine_type_id
+      FROM master_data.machines
+      WHERE machine_number LIKE '%300%'
+    `);
+    console.log('\nMachines with 300 in number:', res3.rows);
     
   } catch (err) {
     console.error('Error:', err.message);

@@ -376,6 +376,26 @@ export function OperationManagementChart() {
       let plansData: OperationPlan[] = []
       try {
         plansData = await apiCall<OperationPlan[]>(`operation-plans?month=${currentMonth}`)
+        
+        // 運用計画のvehicle_id（実際はmachine_id/UUID）を車両テーブルのvehicle_idに変換
+        // これにより運用管理画面でplan.vehicle_idとvehicle.idを正しく比較できる
+        if (vehiclesData.length > 0) {
+          const machineToVehicleMap = new Map<string, number | string>()
+          vehiclesData.forEach(v => {
+            if (v.machine_id) {
+              machineToVehicleMap.set(String(v.machine_id), v.id)
+            }
+          })
+          
+          plansData = plansData.map(plan => {
+            const mappedVehicleId = machineToVehicleMap.get(String(plan.vehicle_id))
+            if (mappedVehicleId !== undefined) {
+              return { ...plan, vehicle_id: mappedVehicleId }
+            }
+            return plan
+          })
+          console.log(`[運用計画] vehicle_idマッピング完了: ${plansData.length}件`)
+        }
       } catch (error) {
         console.error("運用計画データの取得エラー:", error)
         // 運用計画は必須ではないので空配列のまま

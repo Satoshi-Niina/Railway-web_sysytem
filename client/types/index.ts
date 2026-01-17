@@ -11,6 +11,7 @@ export interface Vehicle {
   management_office: string
   management_office_id?: number
   last_inspection_date?: string
+  machine_id?: string  // UUID in machines table, used for operation_plans mapping
   created_at: string
   updated_at: string
 }

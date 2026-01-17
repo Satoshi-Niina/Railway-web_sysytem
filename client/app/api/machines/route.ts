@@ -9,11 +9,16 @@ export async function GET() {
         m.machine_number, 
         m.serial_number, 
         m.machine_type_id,
+        m.office_id,
+        m.office_id as management_office_id,
         mt.type_name, 
         mt.model_name,
-        mt.model_name as vehicle_type
+        mt.model_name as vehicle_type,
+        mt.type_name as machine_type,
+        mo.office_name
       FROM master_data.machines m
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
+      LEFT JOIN master_data.management_offices mo ON m.office_id::integer = mo.office_id
       ORDER BY m.machine_number
     `);
     return NextResponse.json(machines);
