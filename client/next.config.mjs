@@ -6,10 +6,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ローカル開発環境ではルートの.env.developmentを読み込む
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== 'production' && typeof window === 'undefined') { try {
   const rootEnvPath = path.resolve(__dirname, '../.env.development');
   dotenv.config({ path: rootEnvPath });
-  console.log('✅ Loaded environment variables from:', rootEnvPath);
+  console.log('✅ Loaded environment variables from:', rootEnvPath); } catch (e) { console.log('Skipping env load'); }
 }
 
 /** @type {import('next').NextConfig} */
