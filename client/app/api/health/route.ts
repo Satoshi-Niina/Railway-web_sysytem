@@ -1,27 +1,3 @@
-import { NextResponse } from "next/server"
-import { testConnection, getDatabaseInfo } from "@/lib/database"
-
-export async function GET() {
-  try {
-    const dbConnected = await testConnection()
-    const dbInfo = await getDatabaseInfo()
-    
-    return NextResponse.json({
-      status: "healthy",
-      timestamp: new Date().toISOString(),
-      database: dbConnected ? "connected" : "disconnected",
-      environment: process.env.NOD_NV || "development",
-      version: process.env.npm_package_version || "1.0.0",
-      databaseInfo: dbInfo
-    })
-  } catch (error: any) {
-    console.error("Health check failed:", error)
-    
-    return NextResponse.json({
-      status: "unhealthy",
-      timestamp: new Date().toISOString(),
-      error: error instanceof Error ? error.message : "Unknown error",
-      environment: process.env.NOD_NV || "development"
-    }, { status: 500 })
-  }
-} 
+import { NextResponse } from "next/server";
+export async function GET() { return NextResponse.json([]); }
+export async function POST() { return NextResponse.json({ message: "Not implemented" }, { status: 501 }); }
