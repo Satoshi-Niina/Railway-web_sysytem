@@ -3,24 +3,24 @@ import { getDatabaseType, executeQuery } from "@/lib/database"
 
 export async function GET() {
   try {
-    console.log("Checking management_offices table structure...")
+    console.log("Checking managements_offices table structure...")
     const dbType = getDatabaseType()
     console.log("Database type:", dbType)
 
     if (dbType === "postgresql") {
       try {
-        // テーブルの構造を確認
+        // チE�Eブルの構造を確誁E
         const columns = await executeQuery(`
           SELECT column_name, data_type, is_nullable, column_default
           FROM information_schema.columns 
-          WHERE table_name = 'management_offices' 
+          WHERE table_name = 'managements_offices' 
           AND table_schema = 'public'
           ORDER BY ordinal_position
         `)
         console.log("Table columns:", columns)
 
-        // サンプルデータも確認
-        const sampleData = await executeQuery("SELECT * FROM management_offices LIMIT 1")
+        // サンプルチE�Eタも確誁E
+        const sampleData = await executeQuery("SELECT * FROM managements_offices LIMIT 1")
         console.log("Sample data:", sampleData)
 
         return NextResponse.json({

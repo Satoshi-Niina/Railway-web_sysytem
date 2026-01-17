@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         .select(`
           *,
           vehicle:vehicles(*),
-          management_office:vehicles!inner(management_office:management_offices(*)),
+          management_office:vehicles!inner(management_office:managements_offices(*)),
           departure_base:bases!departure_base_id(*),
           arrival_base:bases!arrival_base_id(*)
         `)
@@ -87,21 +87,21 @@ export async function GET(request: NextRequest) {
       if (error) throw error
       return NextResponse.json(data)
     } else {
-      // モックデータ
+      // モチE��チE�Eタ
       const currentMonth = month || "2024-01"
       
-      // 事業所マスターのモックデータ
+      // 事業所マスターのモチE��チE�Eタ
       const managementOffices = [
         {
           id: 1,
           office_name: "本社保守事業所",
           office_code: "HQ001",
-          station_1: "東京駅",
-          station_2: "品川駅",
-          station_3: "新宿駅",
-          station_4: "渋谷駅",
-          station_5: "池袋駅",
-          station_6: "上野駅",
+          station_1: "東京駁E,
+          station_2: "品川駁E,
+          station_3: "新宿駁E,
+          station_4: "渋谷駁E,
+          station_5: "池袋駁E,
+          station_6: "上野駁E,
           created_at: "2024-01-01T00:00:00Z",
           updated_at: "2024-01-01T00:00:00Z",
         },
@@ -109,12 +109,12 @@ export async function GET(request: NextRequest) {
           id: 2,
           office_name: "関西支社保守事業所",
           office_code: "KS001",
-          station_1: "大阪駅",
-          station_2: "梅田駅",
-          station_3: "難波駅",
-          station_4: "天王寺駅",
-          station_5: "新大阪駅",
-          station_6: "京都駅",
+          station_1: "大阪駁E,
+          station_2: "梁E��駁E,
+          station_3: "難波駁E,
+          station_4: "天王寺駁E,
+          station_5: "新大阪駁E,
+          station_6: "京都駁E,
           created_at: "2024-01-01T00:00:00Z",
           updated_at: "2024-01-01T00:00:00Z",
         },
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
           auto_imported: false,
           created_at: "2024-01-01T00:00:00Z",
           updated_at: "2024-01-01T00:00:00Z",
-          // 事業所情報を追加
+          // 事業所惁E��を追加
           office_name: managementOffices[0].office_name,
           office_code: managementOffices[0].office_code,
           station_1: managementOffices[0].station_1,
@@ -192,7 +192,7 @@ export async function GET(request: NextRequest) {
           auto_imported: false,
           created_at: "2024-01-01T00:00:00Z",
           updated_at: "2024-01-01T00:00:00Z",
-          // 事業所情報を追加
+          // 事業所惁E��を追加
           office_name: managementOffices[1].office_name,
           office_code: managementOffices[1].office_code,
           station_1: managementOffices[1].station_1,
@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
           vehicle: {
             id: 4,
             machine_number: "M004",
-            vehicle_type: "鉄トロ（15t）",
+            vehicle_type: "鉁E��ロ�E�E5t�E�E,
             model: "TT-15",
             manufacturer: "メーカーB",
             acquisition_date: "2019-08-01",
@@ -278,12 +278,11 @@ export async function POST(request: NextRequest) {
       notes,
     } = body
 
-    // フロントエンドからのパラメータを適切にマッピング
+    // フロントエンドから�Eパラメータを適刁E��マッピング
     const startTime = actual_start_time || start_time
     const endTime = actual_end_time || end_time
     
-    // 日付を YYYY-MM-DD 形式に正規化（タイムゾーン問題を回避）
-    const normalizedDate = typeof record_date === 'string' 
+    // 日付を YYYY-MM-DD 形式に正規化�E�タイムゾーン問題を回避�E�E    const normalizedDate = typeof record_date === 'string' 
       ? record_date.split('T')[0] 
       : record_date
 
@@ -332,8 +331,7 @@ export async function POST(request: NextRequest) {
       if (error) throw error
       return NextResponse.json(data, { status: 201 })
     } else {
-      // モックデータの場合
-      const newRecord = {
+      // モチE��チE�Eタの場吁E      const newRecord = {
         id: Date.now(),
         ...body,
         created_at: new Date().toISOString(),

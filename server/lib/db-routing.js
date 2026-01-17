@@ -36,10 +36,11 @@ export async function getTablePath(logicalResourceName, appId = 'railway-mainten
     }
 
     // Default fallbacks based on the image and user request
-    if (logicalResourceName === 'schedules') return 'operations.schedules';
+    if (logicalResourceName === 'schedules') return 'operations.operation_plans';
     if (logicalResourceName === 'operation_records') return 'operations.operation_records';
     if (logicalResourceName === 'vehicles') return 'master_data.vehicles';
     if (logicalResourceName === 'machine_types') return 'master_data.machine_types';
+    if (logicalResourceName === 'managements_offices') return 'master_data.managements_offices';
     
     console.warn(`No routing found for ${appId}:${logicalResourceName}, using public schema`);
     return `public.${logicalResourceName}`;

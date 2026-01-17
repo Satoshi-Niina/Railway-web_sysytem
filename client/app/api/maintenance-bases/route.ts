@@ -1,43 +1,42 @@
 import { NextRequest, NextResponse } from "next/server"
 import { executeQuery, getDatabaseType } from "@/lib/database"
 
-// 基地コード生成関数（基地名の頭2文字をローマ字に変換）
-function generateBaseCode(baseName: string): string {
+// 基地コード生成関数�E�基地名�E頭2斁E��をローマ字に変換�E�Efunction generateBaseCode(baseName: string): string {
   const romajiMap: { [key: string]: string } = {
-    'あ': 'A', 'い': 'I', 'う': 'U', 'え': 'E', 'お': 'O',
-    'か': 'KA', 'き': 'KI', 'く': 'KU', 'け': 'KE', 'こ': 'KO',
-    'さ': 'SA', 'し': 'SHI', 'す': 'SU', 'せ': 'SE', 'そ': 'SO',
-    'た': 'TA', 'ち': 'CHI', 'つ': 'TSU', 'て': 'TE', 'と': 'TO',
+    'ぁE: 'A', 'ぁE: 'I', 'ぁE: 'U', 'ぁE: 'E', 'ぁE: 'O',
+    'ぁE: 'KA', 'ぁE: 'KI', 'ぁE: 'KU', 'ぁE: 'KE', 'ぁE: 'KO',
+    'ぁE: 'SA', 'ぁE: 'SHI', 'ぁE: 'SU', 'ぁE: 'SE', 'ぁE: 'SO',
+    'ぁE: 'TA', 'ち': 'CHI', 'つ': 'TSU', 'て': 'TE', 'と': 'TO',
     'な': 'NA', 'に': 'NI', 'ぬ': 'NU', 'ね': 'NE', 'の': 'NO',
     'は': 'HA', 'ひ': 'HI', 'ふ': 'FU', 'へ': 'HE', 'ほ': 'HO',
-    'ま': 'MA', 'み': 'MI', 'む': 'MU', 'め': 'ME', 'も': 'MO',
-    'や': 'YA', 'ゆ': 'YU', 'よ': 'YO',
-    'ら': 'RA', 'り': 'RI', 'る': 'RU', 'れ': 'RE', 'ろ': 'RO',
-    'わ': 'WA', 'を': 'WO', 'ん': 'N',
-    'が': 'GA', 'ぎ': 'GI', 'ぐ': 'GU', 'げ': 'GE', 'ご': 'GO',
-    'ざ': 'ZA', 'じ': 'JI', 'ず': 'ZU', 'ぜ': 'ZE', 'ぞ': 'ZO',
+    'ま': 'MA', 'み': 'MI', 'む': 'MU', 'めE: 'ME', 'めE: 'MO',
+    'めE: 'YA', 'めE: 'YU', 'めE: 'YO',
+    'めE: 'RA', 'めE: 'RI', 'めE: 'RU', 'めE: 'RE', 'めE: 'RO',
+    'めE: 'WA', 'めE: 'WO', 'めE: 'N',
+    'ぁE: 'GA', 'ぁE: 'GI', 'ぁE: 'GU', 'ぁE: 'GE', 'ぁE: 'GO',
+    'ぁE: 'ZA', 'ぁE: 'JI', 'ぁE: 'ZU', 'ぁE: 'ZE', 'ぁE: 'ZO',
     'だ': 'DA', 'ぢ': 'JI', 'づ': 'ZU', 'で': 'DE', 'ど': 'DO',
     'ば': 'BA', 'び': 'BI', 'ぶ': 'BU', 'べ': 'BE', 'ぼ': 'BO',
     'ぱ': 'PA', 'ぴ': 'PI', 'ぷ': 'PU', 'ぺ': 'PE', 'ぽ': 'PO',
     'きゃ': 'KYA', 'きゅ': 'KYU', 'きょ': 'KYO',
     'しゃ': 'SHA', 'しゅ': 'SHU', 'しょ': 'SHO',
-    'ちゃ': 'CHA', 'ちゅ': 'CHU', 'ちょ': 'CHO',
-    'にゃ': 'NYA', 'にゅ': 'NYU', 'にょ': 'NYO',
-    'ひゃ': 'HYA', 'ひゅ': 'HYU', 'ひょ': 'HYO',
-    'みゃ': 'MYA', 'みゅ': 'MYU', 'みょ': 'MYO',
+    'ちめE: 'CHA', 'ちめE: 'CHU', 'ちめE: 'CHO',
+    'にめE: 'NYA', 'にめE: 'NYU', 'にめE: 'NYO',
+    'ひめE: 'HYA', 'ひめE: 'HYU', 'ひめE: 'HYO',
+    'みめE: 'MYA', 'みめE: 'MYU', 'みめE: 'MYO',
     'りゃ': 'RYA', 'りゅ': 'RYU', 'りょ': 'RYO',
     'ぎゃ': 'GYA', 'ぎゅ': 'GYU', 'ぎょ': 'GYO',
     'じゃ': 'JA', 'じゅ': 'JU', 'じょ': 'JO',
-    'びゃ': 'BYA', 'びゅ': 'BYU', 'びょ': 'BYO',
-    'ぴゃ': 'PYA', 'ぴゅ': 'PYU', 'ぴょ': 'PYO',
+    'びめE: 'BYA', 'びめE: 'BYU', 'びめE: 'BYO',
+    'ぴめE: 'PYA', 'ぴめE: 'PYU', 'ぴめE: 'PYO',
     '本': 'HO', '社': 'SHA', '関': 'KA', '西': 'SEI', '支': 'SHI',
-    '保': 'HO', '守': 'SHU', '基': 'KI', '地': 'CHI'
+    '俁E: 'HO', '宁E: 'SHU', '基': 'KI', '地': 'CHI'
   }
 
   let result = ''
   let i = 0
   while (i < baseName.length && result.length < 2) {
-    // 2文字の組み合わせを先にチェック
+    // 2斁E���E絁E��合わせを先にチェチE��
     if (i < baseName.length - 1) {
       const twoChar = baseName.substring(i, i + 2)
       if (romajiMap[twoChar]) {
@@ -47,7 +46,7 @@ function generateBaseCode(baseName: string): string {
       }
     }
     
-    // 1文字ずつチェック
+    // 1斁E��ずつチェチE��
     const char = baseName[i]
     if (romajiMap[char]) {
       result += romajiMap[char]
@@ -59,12 +58,11 @@ function generateBaseCode(baseName: string): string {
     i++
   }
   
-  // 結果が2文字未満の場合は0で埋める
-  while (result.length < 2) {
+  // 結果ぁE斁E��未満の場合�E0で埋めめE  while (result.length < 2) {
     result += '0'
   }
   
-  // 最初の2文字を取得し、ランダムな2桁の数字を追加
+  // 最初�E2斁E��を取得し、ランダムな2桁�E数字を追加
   const prefix = result.substring(0, 2)
   const randomNum = Math.floor(Math.random() * 100) + 1
   return `${prefix}${String(randomNum).padStart(2, '0')}`
@@ -82,7 +80,7 @@ export async function GET() {
         const bases = await executeQuery(`
           SELECT mb.*, mo.office_name, mo.office_code
           FROM master_data.bases mb
-          LEFT JOIN master_data.management_offices mo ON mb.management_office_id = mo.id
+          LEFT JOIN master_data.managements_offices mo ON mb.management_office_id = mo.id
           ORDER BY mb.base_name
         `)
         console.log("PostgreSQL query result:", bases)
@@ -90,20 +88,20 @@ export async function GET() {
       } catch (error) {
         console.error("Database query failed:", error)
         return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
+          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
           { status: 500 }
         )
       }
     } else {
       return NextResponse.json(
-        { error: "データベースが設定されていません" },
+        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
         { status: 500 }
       )
     }
   } catch (error) {
     console.error("Unexpected error in GET /api/maintenance-bases:", error)
     return NextResponse.json(
-      { error: "サーバーエラーが発生しました" },
+      { error: "サーバ�Eエラーが発生しました" },
       { status: 500 }
     )
   }
@@ -113,8 +111,7 @@ export async function POST(request: Request) {
   try {
     console.log("POST /api/maintenance-bases called")
     
-    // 環境変数の確認
-    console.log("Environment variables check:")
+    // 環墁E��数の確誁E    console.log("Environment variables check:")
     console.log("NEXT_PUBLIC_SUPABASE_URL:", !!process.env.NEXT_PUBLIC_SUPABASE_URL)
     console.log("SUPABASE_SERVICE_ROLE_KEY:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
     console.log("NEXT_PUBLIC_SUPABASE_ANON_KEY:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -122,11 +119,11 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log("Request body:", body)
 
-    // バリデーション
+    // バリチE�Eション
     if (!body.base_name || !body.management_office_id) {
       console.error("Validation failed: missing required fields")
       return NextResponse.json(
-        { error: "基地名と管理事業所は必須です" },
+        { error: "基地名と管琁E��業所は忁E��でぁE },
         { status: 400 }
       )
     }
@@ -135,8 +132,7 @@ export async function POST(request: Request) {
 
     if (dbType === "postgresql") {
       try {
-        // base_codeを自動生成（基地名の頭2文字をローマ字に変換 + 連番）
-        const baseCode = generateBaseCode(body.base_name)
+        // base_codeを�E動生成（基地名�E頭2斁E��をローマ字に変換 + 連番�E�E        const baseCode = generateBaseCode(body.base_name)
         console.log("Generated base_code:", baseCode)
 
         const result = await executeQuery(`
@@ -151,28 +147,27 @@ export async function POST(request: Request) {
         } else {
           console.error("PostgreSQL insertion failed or no rows returned")
           return NextResponse.json(
-            { error: "保守基地の作成に失敗しました" },
+            { error: "保守基地の作�Eに失敗しました" },
             { status: 500 }
           )
         }
       } catch (error) {
         console.error("Database insertion failed:", error)
         return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
+          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
           { status: 500 }
         )
       }
     } else {
       return NextResponse.json(
-        { error: "データベースが設定されていません" },
+        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
         { status: 500 }
       )
     }
   } catch (error) {
     console.error("Unexpected error in POST /api/maintenance-bases:", error)
     
-    // エラーの詳細をログに出力
-    if (error instanceof Error) {
+    // エラーの詳細をログに出劁E    if (error instanceof Error) {
       console.error("Error name:", error.name)
       console.error("Error message:", error.message)
       console.error("Error stack:", error.stack)
@@ -180,7 +175,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json(
       { 
-        error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`,
+        error: `サーバ�Eエラーが発生しました: ${error instanceof Error ? error.message : '不�Eなエラー'}`,
         details: error instanceof Error ? error.stack : 'No stack trace available'
       },
       { status: 500 }

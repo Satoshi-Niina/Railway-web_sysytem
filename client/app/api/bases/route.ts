@@ -22,7 +22,7 @@ export async function GET() {
         console.error("Database query failed:", error)
         return NextResponse.json(
           { 
-            error: "データベース接続エラーが発生しました",
+            error: "チE�Eタベ�Eス接続エラーが発生しました",
             details: error.message,
             code: error.code
           },
@@ -35,7 +35,7 @@ export async function GET() {
         .from("bases")
         .select(`
           *,
-          management_office:management_offices(*)
+          management_office:managements_offices(*)
         `)
         .eq("is_active", true)
         .order("base_name")
@@ -43,7 +43,7 @@ export async function GET() {
       if (error) throw error
       return NextResponse.json(data)
     } else {
-      // モックデータ
+      // モチE��チE�Eタ
       const mockData: Base[] = [
         {
           id: 1,
@@ -91,11 +91,11 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log("Request body:", body)
 
-    // バリデーション
+    // バリチE�Eション
     if (!body.base_name || !body.base_type) {
       console.error("Validation failed: missing required fields")
       return NextResponse.json(
-        { error: "基地名と基地タイプは必須です" },
+        { error: "基地名と基地タイプ�E忁E��でぁE },
         { status: 400 }
       )
     }
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
           body.base_type,
           body.location || null,
           body.management_office_id || body.office_id || null,
-          body.is_active !== false // デフォルトはtrue
+          body.is_active !== false // チE��ォルト�Etrue
         ])
 
         if (result.length > 0) {
@@ -124,14 +124,14 @@ export async function POST(request: Request) {
         } else {
           console.error("PostgreSQL insertion failed or no rows returned")
           return NextResponse.json(
-            { error: "基地の作成に失敗しました" },
+            { error: "基地の作�Eに失敗しました" },
             { status: 500 }
           )
         }
       } catch (error) {
         console.error("Database insertion failed:", error)
         return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
+          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
           { status: 500 }
         )
       }
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
       return NextResponse.json(data)
     } else {
       return NextResponse.json(
-        { error: "データベースが設定されていません" },
+        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
         { status: 500 }
       )
     }
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json(
       { 
-        error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`
+        error: `サーバ�Eエラーが発生しました: ${error instanceof Error ? error.message : '不�Eなエラー'}`
       },
       { status: 500 }
     )

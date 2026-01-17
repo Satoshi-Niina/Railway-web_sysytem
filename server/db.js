@@ -84,15 +84,25 @@ const pool = new Pool({
 });
 
 // 接続テスト
-pool.connect((err, client, release) => {
+pool.connect(async (err, client, release) => {
   if (err) {
     console.error('❌ Database connection error:', err.message);
-    console.error('   URL:', process.env.DATABASE_URL?.replace(/:[^:@]+@/, ':***@'));
+    console.error('   URL:', connectionString?.replace(/:[^:@]+@/, ':***@'));
     if (err.code === 'ECONNREFUSED') {
       console.error('   Hint: DB service might not be running or port is incorrect.');
     }
   } else {
     console.log('✅ Database connected successfully');
+    try {
+      // 検索パスを設定 (master_data, operations, inspections, maintenance, public)
+      await client.query('SET search_path TO master_data, operations, inspections, maintenance, public');
+      console.log('✅ search_path set to: master_data, operations, inspections, maintenance, public');
+      
+      const res = await client.query('SELECT current_database(), current_schema()');
+      console.log(`📡 Connected to database: ${res.rows[0].current_database} (Schema: ${res.rows[0].current_schema})`);
+    } catch (dbErr) {
+      console.error('⚠️ Failed to initialize session:', dbErr.message);
+    }
     release();
   }
 });
