@@ -1014,7 +1014,7 @@ export function OperationManagementChart() {
     
     // 機種でフィルタリング（複数選択対応）
     if (selectedVehicleTypes.length > 0) {
-      vehicles = vehicles.filter((vehicle) => selectedVehicleTypes.includes(vehicle.vehicle_type))
+      vehicles = vehicles.filter((vehicle) => selectedVehicleTypes.includes(vehicle.model_name || vehicle.vehicle_type))
     }
     
     // ユニークな機械番号を取得してソート

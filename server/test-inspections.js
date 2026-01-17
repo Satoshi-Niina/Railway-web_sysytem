@@ -18,21 +18,26 @@ async function test() {
   try {
     await client.connect();
     
-    // Check if vehicle_inspection_schedules table exists
+    // Check if vehicles have data
     const res1 = await client.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_schema = 'master_data' AND table_name = 'vehicle_inspection_schedules'
+      SELECT 
+        v.vehicle_id as id,
+        v.vehicle_id,
+        v.registration_number as machine_number,
+        v.registration_number as vehicle_number,
+        v.status,
+        v.office_id as management_office_id,
+        mo.office_name,
+        mt.type_code as vehicle_type,
+        mt.model_name as model_name
+      FROM master_data.vehicles v
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
+      LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
+      LIMIT 5
     `);
-    console.log('vehicle_inspection_schedules columns:', res1.rows);
-    
-    // Check inspection_schedules table
-    const res2 = await client.query(`
-      SELECT column_name, data_type 
-      FROM information_schema.columns 
-      WHERE table_schema = 'master_data' AND table_name = 'inspection_schedules'
-    `);
-    console.log('inspection_schedules columns:', res2.rows);
+    console.log('Vehicles data:', JSON.stringify(res1.rows, null, 2));
+    console.log('Total vehicles:', res1.rows.length);
     
   } catch (err) {
     console.error('Error:', err.message);
