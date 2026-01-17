@@ -33,34 +33,12 @@ export async function GET(request: NextRequest) {
       queryText += ` AND DATE_TRUNC('month', ip.planned_start_date) = DATE_TRUNC('month', $${paramCount}::date)`
       params.push(`${month}-01`)
       paramCount++
-    } else {
-      if (startDate) {
-        queryText += ` AND ip.planned_start_date >= $${paramCount}`
-        params.push(startDate)
-        paramCount++
-      }
-      if (endDate) {
-        queryText += ` AND ip.planned_start_date <= $${paramCount}`
-        params.push(endDate)
-        paramCount++
-      }
-    }
-
-    queryText += ` ORDER BY ip.planned_start_date ASC`
-
-    let data;
-    try {
-      data = await executeQuery(queryText, params)
-    } catch (e: any) {
-      if (e.message && (e.message.includes('does not exist') || e.message.includes('存在しません'))) {
-        console.warn("Table inspections.inspection_plans does not exist, returning empty array")
-        return NextResponse.json([])
-      }
+    } else { return NextResponse.json([]) }
       throw e;
     }
 
     return NextResponse.json(data || [])
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in inspections API:", error)
     return NextResponse.json({ 
       error: "Internal server error", 

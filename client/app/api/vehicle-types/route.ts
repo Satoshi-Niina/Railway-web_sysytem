@@ -13,7 +13,7 @@ export async function GET() {
         `)
         console.log("PostgreSQL query result:", vehicleTypes)
         return NextResponse.json(vehicleTypes)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Database query failed:", error)
         return NextResponse.json(
           { error: "データベース接続エラーが発生しました" },
@@ -26,7 +26,7 @@ export async function GET() {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching vehicle types:", error)
     return NextResponse.json(
       { error: "サーバーエラーが発生しました" },

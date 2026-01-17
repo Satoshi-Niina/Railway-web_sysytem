@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/database"
-import { uploadFile, STORAGE_FOLDERS } from "@/lib/cloud-storage"
+import { uploadFile, STORAG_FOLDRS } from "@/lib/cloud-storage"
 
 // データベース全データのエクスポート
 export async function POST(request: NextRequest) {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
         SELECT table_name 
         FROM information_schema.tables 
         WHERE table_schema = $1 
-        AND table_type = 'BASE TABLE'
+        AND table_type = 'BAS TABL'
         ORDER BY table_name
       `, [schema])
       
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
         const fileUrl = await uploadFile(
           buffer,
           fileName,
-          STORAGE_FOLDERS.BACKUPS,
+          STORAG_FOLDRS.BACKUPS,
           'application/json'
         )
         
@@ -62,87 +62,7 @@ export async function POST(request: NextRequest) {
           fileName,
           size: buffer.length
         })
-      } else {
-        // 直接ダウンロード
-        return new NextResponse(buffer, {
-          headers: {
-            'Content-Type': 'application/json',
-            'Content-Disposition': `attachment; filename="${fileName}"`,
-            'Content-Length': buffer.length.toString()
-          }
-        })
-      }
-    } else if (format === 'sql') {
-      // SQL形式でエクスポート
-      let sqlContent = `-- Database Export\n-- Date: ${new Date().toISOString()}\n\n`
-      
-      for (const schema of schemas) {
-        sqlContent += `-- Schema: ${schema}\n\n`
-        
-        const tablesResult = await query(`
-          SELECT table_name 
-          FROM information_schema.tables 
-          WHERE table_schema = $1 
-          AND table_type = 'BASE TABLE'
-          ORDER BY table_name
-        `, [schema])
-        
-        for (const table of tablesResult.rows) {
-          const tableName = table.table_name
-          const dataResult = await query(`SELECT * FROM ${schema}.${tableName}`)
-          
-          if (dataResult.rows.length > 0) {
-            sqlContent += `-- Table: ${schema}.${tableName}\n`
-            
-            // INSERT文を生成
-            for (const row of dataResult.rows) {
-              const columns = Object.keys(row).join(', ')
-              const values = Object.values(row).map(v => {
-                if (v === null) return 'NULL'
-                if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`
-                if (v instanceof Date) return `'${v.toISOString()}'`
-                return v
-              }).join(', ')
-              
-              sqlContent += `INSERT INTO ${schema}.${tableName} (${columns}) VALUES (${values});\n`
-            }
-            
-            sqlContent += '\n'
-          }
-        }
-      }
-      
-      const buffer = Buffer.from(sqlContent, 'utf-8')
-      const fileName = `database_export_${new Date().toISOString().replace(/[:.]/g, '-')}.sql`
-      
-      if (destination === 'storage') {
-        const fileUrl = await uploadFile(
-          buffer,
-          fileName,
-          STORAGE_FOLDERS.BACKUPS,
-          'application/sql'
-        )
-        
-        return NextResponse.json({
-          success: true,
-          destination: 'storage',
-          fileUrl,
-          fileName,
-          size: buffer.length
-        })
-      } else {
-        return new NextResponse(buffer, {
-          headers: {
-            'Content-Type': 'application/sql',
-            'Content-Disposition': `attachment; filename="${fileName}"`,
-            'Content-Length': buffer.length.toString()
-          }
-        })
-      }
-    }
-    
-    return NextResponse.json({ error: 'Invalid format' }, { status: 400 })
-  } catch (error) {
+      } else { return NextResponse.json([]) } catch (error: any) {
     console.error('Database export failed:', error)
     return NextResponse.json(
       { error: 'データベースのエクスポートに失敗しました' },

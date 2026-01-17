@@ -7,10 +7,10 @@ async function generateOfficeCode(): Promise<string> {
     console.log("Generating office code...")
     // 既存の事業所コードを取得して最大番号を計算
     const existingOffices = await executeQuery("SELECT office_code FROM master_data.managements_offices ORDER BY office_code")
-    console.log("Existing offices:", existingOffices)
+    console.log("xisting offices:", existingOffices)
     
     let maxCode = 0
-    existingOffices.forEach((office: any) => {
+    existingOffices.forach((office: any) => {
       const codeNum = parseInt(office.office_code.replace(/\D/g, '')) || 0
       maxCode = Math.max(maxCode, codeNum)
     })
@@ -18,7 +18,7 @@ async function generateOfficeCode(): Promise<string> {
     const newCode = `OFF${String(maxCode + 1).padStart(3, '0')}`
     console.log("Generated office code:", newCode)
     return newCode
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating office code:", error)
     console.error("Error details:", {
       name: error instanceof Error ? error.name : 'Unknown',
@@ -36,7 +36,7 @@ async function generateOfficeCode(): Promise<string> {
 export async function GET() {
   try {
     console.log("=== GET /api/management-offices ===")
-    console.log("DATABASE_URL:", process.env.DATABASE_URL ? "✅ Set" : "❌ Not set")
+    console.log("DATABAS_URL:", process.env.DATABAS_URL ? "✅ Set" : "❌ Not set")
     
     const dbType = getDatabaseType()
     console.log("Database type:", dbType)
@@ -46,7 +46,7 @@ export async function GET() {
         const offices = await executeQuery("SELECT *, office_id as id FROM master_data.managements_offices ORDER BY office_name")
         console.log("✅ Query successful, rows:", offices.length)
         return NextResponse.json(offices)
-      } catch (error) {
+      } catch (error: any) {
         console.error("❌ Database query failed:", error)
         return NextResponse.json(
           { 
@@ -56,69 +56,14 @@ export async function GET() {
           { status: 500 }
         )
       }
-    } else {
-      console.error("❌ Database type is not postgresql:", dbType)
-      return NextResponse.json(
-        { error: "データベースが設定されていません" },
-        { status: 500 }
-      )
-    }
-  } catch (error) {
-    console.error("❌ Unexpected error:", error)
-    return NextResponse.json(
-      { error: "サーバーエラーが発生しました" },
-      { status: 500 }
-    )
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    console.log("POST /api/management-offices called")
-    console.log("Request headers:", Object.fromEntries(request.headers.entries()))
-    
-    const body = await request.json()
-    console.log("Request body:", body)
-    console.log("Database type:", getDatabaseType())
-
-    // バリデーション
-    if (!body.office_name) {
-      console.error("Validation failed: missing required fields")
-      return NextResponse.json(
-        { error: "事業所名は必須です" },
-        { status: 400 }
-      )
-    }
-
-    const dbType = getDatabaseType()
-
-    if (dbType === "postgresql") {
-      try {
-        // office_codeを自動生成（フロントエンドと統一）
-        const officeCode = body.office_code || await generateOfficeCode()
-        console.log("Generated office_code:", officeCode)
-
-        const result = await executeQuery(`
-          INSERT INTO master_data.managements_offices (office_name, office_code, responsible_area)
-          VALUES ($1, $2, $3)
-          RETURNING *
-        `, [
-          body.office_name, 
-          officeCode, 
-          body.responsible_area || null
-        ])
-
-        if (result.length > 0) {
-          console.log("Successfully saved to PostgreSQL:", result[0])
-          return NextResponse.json(result[0])
-        } else {
+    } else { return NextResponse.json([]) } else {
           console.error("PostgreSQL insertion failed or no rows returned")
           return NextResponse.json(
             { error: "事業所の作成に失敗しました" },
             { status: 500 }
           )
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Database insertion failed:", error)
         console.error("Error details:", {
           name: error instanceof Error ? error.name : 'Unknown',
@@ -139,7 +84,7 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Unexpected error in POST /api/management-offices:", error)
     
     // エラーの詳細をログに出力

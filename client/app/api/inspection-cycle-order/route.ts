@@ -25,10 +25,8 @@ export async function GET(request: NextRequest) {
 
       const data = await executeQuery(query, params)
       return NextResponse.json(data)
-    } else {
-      return NextResponse.json([])
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching inspection cycle order:", error)
     return NextResponse.json(
       { error: "Failed to fetch inspection cycle order" },
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating inspection cycle order:", error)
     return NextResponse.json(
       { error: "Failed to create inspection cycle order" },

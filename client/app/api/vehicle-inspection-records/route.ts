@@ -44,14 +44,12 @@ export async function GET(request: NextRequest) {
         paramIndex++
       }
 
-      query += ` ORDER BY vir.inspection_date DESC, v.machine_number`
+      query += ` ORDER BY vir.inspection_date DSC, v.machine_number`
 
       const data = await executeQuery(query, params)
       return NextResponse.json(data)
-    } else {
-      return NextResponse.json([])
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching vehicle inspection records:", error)
     return NextResponse.json(
       { error: "Failed to fetch vehicle inspection records" },
@@ -95,7 +93,7 @@ export async function POST(request: NextRequest) {
       const cycleResult = await executeQuery(cycleQuery, [vehicle_id, cycle_order || 0])
       const nextCycleMonths = cycleResult[0]?.cycle_months || 1
 
-      const nextInspectionDate = `(DATE '${inspection_date}' + INTERVAL '${nextCycleMonths} months')`
+      const nextInspectionDate = `(DAT '${inspection_date}' + INTRVAL '${nextCycleMonths} months')`
 
       const query = `
         INSERT INTO inspections.vehicle_inspection_records (
@@ -132,7 +130,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating vehicle inspection record:", error)
     return NextResponse.json(
       { 

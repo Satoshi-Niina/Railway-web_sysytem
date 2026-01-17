@@ -51,38 +51,8 @@ export async function GET(request: NextRequest) {
 
       if (error) throw error
       return NextResponse.json(data)
-    } else {
-      // モックデータ
-      const currentMonth = month || new Date().toISOString().slice(0, 7)
-      const mockData: InspectionPlan[] = [
-        {
-          id: 1,
-          vehicle_id: 3,
-          inspection_type: "乙A検査",
-          inspection_category: "法定検査",
-          planned_start_date: `${currentMonth}-20`,
-          planned_end_date: `${currentMonth}-22`,
-          status: "planned",
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z",
-          vehicle: {
-            id: 3,
-            machine_number: "MCR001",
-            vehicle_type: "MCR",
-            model: "MCR-300",
-            manufacturer: "メーカーC",
-            acquisition_date: "2019-06-01",
-            management_office_id: 2,
-            home_base_id: 3,
-            status: "active",
-            created_at: "2024-01-01T00:00:00Z",
-            updated_at: "2024-01-01T00:00:00Z",
-          },
-        },
-      ]
-      return NextResponse.json(mockData)
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching inspection plans:", error)
     return NextResponse.json({ error: "Failed to fetch inspection plans" }, { status: 500 })
   }

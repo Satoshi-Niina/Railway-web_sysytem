@@ -19,16 +19,16 @@ export async function GET(request: NextRequest) {
           SELECT 
             m.id::text as vehicle_id,
             it.id as inspection_type_id,
-            COALESCE(
+            COALSC(
               mbd.base_date,
               m.purchase_date,
               m.created_at::date
             ) as base_date,
-            CASE 
-              WHEN mbd.base_date IS NOT NULL THEN 'manual'
-              WHEN m.purchase_date IS NOT NULL THEN 'purchase'
-              ELSE 'system'
-            END as source
+            CAS 
+              WHN mbd.base_date IS NOT NULL THN 'manual'
+              WHN m.purchase_date IS NOT NULL THN 'purchase'
+              LS 'system'
+            ND as source
           FROM master_data.machines m
           CROSS JOIN master_data.inspection_types it
           LEFT JOIN master_data.maintenance_base_dates mbd 
@@ -56,12 +56,12 @@ export async function GET(request: NextRequest) {
           bd.source as base_date_source,
           s.cycle_months,
           s.duration_days,
-          bd.base_date + (s.cycle_months || ' months')::INTERVAL as next_scheduled_date,
-          (bd.base_date + (s.cycle_months || ' months')::INTERVAL)::date - CURRENT_DATE as days_until,
-          CASE 
-            WHEN (bd.base_date + (s.cycle_months || ' months')::INTERVAL)::date - CURRENT_DATE <= 30 THEN true
-            ELSE false
-          END as is_warning,
+          bd.base_date + (s.cycle_months || ' months')::INTRVAL as next_scheduled_date,
+          (bd.base_date + (s.cycle_months || ' months')::INTRVAL)::date - CURRNT_DAT as days_until,
+          CAS 
+            WHN (bd.base_date + (s.cycle_months || ' months')::INTRVAL)::date - CURRNT_DAT <= 30 THN true
+            LS false
+          ND as is_warning,
           m.office_id,
           o.office_name
         FROM master_data.machines m
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
       // 月フィルター
       if (month) {
-        query += ` AND DATE_TRUNC('month', (bd.base_date + (s.cycle_months || ' months')::INTERVAL)::date) = DATE_TRUNC('month', $${paramCount}::date)`
+        query += ` AND DATE_TRUNC('month', (bd.base_date + (s.cycle_months || ' months')::INTRVAL)::date) = DATE_TRUNC('month', $${paramCount}::date)`
         params.push(`${month}-01`)
         paramCount++
       }
@@ -110,11 +110,8 @@ export async function GET(request: NextRequest) {
 
       const result = await executeQuery(query, params)
       return NextResponse.json(result)
-    } else {
-      // モックデータ
-      return NextResponse.json([])
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching maintenance schedules:", error)
     return NextResponse.json(
       { error: "Failed to fetch maintenance schedules" },

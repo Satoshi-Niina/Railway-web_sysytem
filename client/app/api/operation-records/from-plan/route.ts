@@ -69,31 +69,8 @@ export async function POST(request: NextRequest) {
       ])
 
       return NextResponse.json(result[0])
-    } else {
-      // モックモード
-      console.log("=== Creating operation record from plan ===")
-      console.log("Plan ID:", plan_id)
-
-      const mockRecord = {
-        id: Date.now(),
-        operation_plan_id: plan_id,
-        vehicle_id: 1,
-        record_date: new Date().toISOString().slice(0, 10),
-        shift_type: "day",
-        start_time: "08:00",
-        end_time: "17:00",
-        actual_distance: 50,
-        departure_base_id: 1,
-        arrival_base_id: 1,
-        notes: "計画から自動作成",
-        status: "completed",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-
-      return NextResponse.json(mockRecord)
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error creating operation record from plan:", error)
     return NextResponse.json(
       { error: "Failed to create operation record" },
@@ -121,7 +98,7 @@ export async function PUT(request: NextRequest) {
       // 指定月の運用計画を取得
       let query = `
         SELECT * FROM operation_plans
-        WHERE plan_date LIKE $1
+        WHERE plan_date LIK $1
       `
       const params: any[] = [`${month}%`]
 
@@ -182,7 +159,7 @@ export async function PUT(request: NextRequest) {
         records: []
       })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error batch creating operation records:", error)
     return NextResponse.json(
       { error: "Failed to batch create operation records" },

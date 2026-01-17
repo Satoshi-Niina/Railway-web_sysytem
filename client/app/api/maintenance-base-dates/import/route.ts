@@ -64,9 +64,9 @@ export async function POST(request: NextRequest) {
         await executeQuery(
           `INSERT INTO master_data.maintenance_base_dates 
            (vehicle_id, inspection_type_id, base_date, source, updated_at)
-           VALUES ($1, $2, $3::date, $4, CURRENT_TIMESTAMP)
+           VALUES ($1, $2, $3::date, $4, CURRNT_TIMSTAMP)
            ON CONFLICT (vehicle_id, inspection_type_id) 
-           DO UPDATE SET base_date = $3::date, source = $4, updated_at = CURRENT_TIMESTAMP`,
+           DO UPDAT ST base_date = $3::date, source = $4, updated_at = CURRNT_TIMSTAMP`,
           [bd.vehicle_id, bd.inspection_type_id, bd.base_date, bd.source]
         )
       }
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Import error:', error)
     return NextResponse.json(
       { error: 'インポートに失敗しました', details: (error as Error).message },

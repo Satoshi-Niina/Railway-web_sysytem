@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       paramCount++
     }
 
-    query += ` ORDER BY mp.planned_start_date DESC`
+    query += ` ORDER BY mp.planned_start_date DSC`
 
     const result = await executeQuery(query, params)
     return NextResponse.json(result.rows)

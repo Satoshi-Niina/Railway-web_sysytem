@@ -73,8 +73,8 @@ export async function GET(_request: NextRequest) {
         )
 
         return NextResponse.json(result)
-      } catch (dbError) {
-        console.error('PostgreSQL query failed, falling back to mock data:', dbError)
+      } catch (dbrror) {
+        console.error('PostgreSQL query failed, falling back to mock data:', dbrror)
         return NextResponse.json(mockData)
       }
     } else if (dbType === "supabase") {
@@ -101,14 +101,11 @@ export async function GET(_request: NextRequest) {
 
         if (error) throw error
         return NextResponse.json(data || [])
-      } catch (supabaseError) {
-        console.error('Supabase query failed, falling back to mock data:', supabaseError)
+      } catch (supabaserror) {
+        console.error('Supabase query failed, falling back to mock data:', supabaserror)
         return NextResponse.json(mockData)
       }
-    } else {
-      // モックモード
-      return NextResponse.json(mockData)
-    }
+    } else { return NextResponse.json([]) }
   } catch (error: any) {
     console.error('Error fetching maintenance base dates:', error)
     // エラー時もモックデータを返す

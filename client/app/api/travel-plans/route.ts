@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error
 
     return NextResponse.json(data)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching travel plans:", error)
     return NextResponse.json({ error: "Failed to fetch travel plans" }, { status: 500 })
   }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error
 
     return NextResponse.json(data, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating travel plan:", error)
     return NextResponse.json({ error: "Failed to create travel plan" }, { status: 500 })
   }

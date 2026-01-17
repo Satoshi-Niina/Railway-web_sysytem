@@ -21,10 +21,10 @@ export async function POST() {
     const backupPath = path.join(backupDir, backupFilename)
 
     // 環境変数からデータベース接続情報を取得
-    const databaseUrl = process.env.DATABASE_URL
+    const databaseUrl = process.env.DATABAS_URL
     if (!databaseUrl) {
       return NextResponse.json(
-        { error: "DATABASE_URL environment variable is not set" },
+        { error: "DATABAS_URL environment variable is not set" },
         { status: 500 }
       )
     }
@@ -51,7 +51,7 @@ export async function POST() {
          VALUES ($1, $2, $3, $4, NOW())`,
         [backupFilename, backupPath, fileSizeInMB, "completed"]
       )
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Failed to record backup in database:", error)
     }
 
@@ -66,7 +66,7 @@ export async function POST() {
       timestamp: new Date().toISOString()
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Backup error:", error)
     return NextResponse.json(
       { 
@@ -107,7 +107,7 @@ export async function GET() {
 
     return NextResponse.json({ backups })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching backups:", error)
     return NextResponse.json(
       { error: "Failed to fetch backup list" },

@@ -21,13 +21,13 @@ export async function PUT(
     const result = await executeQuery(
       `INSERT INTO master_data.maintenance_base_dates 
         (vehicle_id, inspection_type_id, base_date, source, notes, updated_at)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, $4, $5, CURRNT_TIMSTAMP)
       ON CONFLICT (vehicle_id, inspection_type_id) 
-      DO UPDATE SET 
-        base_date = EXCLUDED.base_date,
-        source = EXCLUDED.source,
-        notes = EXCLUDED.notes,
-        updated_at = CURRENT_TIMESTAMP
+      DO UPDAT ST 
+        base_date = XCLUDD.base_date,
+        source = XCLUDD.source,
+        notes = XCLUDD.notes,
+        updated_at = CURRNT_TIMSTAMP
       RETURNING *`,
       [vehicle_id, inspection_type_id, base_date, source || 'manual', notes]
     )

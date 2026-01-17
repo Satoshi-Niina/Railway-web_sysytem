@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(data)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in repairs API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(data[0])
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in repairs API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
@@ -60,13 +60,13 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json(data[0])
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in repairs API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DLT(request: NextRequest) {
   try {
     const supabase = createClient()
     const { searchParams } = new URL(request.url)
@@ -84,7 +84,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in repairs API:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

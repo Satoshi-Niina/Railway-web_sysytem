@@ -37,10 +37,8 @@ export async function GET(
       }
       
       return NextResponse.json(data)
-    } else {
-      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching management office:", error)
     return NextResponse.json({ error: "Failed to fetch management office" }, { status: 500 })
   }
@@ -63,7 +61,7 @@ export async function PUT(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery<ManagementOffice>(
-          `UPDATE master_data.management_offices SET 
+          `UPDAT master_data.management_offices ST 
             office_name = $1, office_code = $2, responsible_area = $3, 
             updated_at = NOW()
            WHERE id = $4 RETURNING *`,
@@ -77,7 +75,7 @@ export async function PUT(
         }
         
         return NextResponse.json(result[0])
-      } catch (error) {
+      } catch (error: any) {
         console.error("PostgreSQL error:", error)
         // データベースエラーの場合はモックデータを更新
         console.log("Falling back to mock data for office update")
@@ -117,16 +115,14 @@ export async function PUT(
       }
       
       return NextResponse.json(data)
-    } else {
-      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error updating management office:", error)
     return NextResponse.json({ error: "Failed to update management office" }, { status: 500 })
   }
 }
 
-export async function DELETE(
+export async function DLT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -137,7 +133,7 @@ export async function DELETE(
     if (dbType === "postgresql") {
       try {
         const result = await executeQuery<ManagementOffice>(
-          "DELETE FROM master_data.management_offices WHERE id = $1 RETURNING *",
+          "DLT FROM master_data.management_offices WHERE id = $1 RETURNING *",
           [id]
         )
         
@@ -146,7 +142,7 @@ export async function DELETE(
         }
         
         return NextResponse.json({ message: "Management office deleted successfully" })
-      } catch (error) {
+      } catch (error: any) {
         console.error("PostgreSQL error:", error)
         // データベースエラーの場合はモックデータを削除
         console.log("Falling back to mock data for office deletion")
@@ -164,10 +160,8 @@ export async function DELETE(
       }
       
       return NextResponse.json({ message: "Management office deleted successfully" })
-    } else {
-      return NextResponse.json({ error: "Database not configured" }, { status: 500 })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error deleting management office:", error)
     return NextResponse.json({ error: "Failed to delete management office" }, { status: 500 })
   }

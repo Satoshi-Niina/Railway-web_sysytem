@@ -29,7 +29,7 @@ export async function GET() {
           tableColumns: columns,
           sampleData: sampleData
         })
-      } catch (error) {
+      } catch (error: any) {
         console.error("Table structure check failed:", error)
         return NextResponse.json({
           status: "error",
@@ -44,7 +44,7 @@ export async function GET() {
         error: "Database not configured"
       }, { status: 500 })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Check table structure error:", error)
     return NextResponse.json({
       status: "error",

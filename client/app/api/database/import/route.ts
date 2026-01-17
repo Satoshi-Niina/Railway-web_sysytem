@@ -39,13 +39,13 @@ export async function POST(request: NextRequest) {
                 const values = columns.map((col: string) => row[col])
                 const placeholders = values.map((_: any, i: number) => `$${i + 1}`).join(', ')
                 
-                // UPSERT (INSERT ... ON CONFLICT DO UPDATE)
+                // UPSRT (INSERT ... ON CONFLICT DO UPDAT)
                 const insertQuery = `
                   INSERT INTO ${schemaName}.${tableName} (${columns.join(', ')})
                   VALUES (${placeholders})
-                  ON CONFLICT (id) DO UPDATE SET
+                  ON CONFLICT (id) DO UPDAT ST
                   ${columns.filter((col: string) => col !== 'id').map((col: string, i: number) => 
-                    `${col} = EXCLUDED.${col}`
+                    `${col} = XCLUDD.${col}`
                   ).join(', ')}
                 `
                 
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
     
     return NextResponse.json({ error: 'Invalid format' }, { status: 400 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Database import failed:', error)
     return NextResponse.json(
       { error: 'データベースのインポートに失敗しました: ' + (error instanceof Error ? error.message : 'Unknown error') },

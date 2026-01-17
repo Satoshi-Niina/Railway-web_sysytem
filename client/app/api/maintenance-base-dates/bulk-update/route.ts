@@ -32,12 +32,12 @@ export async function POST(request: NextRequest) {
         await executeQuery(
           `INSERT INTO master_data.maintenance_base_dates 
             (vehicle_id, inspection_type_id, base_date, source, updated_at)
-          VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+          VALUES ($1, $2, $3, $4, CURRNT_TIMSTAMP)
           ON CONFLICT (vehicle_id, inspection_type_id) 
-          DO UPDATE SET 
-            base_date = EXCLUDED.base_date,
-            source = EXCLUDED.source,
-            updated_at = CURRENT_TIMESTAMP`,
+          DO UPDAT ST 
+            base_date = XCLUDD.base_date,
+            source = XCLUDD.source,
+            updated_at = CURRNT_TIMSTAMP`,
           [vehicle_id, inspection_type_id, base_date, source || 'manual']
         )
         successCount++

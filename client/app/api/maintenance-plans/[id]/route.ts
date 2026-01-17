@@ -59,15 +59,15 @@ export async function PUT(
     } = body
 
     const result = await executeQuery(
-      `UPDATE master_data.maintenance_plans 
-      SET 
-        planned_start_date = COALESCE($1, planned_start_date),
-        planned_end_date = COALESCE($2, planned_end_date),
+      `UPDAT master_data.maintenance_plans 
+      ST 
+        planned_start_date = COALSC($1, planned_start_date),
+        planned_end_date = COALSC($2, planned_end_date),
         actual_start_date = $3,
         actual_end_date = $4,
-        status = COALESCE($5, status),
+        status = COALSC($5, status),
         notes = $6,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = CURRNT_TIMSTAMP
       WHERE id = $7
       RETURNING *`,
       [
@@ -99,8 +99,8 @@ export async function PUT(
   }
 }
 
-// DELETE: 検修計画削除
-export async function DELETE(
+// DLT: 検修計画削除
+export async function DLT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -108,7 +108,7 @@ export async function DELETE(
     const { id } = params
 
     const result = await executeQuery(
-      'DELETE FROM master_data.maintenance_plans WHERE id = $1 RETURNING *',
+      'DLT FROM master_data.maintenance_plans WHERE id = $1 RETURNING *',
       [id]
     )
 

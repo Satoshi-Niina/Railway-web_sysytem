@@ -22,7 +22,7 @@ export async function GET() {
     console.log("Inspection types fetched:", result.length)
     
     return NextResponse.json(result)
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching inspection types:", error)
     return NextResponse.json(
       { error: "検修タイプの取得に失敗しました" },
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     console.log("Inspection type created:", result[0])
     
     return NextResponse.json(result[0], { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating inspection type:", error)
     return NextResponse.json(
       { error: "検修タイプの作成に失敗しました" },

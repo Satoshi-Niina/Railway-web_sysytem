@@ -14,7 +14,7 @@ export async function GET(
       const query = `
         WITH base_date AS (
           SELECT 
-            COALESCE(
+            COALSC(
               (SELECT MAX(inspection_date) 
                FROM inspections.vehicle_inspection_records vir 
                WHERE vir.vehicle_id = $1
@@ -36,7 +36,7 @@ export async function GET(
           s.cycle_months,
           s.duration_days,
           bd.base_date,
-          bd.base_date + (s.cycle_months || ' months')::INTERVAL as next_scheduled_date
+          bd.base_date + (s.cycle_months || ' months')::INTRVAL as next_scheduled_date
         FROM master_data.machines m
         JOIN master_data.machine_types mt ON m.machine_type_id = mt.type_code
         CROSS JOIN base_date bd
@@ -57,70 +57,13 @@ export async function GET(
       }
 
       return NextResponse.json(result[0])
-    } else {
+    } else { return NextResponse.json([]) } else {
       return NextResponse.json(
         { error: "Database not configured" },
         { status: 503 }
       )
     }
-  } catch (error) {
-    console.error("Error fetching maintenance schedule:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch maintenance schedule" },
-      { status: 500 }
-    )
-  }
-}
-
-// PUT: 起算日の更新
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { vehicle_id: string; inspection_type_id: string } }
-) {
-  try {
-    const { vehicle_id, inspection_type_id } = params
-    const body = await request.json()
-    const { base_date, source, notes } = body
-
-    if (!base_date) {
-      return NextResponse.json(
-        { error: "base_date is required" },
-        { status: 400 }
-      )
-    }
-
-    const dbType = getDatabaseType()
-
-    if (dbType === "postgresql") {
-      const query = `
-        INSERT INTO master_data.maintenance_base_dates 
-          (vehicle_id, inspection_type_id, base_date, source, notes)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (vehicle_id, inspection_type_id) 
-        DO UPDATE SET 
-          base_date = EXCLUDED.base_date,
-          source = EXCLUDED.source,
-          notes = EXCLUDED.notes,
-          updated_at = CURRENT_TIMESTAMP
-        RETURNING *
-      `
-
-      const result = await executeQuery(query, [
-        vehicle_id,
-        inspection_type_id,
-        base_date,
-        source || "manual",
-        notes,
-      ])
-
-      return NextResponse.json(result[0])
-    } else {
-      return NextResponse.json(
-        { error: "Database not configured" },
-        { status: 503 }
-      )
-    }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating base date:", error)
     return NextResponse.json(
       { error: "Failed to update base date" },

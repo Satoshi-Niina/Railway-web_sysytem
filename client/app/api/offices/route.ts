@@ -12,7 +12,7 @@ export async function GET() {
           ORDER BY office_name
         `)
         return NextResponse.json(offices)
-      } catch (error) {
+      } catch (error: any) {
         console.error("Database query failed:", error)
         return NextResponse.json(
           { error: "データベース接続エラーが発生しました" },
@@ -25,7 +25,7 @@ export async function GET() {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching offices:", error)
     return NextResponse.json(
       { error: "事業所データの取得に失敗しました" },

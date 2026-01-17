@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { uploadFile, validateFileType, validateFileSize, normalizeFileName, STORAGE_FOLDERS, StorageFolder } from '@/lib/cloud-storage'
+import { uploadFile, validateFileType, validateFileSize, normalizeFileName, STORAG_FOLDRS, StorageFolder } from '@/lib/cloud-storage'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const folder = formData.get('folder') as StorageFolder
 
     // フォルダの検証
-    if (!folder || !Object.values(STORAGE_FOLDERS).includes(folder)) {
+    if (!folder || !Object.values(STORAG_FOLDRS).includes(folder)) {
       return NextResponse.json(
         { error: '無効なフォルダが指定されました' },
         { status: 400 }
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         )
 
         uploadedFiles.push(fileUrl)
-      } catch (error) {
+      } catch (error: any) {
         console.error(`File upload error for ${file.name}:`, error)
         errors.push(`${file.name}: アップロードに失敗しました`)
       }
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         : 'アップロードに失敗しました'
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Upload API error:', error)
     return NextResponse.json(
       { error: 'ファイルアップロードでエラーが発生しました' },
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ファイル削除API
-export async function DELETE(request: NextRequest) {
+export async function DLT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const fileUrl = searchParams.get('url')
@@ -100,7 +100,7 @@ export async function DELETE(request: NextRequest) {
         { status: 500 }
       )
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('File deletion error:', error)
     return NextResponse.json(
       { error: 'ファイル削除でエラーが発生しました' },

@@ -35,10 +35,10 @@ export async function POST(
     }
 
     // 環境変数からデータベース接続情報を取得
-    const databaseUrl = process.env.DATABASE_URL
+    const databaseUrl = process.env.DATABAS_URL
     if (!databaseUrl) {
       return NextResponse.json(
-        { error: "DATABASE_URL environment variable is not set" },
+        { error: "DATABAS_URL environment variable is not set" },
         { status: 500 }
       )
     }
@@ -76,7 +76,7 @@ export async function POST(
          VALUES ($1, NOW(), $2)`,
         [backupFilename, "completed"]
       )
-    } catch (error) {
+    } catch (error: any) {
       console.warn("Failed to record restore in database:", error)
     }
 
@@ -89,7 +89,7 @@ export async function POST(
       restored_at: new Date().toISOString()
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Restore error:", error)
     return NextResponse.json(
       { 
@@ -142,7 +142,7 @@ export async function GET(
       exists: true
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching backup info:", error)
     return NextResponse.json(
       { error: "Failed to fetch backup information" },

@@ -20,12 +20,12 @@ export async function GET(request: NextRequest) {
       // テーブルの存在確認
       try {
         const tableCheck = await executeQuery(`
-          SELECT EXISTS (
+          SELECT XISTS (
             SELECT FROM information_schema.tables 
             WHERE table_schema = 'inspections' 
             AND table_name = 'vehicle_inspection_records'
           ) as records_exists,
-          EXISTS (
+          XISTS (
             SELECT FROM information_schema.tables 
             WHERE table_schema = 'inspections' 
             AND table_name = 'inspection_cycle_order'
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
           console.log('Required inspection tables do not exist, returning empty array')
           return NextResponse.json([])
         }
-      } catch (tableCheckError) {
-        console.error('Table check error:', tableCheckError)
+      } catch (tableCheckrror) {
+        console.error('Table check error:', tableCheckrror)
         return NextResponse.json([])
       }
 
@@ -56,8 +56,8 @@ export async function GET(request: NextRequest) {
             console.log('No inspection records found, returning empty array')
             return NextResponse.json([])
           }
-        } catch (countError) {
-          console.error('Count check error:', countError)
+        } catch (countrror) {
+          console.error('Count check error:', countrror)
           return NextResponse.json([])
         }
 
@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
               cycle_order,
               next_inspection_date
             FROM inspections.vehicle_inspection_records
-            ORDER BY vehicle_id, inspection_date DESC
+            ORDER BY vehicle_id, inspection_date DSC
           ),
           next_cycle AS (
             -- 次の検査サイクルを計算
@@ -91,8 +91,8 @@ export async function GET(request: NextRequest) {
               ico.cycle_order as next_cycle_order,
               ico.cycle_months,
               ico.warning_months,
-              li.inspection_date + (INTERVAL '1 month' * ico.cycle_months) as next_inspection_date,
-              li.inspection_date + (INTERVAL '1 month' * (ico.cycle_months - ico.warning_months)) as warning_start_date
+              li.inspection_date + (INTRVAL '1 month' * ico.cycle_months) as next_inspection_date,
+              li.inspection_date + (INTRVAL '1 month' * (ico.cycle_months - ico.warning_months)) as warning_start_date
             FROM latest_inspections li
             JOIN master_data.machines m ON li.vehicle_id = m.id
             LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
@@ -108,15 +108,15 @@ export async function GET(request: NextRequest) {
           )
           SELECT 
             nc.*,
-            CASE 
-              WHEN CURRENT_DATE >= warning_start_date::date THEN true
-              ELSE false
-            END as is_warning,
-            CASE
-              WHEN next_inspection_date::date BETWEEN $1::date AND $2::date THEN true
-              ELSE false
-            END as is_in_period,
-            (next_inspection_date::date - CURRENT_DATE) as days_until_inspection
+            CAS 
+              WHN CURRNT_DAT >= warning_start_date::date THN true
+              LS false
+            ND as is_warning,
+            CAS
+              WHN next_inspection_date::date BTWN $1::date AND $2::date THN true
+              LS false
+            ND as is_in_period,
+            (next_inspection_date::date - CURRNT_DAT) as days_until_inspection
           FROM next_cycle nc
           WHERE 1=1
         `
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (showWarnings) {
-          query += ` AND CURRENT_DATE >= nc.warning_start_date::date`
+          query += ` AND CURRNT_DAT >= nc.warning_start_date::date`
         }
 
         query += ` ORDER BY nc.vehicle_id, next_inspection_date`
@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
             SELECT *
             FROM inspections.vehicle_inspection_records
             WHERE vehicle_id = $1
-            ORDER BY inspection_date DESC
+            ORDER BY inspection_date DSC
             LIMIT 1
           )
           SELECT 
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
             ico.cycle_order as next_cycle_order,
             ico.cycle_months,
             ico.warning_months,
-            li.inspection_date + (INTERVAL '1 month' * ico.cycle_months) as next_inspection_date
+            li.inspection_date + (INTRVAL '1 month' * ico.cycle_months) as next_inspection_date
           FROM latest_inspection li
           JOIN master_data.machines m ON li.vehicle_id = m.id
           LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
@@ -181,16 +181,8 @@ export async function GET(request: NextRequest) {
 
         const data = await executeQuery(query, [vehicleId])
         return NextResponse.json(data[0] || null)
-      } else {
-        return NextResponse.json(
-          { error: "vehicle_id or month parameter required" },
-          { status: 400 }
-        )
-      }
-    } else {
-      return NextResponse.json([])
-    }
-  } catch (error) {
+      } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("❌ Error fetching vehicle inspection schedule")
     console.error("Error name:", error instanceof Error ? error.name : 'Unknown')
     console.error("Error message:", error instanceof Error ? error.message : String(error))

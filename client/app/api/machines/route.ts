@@ -6,7 +6,7 @@ export async function GET() {
   console.log('Time:', new Date().toISOString())
   
   try {
-    console.log('Step 1: Executing query...')
+    console.log('Step 1: xecuting query...')
     
     const machines = await executeQuery(`
       SELECT 

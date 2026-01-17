@@ -38,47 +38,8 @@ export async function GET(request: NextRequest) {
 
       const data = await executeQuery(query, params)
       return NextResponse.json(data)
-    } else {
-      // モックデータ
-      const mockData = [
-        {
-          id: 1,
-          vehicle_type: "モータカー",
-          inspection_type: "甲A検査",
-          cycle_days: 365,
-          description: "年次検査",
-          is_active: true,
-          vehicle_count: 2,
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z"
-        },
-        {
-          id: 2,
-          vehicle_type: "モータカー",
-          inspection_type: "乙B検査",
-          cycle_days: 30,
-          description: "月次検査",
-          is_active: true,
-          vehicle_count: 2,
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z"
-        },
-        {
-          id: 3,
-          vehicle_type: "MCR",
-          inspection_type: "定検",
-          cycle_days: 7,
-          description: "週次点検",
-          is_active: true,
-          vehicle_count: 1,
-          created_at: "2024-01-01T00:00:00Z",
-          updated_at: "2024-01-01T00:00:00Z"
-        }
-      ]
-      
-      return NextResponse.json(mockData)
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching maintenance cycles:", error)
     return NextResponse.json({ error: "Failed to fetch maintenance cycles" }, { status: 500 })
   }
@@ -100,22 +61,8 @@ export async function POST(request: NextRequest) {
       )
       
       return NextResponse.json(result[0], { status: 201 })
-    } else {
-      // モックデータ作成
-      const newCycle = {
-        id: Date.now(),
-        vehicle_type,
-        inspection_type,
-        cycle_days,
-        description,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      
-      return NextResponse.json(newCycle, { status: 201 })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error creating maintenance cycle:", error)
     return NextResponse.json({ error: "Failed to create maintenance cycle" }, { status: 500 })
   }

@@ -9,7 +9,7 @@ export async function GET() {
 
     if (dbType === "postgresql") {
       try {
-        // チE�Eブルの構造を確誁E
+        // �ブルの構造を確誁
         const columns = await executeQuery(`
           SELECT column_name, data_type, is_nullable, column_default
           FROM information_schema.columns 
@@ -19,7 +19,7 @@ export async function GET() {
         `)
         console.log("Table columns:", columns)
 
-        // サンプルチE�Eタも確誁E
+        // サンプル�タも確誁
         const sampleData = await executeQuery("SELECT * FROM managements_offices LIMIT 1")
         console.log("Sample data:", sampleData)
 
@@ -29,7 +29,7 @@ export async function GET() {
           tableColumns: columns,
           sampleData: sampleData
         })
-      } catch (error) {
+      } catch (error: any) {
         console.error("Table structure check failed:", error)
         return NextResponse.json({
           status: "error",
@@ -44,7 +44,7 @@ export async function GET() {
         error: "Database not configured"
       }, { status: 500 })
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Check table structure error:", error)
     return NextResponse.json({
       status: "error",

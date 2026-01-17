@@ -25,8 +25,8 @@ export async function PUT(
     if (dbType === "postgresql") {
       try {
         const updateResult = await executeQuery(`
-          UPDATE master_data.vehicles 
-          SET 
+          UPDAT master_data.vehicles 
+          ST 
             machine_number = $1,
             vehicle_type = $2,
             model = $3,
@@ -38,7 +38,7 @@ export async function PUT(
             management_office_id = $9,
             home_base_id = $10,
             status = $11,
-            updated_at = CURRENT_TIMESTAMP
+            updated_at = CURRNT_TIMSTAMP
           WHERE id = $12
           RETURNING *
         `, [
@@ -70,75 +70,14 @@ export async function PUT(
           
           console.log("Successfully updated in PostgreSQL:", result[0])
           return NextResponse.json(result[0])
-        } else {
-          console.error("PostgreSQL update failed or no rows returned")
-          return NextResponse.json(
-            { error: "車両の更新に失敗しました" },
-            { status: 500 }
-          )
-        }
-      } catch (error) {
-        console.error("Database update failed:", error)
-        return NextResponse.json(
-          { error: "データベース接続エラーが発生しました" },
-          { status: 500 }
-        )
-      }
-    } else {
-      return NextResponse.json(
-        { error: "データベースが設定されていません" },
-        { status: 500 }
-      )
-    }
-  } catch (error) {
-    console.error("Unexpected error in PUT /api/vehicles/[id]:", error)
-    
-    // エラーの詳細をログに出力
-    if (error instanceof Error) {
-      console.error("Error name:", error.name)
-      console.error("Error message:", error.message)
-      console.error("Error stack:", error.stack)
-    }
-    
-    return NextResponse.json(
-      { 
-        error: `サーバーエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`,
-        details: error instanceof Error ? error.stack : 'No stack trace available'
-      },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    console.log(`DELETE /api/vehicles/${params.id} called`)
-
-    const dbType = getDatabaseType()
-
-    if (dbType === "postgresql") {
-      try {
-        const result = await executeQuery(`
-          UPDATE master_data.vehicles 
-          SET status = 'deleted', updated_at = CURRENT_TIMESTAMP
-          WHERE id = $1
-          RETURNING *
-        `, [parseInt(params.id)])
-
-        if (result.length > 0) {
-          console.log("Successfully deleted from PostgreSQL:", result[0])
-          return NextResponse.json({ message: "車両を削除しました" })
-        } else {
+        } else { return NextResponse.json([]) } else {
           console.error("PostgreSQL deletion failed or no rows returned")
           return NextResponse.json(
             { error: "車両の削除に失敗しました" },
             { status: 500 }
           )
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Database deletion failed:", error)
         return NextResponse.json(
           { error: "データベース接続エラーが発生しました" },
@@ -151,8 +90,8 @@ export async function DELETE(
         { status: 500 }
       )
     }
-  } catch (error) {
-    console.error("Unexpected error in DELETE /api/vehicles/[id]:", error)
+  } catch (error: any) {
+    console.error("Unexpected error in DLT /api/vehicles/[id]:", error)
     
     return NextResponse.json(
       { 

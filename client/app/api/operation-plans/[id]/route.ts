@@ -13,7 +13,7 @@ export async function PUT(
 
     if (dbType === "postgresql") {
       const result = await executeQuery<OperationPlan>(
-        `UPDATE operations.operation_plans SET 
+        `UPDAT operations.operation_plans ST 
           vehicle_id = $1, plan_date = $2::date, end_date = $3::date, shift_type = $4, start_time = $5, end_time = $6,
           planned_distance = $7, departure_base_id = $8, arrival_base_id = $9, notes = $10, updated_at = NOW()
         WHERE id = $11 RETURNING *`,
@@ -68,18 +68,15 @@ export async function PUT(
 
       if (error) throw error
       return NextResponse.json(data)
-    } else {
-      // モックモード - グローバル変数にアクセスするため、このファイルでは実装しない
-      return NextResponse.json({ error: "Mock mode not supported for individual updates" }, { status: 500 })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error updating operation plan:", error)
     return NextResponse.json({ error: "Failed to update operation plan" }, { status: 500 })
   }
 }
 
-// DELETE: 運用計画削除
-export async function DELETE(
+// DLT: 運用計画削除
+export async function DLT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -87,7 +84,7 @@ export async function DELETE(
     const dbType = getDatabaseType()
 
     if (dbType === "postgresql") {
-      await executeQuery("DELETE FROM operations.operation_plans WHERE id = $1", [params.id])
+      await executeQuery("DLT FROM operations.operation_plans WHERE id = $1", [params.id])
       return NextResponse.json({ success: true })
     } else if (dbType === "supabase") {
       const supabase = getSupabaseClient()
@@ -98,11 +95,8 @@ export async function DELETE(
       const { error } = await supabase.from("operation_plans").delete().eq("id", params.id)
       if (error) throw error
       return NextResponse.json({ success: true })
-    } else {
-      // モックモード - グローバル変数にアクセスするため、このファイルでは実装しない
-      return NextResponse.json({ error: "Mock mode not supported for individual deletes" }, { status: 500 })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error deleting operation plan:", error)
     return NextResponse.json({ error: "Failed to delete operation plan" }, { status: 500 })
   }

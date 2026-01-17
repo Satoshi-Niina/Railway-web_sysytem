@@ -14,8 +14,8 @@ export async function PUT(
 
     if (dbType === "postgresql") {
       const result = await executeQuery(
-        `UPDATE maintenance_cycles 
-         SET vehicle_type = $1, inspection_type = $2, cycle_days = $3, description = $4, is_active = $5, updated_at = CURRENT_TIMESTAMP
+        `UPDAT maintenance_cycles 
+         ST vehicle_type = $1, inspection_type = $2, cycle_days = $3, description = $4, is_active = $5, updated_at = CURRNT_TIMSTAMP
          WHERE id = $6
          RETURNING *`,
         [vehicle_type, inspection_type, cycle_days, description, is_active, id]
@@ -26,25 +26,10 @@ export async function PUT(
       }
       
       return NextResponse.json(result[0])
-    } else {
-      // モックデータ更新
-      return NextResponse.json({
-        id,
-        vehicle_type,
-        inspection_type,
-        cycle_days,
-        description,
-        is_active,
-        updated_at: new Date().toISOString()
-      })
-    }
-  } catch (error) {
-    console.error("Error updating maintenance cycle:", error)
-    return NextResponse.json({ error: "Failed to update maintenance cycle" }, { status: 500 })
-  }
+    } else { return NextResponse.json([]) }
 }
 
-export async function DELETE(
+export async function DLT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
@@ -73,7 +58,7 @@ export async function DELETE(
       }
       
       const result = await executeQuery(
-        "DELETE FROM maintenance_cycles WHERE id = $1 RETURNING *",
+        "DLT FROM maintenance_cycles WHERE id = $1 RETURNING *",
         [id]
       )
       
@@ -82,11 +67,8 @@ export async function DELETE(
       }
       
       return NextResponse.json({ message: "Maintenance cycle deleted successfully" })
-    } else {
-      // モックデータ削除
-      return NextResponse.json({ message: "Maintenance cycle deleted successfully" })
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error deleting maintenance cycle:", error)
     return NextResponse.json({ error: "Failed to delete maintenance cycle" }, { status: 500 })
   }

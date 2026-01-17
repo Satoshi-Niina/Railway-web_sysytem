@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
         LEFT JOIN master_data.machines m ON or_table.vehicle_id::text = m.id::text
         LEFT JOIN master_data.machine_types mt ON m.machine_type_id::text = mt.id::text
         LEFT JOIN master_data.managements_offices mo ON m.office_id::text = mo.office_id::text
-        LEFT JOIN master_data.inspection_types it ON TRUE
+        LEFT JOIN master_data.inspection_types it ON TRU
         WHERE or_table.status = 'completed'
-        AND or_table.notes ILIKE '%検修%'
+        AND or_table.notes ILIK '%検修%'
       `
       const params: any[] = []
       let paramIndex = 1
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         paramIndex++
       }
 
-      query += ` ORDER BY m.id, it.id, or_table.operation_date DESC`
+      query += ` ORDER BY m.id, it.id, or_table.operation_date DSC`
 
       const records = await executeQuery(query, params)
       return NextResponse.json(records)
@@ -96,44 +96,14 @@ export async function GET(request: NextRequest) {
         vehicle_id: record.vehicle_id,
         machine_number: record.vehicles?.machine_number,
         machine_type: record.vehicles?.machine_types?.type_name,
-        inspection_type: "検修", // Extracted from notes  
+        inspection_type: "検修", // xtracted from notes  
         completion_date: record.operation_date,
         notes: record.notes
       }))
 
       return NextResponse.json(transformedData)
-    } else {
-      // モックデータ
-      const mockData = [
-        {
-          id: 1,
-          vehicle_id: "v001",
-          machine_number: "M001",
-          machine_type: "モータカー",
-          inspection_type: "月例検査",
-          completion_date: "2025-12-15",
-          notes: "定期検修完了"
-        },
-        {
-          id: 2,
-          vehicle_id: "v002",
-          machine_number: "M002",
-          machine_type: "軌道検測車",
-          inspection_type: "3ヶ月点検",
-          completion_date: "2025-11-20",
-          notes: "3ヶ月点検完了"
-        }
-      ]
-
-      // Filter by machine_number if specified
-      let filtered = mockData
-      if (machineNumber && machineNumber !== "all") {
-        filtered = filtered.filter(r => r.machine_number === machineNumber)
-      }
-
-      return NextResponse.json(filtered)
-    }
-  } catch (error) {
+    } else { return NextResponse.json([]) }
+  } catch (error: any) {
     console.error("Error fetching maintenance history:", error)
     return NextResponse.json(
       { error: "検修履歴の取得に失敗しました" },

@@ -18,16 +18,16 @@ export async function POST(request: NextRequest) {
     const result = await executeQuery(
       `INSERT INTO master_data.maintenance_base_dates 
         (vehicle_id, inspection_type_id, base_date, source, notes, updated_at)
-      VALUES ($1, $2, $3, 'completion', $4, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, 'completion', $4, CURRNT_TIMSTAMP)
       ON CONFLICT (vehicle_id, inspection_type_id) 
-      DO UPDATE SET 
-        base_date = EXCLUDED.base_date,
+      DO UPDAT ST 
+        base_date = XCLUDD.base_date,
         source = 'completion',
-        notes = CASE 
-          WHEN EXCLUDED.notes IS NOT NULL THEN EXCLUDED.notes 
-          ELSE master_data.maintenance_base_dates.notes 
-        END,
-        updated_at = CURRENT_TIMESTAMP
+        notes = CAS 
+          WHN XCLUDD.notes IS NOT NULL THN XCLUDD.notes 
+          LS master_data.maintenance_base_dates.notes 
+        ND,
+        updated_at = CURRNT_TIMSTAMP
       RETURNING *`,
       [vehicle_id, inspection_type_id, completion_date, notes]
     )
