@@ -95,7 +95,7 @@ jobs:
             --max-instances 10 \
             --port 8080 \
             --add-cloudsql-instances "${{ secrets.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}" \
-            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL_PRODUCTION }},NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }},NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}"
+            --set-env-vars "NODE_ENV=production,DATABASE_URL=${{ secrets.DATABASE_URL_PRODUCTION }},DATABASE_URL_PRODUCTION=${{ secrets.DATABASE_URL_PRODUCTION }},CLOUD_SQL_INSTANCE_CONNECTION_NAME=${{ secrets.CLOUD_SQL_INSTANCE_CONNECTION_NAME }},NEXT_PUBLIC_APP_URL=${{ secrets.NEXT_PUBLIC_APP_URL }},NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}"
 
       - name: Show deployment URL
         run: |

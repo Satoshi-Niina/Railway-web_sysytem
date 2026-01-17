@@ -19,22 +19,22 @@ export function getPool() {
         const path = require('path');
         const dotenv = require('dotenv');
         
-        // clientディレクトリから見て一つ上のルートにある.env.developmentを探す
-        const rootPath = process.cwd();
-        const envPath = path.join(rootPath, '../.env.development');
+        // プロジェクトルートの.env.developmentを探す
+        // Next.jsのビルド時はclient/がカレントディレクトリ
+        const possiblePaths = [
+          path.resolve(process.cwd(), '../.env.development'),  // clientから一つ上
+          path.resolve(process.cwd(), '.env.development'),    // ルートディレクトリ
+        ];
         
-        if (fs.existsSync(envPath)) {
-          console.log("✅ Loading environment variables from:", envPath)
-          dotenv.config({ path: envPath });
-        } else {
-          // もしcwdがすでにルートだった場合の考慮
-          const envPathRoot = path.join(rootPath, '.env.development');
-          if (fs.existsSync(envPathRoot)) {
-            dotenv.config({ path: envPathRoot });
+        for (const envPath of possiblePaths) {
+          if (fs.existsSync(envPath)) {
+            console.log("✅ Loading environment variables from:", envPath);
+            dotenv.config({ path: envPath });
+            break;
           }
         }
       } catch (e) {
-        console.error("⚠️ Failed to load root .env.development:", e)
+        console.error("⚠️ Failed to load .env.development:", e)
       }
     }
 

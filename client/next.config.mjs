@@ -1,8 +1,16 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// ローカル開発環境ではルートの.env.developmentを読み込む
+if (process.env.NODE_ENV !== 'production') {
+  const rootEnvPath = path.resolve(__dirname, '../.env.development');
+  dotenv.config({ path: rootEnvPath });
+  console.log('✅ Loaded environment variables from:', rootEnvPath);
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
