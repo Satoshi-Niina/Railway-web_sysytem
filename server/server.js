@@ -15,6 +15,7 @@ import officesRoutes from './routes/offices.js';
 import machineTypesRoutes from './routes/machine-types.js';
 import machinesRoutes from './routes/machines.js';
 import maintenanceSchedulesRoutes from './routes/maintenance-schedules.js';
+import maintenanceBaseDatesRoutes from './routes/maintenance-base-dates.js';
 import authRoutes from './routes/auth.js';
 
 // ESMで__dirnameを取得
@@ -80,6 +81,7 @@ app.use('/api/offices', officesRoutes);
 app.use('/api/machine-types', machineTypesRoutes);
 app.use('/api/machines', machinesRoutes);
 app.use('/api/maintenance-schedules', maintenanceSchedulesRoutes);
+app.use('/api/maintenance-base-dates', maintenanceBaseDatesRoutes);
 
 // 簡単なテスト用ルート
 app.get('/api/health', (req, res) => {
