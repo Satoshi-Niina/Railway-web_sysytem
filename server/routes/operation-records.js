@@ -21,8 +21,9 @@ router.get('/maintenance-history', async (req, res) => {
         i.completion_date,
         i.notes
       FROM inspections.inspections i
-      LEFT JOIN master_data.vehicles v ON i.vehicle_id = v.id
-      LEFT JOIN master_data.machine_types mt ON v.machine_type_id = mt.id
+      LEFT JOIN master_data.vehicles v ON i.vehicle_id = v.vehicle_id
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
       WHERE i.status = 'completed'
     `;
     
@@ -33,11 +34,11 @@ router.get('/maintenance-history', async (req, res) => {
     }
     if (machine_type_id && machine_type_id !== 'all') {
       params.push(machine_type_id);
-      query += ` AND v.machine_type_id = $${params.length}`;
+      query += ` AND mt.id = $${params.length}`;
     }
     if (machine_number && machine_number !== 'all') {
       params.push(machine_number);
-      query += ` AND v.machine_number = $${params.length}`;
+      query += ` AND v.registration_number = $${params.length}`;
     }
     
     query += ` ORDER BY i.completion_date DESC LIMIT 50`;

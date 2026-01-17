@@ -8,16 +8,18 @@ export const getVehicleInspectionSchedules = async (req, res) => {
     let query = `
       SELECT 
         vis.*,
-        v.vehicle_type,
-        v.machine_number,
-        v.model,
+        mt.type_code as vehicle_type,
+        v.registration_number as machine_number,
+        mt.model_name as model,
         it.type_name,
         it.category as inspection_category,
         mo.office_name
       FROM master_data.vehicle_inspection_schedules vis
-      JOIN master_data.vehicles v ON vis.vehicle_id = v.id
+      JOIN master_data.vehicles v ON vis.vehicle_id = v.vehicle_id
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
       JOIN master_data.inspection_types it ON vis.inspection_type_id = it.id
-      LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
+      LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
       WHERE 1=1
     `;
     
@@ -58,16 +60,18 @@ export const getVehicleInspectionSchedule = async (req, res) => {
     const result = await pool.query(
       `SELECT 
         vis.*,
-        v.vehicle_type,
-        v.machine_number,
-        v.model,
+        mt.type_code as vehicle_type,
+        v.registration_number as machine_number,
+        mt.model_name as model,
         it.type_name,
         it.category as inspection_category,
         mo.office_name
       FROM master_data.vehicle_inspection_schedules vis
-      JOIN master_data.vehicles v ON vis.vehicle_id = v.id
+      JOIN master_data.vehicles v ON vis.vehicle_id = v.vehicle_id
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
       JOIN master_data.inspection_types it ON vis.inspection_type_id = it.id
-      LEFT JOIN master_data.management_offices mo ON v.management_office_id = mo.id
+      LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
       WHERE vis.id = $1`,
       [id]
     );

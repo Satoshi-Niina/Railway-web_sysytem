@@ -16,11 +16,13 @@ export const getInspections = async (req, res) => {
         ip.notes,
         ip.created_at,
         ip.updated_at,
-        v.vehicle_type,
-        v.machine_number,
+        mt.type_code as vehicle_type,
+        v.registration_number as machine_number,
         v.office_id as management_office_id
       FROM inspections.inspection_plans ip
-      LEFT JOIN master_data.vehicles v ON ip.vehicle_id = v.id
+      LEFT JOIN master_data.vehicles v ON ip.vehicle_id = v.vehicle_id
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
     `;
     
     const queryParams = [];
