@@ -8,11 +8,13 @@ router.get('/', async (req, res) => {
   try {
     const query = `
       SELECT 
-        v.*,
+        v.vehicle_id,
         v.registration_number as machine_number,
         v.registration_number as vehicle_number,
+        v.status,
+        v.notes,
+        v.office_id as management_office_id,
         mo.office_name,
-        mo.office_id as management_office_id,
         b.base_name,
         mt.type_code as vehicle_type,
         mt.type_name as machine_type_name,
@@ -29,17 +31,6 @@ router.get('/', async (req, res) => {
     `;
     
     const result = await db.query(query);
-    console.log('=== Vehicles Query Result (first 3) ===');
-    result.rows.slice(0, 3).forEach((row, idx) => {
-      console.log(`Row ${idx}:`, {
-        vehicle_id: row.vehicle_id,
-        vehicle_number: row.vehicle_number,
-        vehicle_type: row.vehicle_type,
-        machine_number: row.machine_number,
-        machine_type_name: row.machine_type_name,
-        category: row.category
-      });
-    });
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching vehicles:', error);
@@ -85,28 +76,26 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { 
-      vehicle_number, 
-      vehicle_type_id, 
+      registration_number, 
+      machine_id, 
       office_id, 
-      base_id, 
-      introduction_date, 
-      status 
+      status,
+      notes
     } = req.body;
     
     const query = `
       INSERT INTO master_data.vehicles 
-        (vehicle_number, vehicle_type_id, office_id, base_id, introduction_date, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
+        (registration_number, machine_id, office_id, status, notes)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `;
     
     const result = await db.query(query, [
-      vehicle_number, 
-      vehicle_type_id, 
+      registration_number, 
+      machine_id, 
       office_id, 
-      base_id, 
-      introduction_date, 
-      status || '運用中'
+      status || '運用中',
+      notes
     ]);
     
     res.status(201).json(result.rows[0]);
@@ -121,34 +110,31 @@ router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      vehicle_number, 
-      vehicle_type_id, 
+      registration_number, 
+      machine_id, 
       office_id, 
-      base_id, 
-      introduction_date, 
-      status 
+      status,
+      notes
     } = req.body;
     
     const query = `
       UPDATE master_data.vehicles 
-      SET vehicle_number = $1, 
-          vehicle_type_id = $2, 
+      SET registration_number = $1, 
+          machine_id = $2, 
           office_id = $3, 
-          base_id = $4, 
-          introduction_date = $5, 
-          status = $6,
+          status = $4,
+          notes = $5,
           updated_at = CURRENT_TIMESTAMP
-      WHERE vehicle_id = $7
+      WHERE vehicle_id = $6
       RETURNING *
     `;
     
     const result = await db.query(query, [
-      vehicle_number, 
-      vehicle_type_id, 
+      registration_number, 
+      machine_id, 
       office_id, 
-      base_id, 
-      introduction_date, 
       status,
+      notes,
       id
     ]);
     
