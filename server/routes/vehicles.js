@@ -9,9 +9,7 @@ router.get('/', async (req, res) => {
     const query = `
       SELECT 
         v.*,
-        vt.type_name,
-        vt.max_speed,
-        vt.passenger_capacity,
+        v.registration_number as vehicle_number,
         mo.office_name,
         b.base_name,
         mt.type_code as vehicle_type,
@@ -20,12 +18,11 @@ router.get('/', async (req, res) => {
         m.machine_number,
         m.id as machine_id
       FROM master_data.vehicles v
-      LEFT JOIN master_data.vehicle_types vt ON v.vehicle_type_id = vt.type_id
-      LEFT JOIN master_data.machines m ON v.vehicle_number::text = m.machine_number OR v.vehicle_id::text = m.serial_number
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
       LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
-      LEFT JOIN master_data.bases b ON v.base_id = b.base_id
-      ORDER BY v.vehicle_number
+      LEFT JOIN master_data.bases b ON m.assigned_base_id = b.base_id
+      ORDER BY v.registration_number
     `;
     
     const result = await db.query(query);
@@ -55,15 +52,16 @@ router.get('/:id', async (req, res) => {
     const query = `
       SELECT 
         v.*,
-        vt.type_name,
-        vt.max_speed,
-        vt.passenger_capacity,
+        v.registration_number as vehicle_number,
         mo.office_name,
-        b.base_name
+        b.base_name,
+        mt.type_name,
+        mt.model_name
       FROM master_data.vehicles v
-      LEFT JOIN master_data.vehicle_types vt ON v.vehicle_type_id = vt.type_id
+      LEFT JOIN master_data.machines m ON v.machine_id = m.id
+      LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
       LEFT JOIN master_data.management_offices mo ON v.office_id = mo.office_id
-      LEFT JOIN master_data.bases b ON v.base_id = b.base_id
+      LEFT JOIN master_data.bases b ON m.assigned_base_id = b.base_id
       WHERE v.vehicle_id = $1
     `;
     
