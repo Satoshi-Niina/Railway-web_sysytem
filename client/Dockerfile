@@ -1,17 +1,18 @@
 ﻿FROM node:20 AS builder
 WORKDIR /app
 
-# キャッシュバスティング用
+# キャッシュを破壊して常に最新をビルド
 ARG BUILD_ID=unknown
-RUN echo "FORCE REBUILD ID: $BUILD_ID"
+RUN echo "REBUILD FORCE: $BUILD_ID"
 
 RUN corepack enable && corepack prepare pnpm@9.15.3 --activate
-
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --no-frozen-lockfile
 
+# 全ソースをコピー（文法エラーのない最新版）
 COPY . .
 
+# ビルド時に環境変数を注入
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_DASHBOARD_URL
@@ -24,20 +25,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN pnpm build
 
-FROM node:20-slim AS runner
+FROM node:20 AS runner
 WORKDIR /app
+
+# すべての成果物をコピー
+COPY --from=builder /app ./
 
 ENV NODE_ENV=production
 ENV PORT=8080
-ENV HOSTNAME="0.0.0.0"
 
-# standalone モードの成果物のみをコピー（軽量・安定）
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-
-# Cloud Run は 8080 ポートを期待する
+# Cloud Run が 8080 を期待するため、明示的に指定して起動
 EXPOSE 8080
-
-# standaloneモードでは server.js を直接 node で起動するのが最も安定する
-CMD ["node", "server.js"]
+CMD ["npx", "next", "start", "-p", "8080", "-H", "0.0.0.0"]
