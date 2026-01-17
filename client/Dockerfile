@@ -23,13 +23,27 @@ RUN pnpm install --no-frozen-lockfile
 # ソースコードをコピー
 COPY . .
 
-# 【重要】Windows側のエンコーディング問題を完全に解消するため、Docker内で全ファイルのBOMを強制除去
-RUN find . -type f -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" | xargs sed -i '1s/^\xef\xbb\xbf//'
-
+# 【抜本的解決】Windows側のBOMや文字コード問題をNode.jsスクリプトで完全に洗浄
+RUN node -e "\
+const fs = require('fs'); \
+const path = require('path'); \
+const walk = (dir) => { \
+  fs.readdirSync(dir).forEach(f => { \
+    const p = path.join(dir, f); \
+    if (fs.statSync(p).isDirectory()) { \
+      if (!['node_modules', '.next', '.git'].includes(f)) walk(p); \
+    } else if (['.ts', '.tsx', '.js', '.jsx', '.json', '.mjs'].includes(path.extname(p))) { \
+      const b = fs.readFileSync(p); \
+      if (b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) { \
+        console.log('✂️ Stripped BOM from:', p); \
+        fs.writeFileSync(p, b.slice(3)); \
+      } \
+    } \
+  }); \
+}; \
+walk('.');"
 
 # 環境変数（GitHub ActionsとRailway両対応）
-# ARG: GitHub Actionsのビルド時に渡される
-# ENV: Railwayの実行時に渡される
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_DASHBOARD_URL
@@ -39,17 +53,13 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_PUBLIC_DASHBOARD_URL=${NEXT_PUBLIC_DASHBOARD_URL}
 ENV NEXT_PUBLIC_ENABLE_AUTH=${NEXT_PUBLIC_ENABLE_AUTH}
 
-# ビルド時の環境変数
+# ビルド設定
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_OPTIONS="--max-old-space-size=2048"
-# ビルド時のコード参照エラーを防ぐためのダミー値
-ENV DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
 
-# Next.jsアプリをビルド
-# キャッシュバスティング情報を表示
-RUN echo "Cache bust: ${CACHE_BUST}" && \
-    echo "Build timestamp: ${BUILD_TIMESTAMP}" && \
-    pnpm build
+# ビルド実行
+RUN pnpm build
+
 
 # 本番ステージ
 FROM node:20 AS runner
