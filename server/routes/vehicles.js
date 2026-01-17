@@ -9,13 +9,16 @@ router.get('/', async (req, res) => {
     const query = `
       SELECT 
         v.*,
+        v.registration_number as machine_number,
         v.registration_number as vehicle_number,
         mo.office_name,
+        mo.office_id as management_office_id,
         b.base_name,
         mt.type_code as vehicle_type,
         mt.type_name as machine_type_name,
+        mt.model_name as model_name,
         mt.category,
-        m.machine_number,
+        m.machine_number as master_machine_number,
         m.id as machine_id
       FROM master_data.vehicles v
       LEFT JOIN master_data.machines m ON v.machine_id = m.id

@@ -5,14 +5,18 @@ export async function GET() {
   try {
     const query = `
       SELECT 
-        v.*,
+        v.vehicle_id as id,
+        v.registration_number as machine_number,
         v.registration_number as vehicle_number,
         COALESCE(mo.office_name, '未設定') as office_name,
+        mo.office_id as management_office_id,
         COALESCE(b.base_name, '未設定') as base_name,
         mt.type_code as vehicle_type,
         mt.type_name as machine_type_name,
+        mt.model_name as model_name,
         mt.category,
-        m.machine_number
+        v.status,
+        v.notes
       FROM master_data.vehicles v
       LEFT JOIN master_data.machines m ON v.machine_id = m.id
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id

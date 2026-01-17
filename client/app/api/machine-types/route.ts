@@ -4,7 +4,13 @@ import { executeQuery } from "@/lib/database";
 export async function GET() {
   try {
     const machineTypes = await executeQuery(`
-      SELECT id, type_name, type_code, model_name, category
+      SELECT 
+        id, 
+        type_name, 
+        type_code, 
+        model_name, 
+        model_name as vehicle_type,
+        category
       FROM master_data.machine_types
       ORDER BY type_name
     `);
