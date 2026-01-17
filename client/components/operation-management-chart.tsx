@@ -418,12 +418,18 @@ export function OperationManagementChart() {
           
           recordsData = recordsData.map(record => {
             const mappedVehicleId = machineToVehicleMap.get(String(record.vehicle_id))
-            if (mappedVehicleId !== undefined) {
-              return { ...record, vehicle_id: mappedVehicleId }
+            // operation_date を record_date にもコピー（DBカラム名とフロントエンド型の互換性）
+            const mappedRecord = {
+              ...record,
+              record_date: record.operation_date || record.record_date,
+              id: record.record_id || record.id
             }
-            return record
+            if (mappedVehicleId !== undefined) {
+              return { ...mappedRecord, vehicle_id: mappedVehicleId }
+            }
+            return mappedRecord
           })
-          console.log(`[運用実績] vehicle_idマッピング完了: ${recordsData.length}件`)
+          console.log(`[運用実績] vehicle_id/record_dateマッピング完了: ${recordsData.length}件`)
         }
         
         // デバッグ: 2月の実績をログ出力
