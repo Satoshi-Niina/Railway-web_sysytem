@@ -825,8 +825,10 @@ export function OperationManagementChart() {
       
       const recordData = {
         vehicle_id: machineIdForDb, // machine_id (UUID) を送信
-        record_date: recordForm.record_date,
+        operation_date: recordForm.record_date,
         shift_type: recordForm.shift_type,
+        start_time: recordForm.start_time, // Plan times might be needed as well based on API schema
+        end_time: recordForm.end_time,     // Plan times might be needed as well based on API schema
         actual_start_time: recordForm.start_time,
         actual_end_time: recordForm.end_time,
         actual_distance: recordForm.actual_distance,
