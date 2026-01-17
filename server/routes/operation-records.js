@@ -15,13 +15,13 @@ router.get('/maintenance-history', async (req, res) => {
       SELECT 
         i.id,
         i.vehicle_id,
-        v.machine_number,
+        v.registration_number as machine_number,
         mt.model_name as machine_type,
         i.inspection_type,
         i.completion_date,
         i.notes
       FROM inspections.inspections i
-      LEFT JOIN master_data.vehicles v ON i.vehicle_id = v.vehicle_id
+      LEFT JOIN master_data.vehicles v ON i.vehicle_id = v.vehicle_id::text
       LEFT JOIN master_data.machines m ON v.machine_id = m.id
       LEFT JOIN master_data.machine_types mt ON m.machine_type_id = mt.id
       WHERE i.status = 'completed'
