@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       const data = await executeQuery(query, params)
       return NextResponse.json(data)
     } else {
-      // モチE��チE�Eタ�E�データベ�Eスが設定されてぁE��ぁE��合！E      const mockData = month ? [
+      // モチE��チE�Eタ�E�データベ�Eスが設定されてぁE��ぁE��合！E      const mockData = month ? [
         {
           id: 1,
           vehicle_id: 1,
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
           inspection_type: "乙B検査",
           planned_date: `${month}-15`,
           status: "planned",
-          notes: "検修周期に基づく�E動生戁E M001の乙B検査",
+          notes: "検修周期に基づく�E動生戁E M001の乙B検査",
           machine_number: "M001",
           vehicle_type: "モータカー",
           manufacturer: "メーカーA",
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
           inspection_type: "定椁E,
           planned_date: `${month}-20`,
           status: "planned",
-          notes: "検修周期に基づく�E動生戁E M002の定椁E,
+          notes: "検修周期に基づく�E動生戁E M002の定椁E,
           machine_number: "M002",
           vehicle_type: "モータカー",
           manufacturer: "メーカーA",
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
       const dbType = getDatabaseType()
 
       if (dbType === "postgresql") {
-        // PostgreSQLの関数を呼び出して検修計画を�E動生戁E        const result = await executeQuery(
+        // PostgreSQLの関数を呼び出して検修計画を�E動生戁E        const result = await executeQuery(
           "SELECT generate_monthly_maintenance_plans($1) as generated_count",
           [target_month]
         )
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
         const generatedCount = result[0]?.generated_count || 0
         return NextResponse.json({ generated_count: generatedCount }, { status: 201 })
       } else {
-        // モチE��チE�Eタ生�E
+        // モチE��チE�Eタ生�E
         return NextResponse.json({ generated_count: 2 }, { status: 201 })
       }
     }

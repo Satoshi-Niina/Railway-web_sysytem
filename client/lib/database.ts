@@ -12,14 +12,14 @@ export function resetPool() {
 
 export function getPool() {
   if (!pool) {
-    // サーバ�Eサイドでのみ環墁E��数を�E読み込み
+    // サーバ�Eサイドでのみ環墁E��数を�E読み込み
     if (!process.env.DATABASE_URL) {
       try {
         const fs = require('fs');
         const path = require('path');
         const dotenv = require('dotenv');
         
-        // プロジェクトルート�E.env.developmentを探ぁE        // Next.jsのビルド時はclient/がカレントディレクトリ
+        // プロジェクトルート�E.env.developmentを探ぁE        // Next.jsのビルド時はclient/がカレントディレクトリ
         const possiblePaths = [
           path.resolve(process.cwd(), '../.env.development'),  // clientから一つ丁E          path.resolve(process.cwd(), '.env.development'),    // ルートディレクトリ
         ];
@@ -32,7 +32,7 @@ export function getPool() {
           }
         }
       } catch (e) {
-        console.error("⚠�E�EFailed to load .env.development:", e)
+        console.error("⚠�E�EFailed to load .env.development:", e)
       }
     }
 
@@ -69,12 +69,12 @@ export function getPool() {
           await client.query('SET search_path TO master_data, operations, inspections, maintenance, public')
           console.log('✁Esearch_path set to: master_data, operations, inspections, maintenance, public')
         } catch (err) {
-          console.error('⚠�E�EFailed to set search_path:', err)
+          console.error('⚠�E�EFailed to set search_path:', err)
         }
       })
 
       pool.on('remove', () => {
-        console.log('⚠�E�EDatabase connection removed from pool')
+        console.log('⚠�E�EDatabase connection removed from pool')
       })
 
       console.log("✁EDatabase pool created successfully")
@@ -108,12 +108,12 @@ export async function query(text: string, params?: any[]) {
     } catch (error: any) {
       console.error(`Database query error (attempt ${retryCount + 1}/${maxRetries + 1}):`, error)
       
-      // 接続エラーの場合、�EールをリセチE��して再接続を試みめE      if (retryCount < maxRetries && (error.code === 'ECONNRESET' || error.code === '57P01' || error.message?.includes('Client has encountered a connection error'))) {
+      // 接続エラーの場合、�EールをリセチE��して再接続を試みめE      if (retryCount < maxRetries && (error.code === 'ECONNRESET' || error.code === '57P01' || error.message?.includes('Client has encountered a connection error'))) {
         console.log("Connection error detected, resetting pool and retrying...")
         resetPool()
         pool = getPool()
         retryCount++
-        await new Promise(resolve => setTimeout(resolve, 1000)) // 1秒征E��E        continue
+        await new Promise(resolve => setTimeout(resolve, 1000)) // 1秒征E��E        continue
       }
       
       console.error("Query:", text)
@@ -151,7 +151,7 @@ export async function transaction(callback: (client: any) => Promise<any>) {
   }
 }
 
-// チE�Eタベ�Eス接続テスチEexport async function testConnection() {
+// チE�Eタベ�Eス接続テスチEexport async function testConnection() {
   try {
     const result = await query("SELECT NOW()")
     console.log("Database connection successful:", result.rows[0])
@@ -162,7 +162,7 @@ export async function transaction(callback: (client: any) => Promise<any>) {
   }
 }
 
-// 接続�Eールの状態を取征Eexport function getPoolStatus() {
+// 接続�Eールの状態を取征Eexport function getPoolStatus() {
   if (!pool) return null
   return {
     totalCount: pool.totalCount,
@@ -171,7 +171,7 @@ export async function transaction(callback: (client: any) => Promise<any>) {
   }
 }
 
-// チE�Eタベ�Eスタイプを取征Eexport function getDatabaseType(): string {
+// チE�Eタベ�Eスタイプを取征Eexport function getDatabaseType(): string {
   const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
   if (databaseUrl && databaseUrl.startsWith('postgresql://')) {
     return "postgresql"
@@ -179,7 +179,7 @@ export async function transaction(callback: (client: any) => Promise<any>) {
   return "mock"
 }
 
-// チE�Eタベ�Eス惁E��を取得（実測値�E�Eexport async function getDatabaseInfo() {
+// チE�Eタベ�Eス惁E��を取得（実測値�E�Eexport async function getDatabaseInfo() {
   try {
     const pool = getPool()
     
@@ -187,14 +187,14 @@ export async function transaction(callback: (client: any) => Promise<any>) {
       return null
     }
     
-    // PostgreSQLバ�Eジョン
+    // PostgreSQLバ�Eジョン
     const versionResult = await query("SELECT version()")
     
-    // チE�Eタベ�Eスサイズ�E�実測�E�E    const sizeResult = await query(`
+    // チE�Eタベ�Eスサイズ�E�実測�E�E    const sizeResult = await query(`
       SELECT pg_database_size(current_database()) as size
     `)
     
-    // チE�Eブルサイズの詳細�E�実測�E�E    const tableSizeResult = await query(`
+    // チE�Eブルサイズの詳細�E�実測�E�E    const tableSizeResult = await query(`
       SELECT 
         schemaname,
         tablename,
@@ -206,15 +206,15 @@ export async function transaction(callback: (client: any) => Promise<any>) {
       LIMIT 10
     `)
     
-    // 接続数�E�実測�E�E    const connectionsResult = await query(`
+    // 接続数�E�実測�E�E    const connectionsResult = await query(`
       SELECT count(*) as count FROM pg_stat_activity
     `)
     
-    // アチE�Eタイム�E�実測�E�E    const uptimeResult = await query(`
+    // アチE�Eタイム�E�実測�E�E    const uptimeResult = await query(`
       SELECT EXTRACT(EPOCH FROM (now() - pg_postmaster_start_time())) as uptime
     `)
     
-    // チE��スク使用玁E��実測 - チE�EタチE��レクトリのサイズ�E�E    const diskUsageResult = await query(`
+    // チE��スク使用玁E��実測 - チE�EタチE��レクトリのサイズ�E�E    const diskUsageResult = await query(`
       SELECT 
         pg_database_size(current_database()) as used,
         (SELECT setting::bigint FROM pg_settings WHERE name = 'shared_buffers') * 
@@ -228,11 +228,11 @@ export async function transaction(callback: (client: any) => Promise<any>) {
     const diskUsed = parseInt(diskUsageResult.rows[0]?.used || 0)
     const diskAllocated = parseInt(diskUsageResult.rows[0]?.allocated || 0)
     
-    // バ�Eジョン斁E���EからPostgreSQLバ�Eジョン番号を抽出
+    // バ�Eジョン斁E���EからPostgreSQLバ�Eジョン番号を抽出
     const versionMatch = version.match(/PostgreSQL (\d+\.\d+)/)
     const postgresVersion = versionMatch ? `PostgreSQL ${versionMatch[1]}` : "PostgreSQL"
     
-    // アチE�EタイムをフォーマッチE    const days = Math.floor(uptimeSeconds / 86400)
+    // アチE�EタイムをフォーマッチE    const days = Math.floor(uptimeSeconds / 86400)
     const hours = Math.floor((uptimeSeconds % 86400) / 3600)
     const minutes = Math.floor((uptimeSeconds % 3600) / 60)
     const uptime = `${days}日 ${hours}時間 ${minutes}刁E
@@ -242,7 +242,7 @@ export async function transaction(callback: (client: any) => Promise<any>) {
     const sizeMB = (sizeBytes / (1024 * 1024))
     const sizeFormatted = sizeGB >= 1 ? `${sizeGB.toFixed(2)} GB` : `${sizeMB.toFixed(2)} MB`
     
-    // チE��スク使用玁E��計箁E    const diskUsagePercent = diskAllocated > 0 ? 
+    // チE��スク使用玁E��計箁E    const diskUsagePercent = diskAllocated > 0 ? 
       Math.min(100, ((diskUsed / diskAllocated) * 100)) : 0
     
     return {
@@ -265,7 +265,7 @@ export async function transaction(callback: (client: any) => Promise<any>) {
   }
 }
 
-// app_resource_routingのキャチE��ュ
+// app_resource_routingのキャチE��ュ
 interface ResourceRouting {
   logical_resource_name: string
   physical_schema: string
@@ -275,16 +275,16 @@ interface ResourceRouting {
 let resourceRoutingCache: Map<string, ResourceRouting> | null = null
 let routingCacheLoadTime: number | null = null
 const CACHE_TTL = 60000 // 60私E
-// app_resource_routingからルーチE��ング惁E��を読み込み
+// app_resource_routingからルーチE��ング惁E��を読み込み
 async function loadResourceRouting(): Promise<void> {
   try {
     const pool = getPool()
     if (!pool) {
-      console.warn('⚠�E�EDatabase pool not available, using fallback routing')
+      console.warn('⚠�E�EDatabase pool not available, using fallback routing')
       return
     }
 
-    // キャチE��ュが有効な場合�EスキチE�E
+    // キャチE��ュが有効な場合�EスキチE�E
     const now = Date.now()
     if (resourceRoutingCache && routingCacheLoadTime && (now - routingCacheLoadTime) < CACHE_TTL) {
       return
@@ -308,15 +308,15 @@ async function loadResourceRouting(): Promise<void> {
     console.log(`✁ELoaded ${resourceRoutingCache.size} resource routes`)
   } catch (error) {
     console.error('❁EFailed to load resource routing:', error)
-    // エラーの場合�Eフォールバックマッピングを使用
+    // エラーの場合�Eフォールバックマッピングを使用
   }
 }
 
-// リソース名からスキーマとチE�Eブルを解決
+// リソース名からスキーマとチE�Eブルを解決
 export async function resolveResource(logicalResourceName: string): Promise<{ schema: string; table: string }> {
-  // ルーチE��ング惁E��を読み込み�E��E回また�EキャチE��ュ期限刁E��の場合！E  await loadResourceRouting()
+  // ルーチE��ング惁E��を読み込み�E��E回また�EキャチE��ュ期限刁E��の場合！E  await loadResourceRouting()
   
-  // キャチE��ュから検索
+  // キャチE��ュから検索
   if (resourceRoutingCache?.has(logicalResourceName)) {
     const routing = resourceRoutingCache.get(logicalResourceName)!
     return {
@@ -325,17 +325,17 @@ export async function resolveResource(logicalResourceName: string): Promise<{ sc
     }
   }
   
-  // フォールバック: ハ�Eドコードされたマッピング
+  // フォールバック: ハ�Eドコードされたマッピング
   return getSchemaForTableFallback(logicalResourceName)
 }
 
-// フォールバック用のチE�Eブル名からスキーマを自動判宁Efunction getSchemaForTableFallback(tableName: string): { schema: string; table: string } {
+// フォールバック用のチE�Eブル名からスキーマを自動判宁Efunction getSchemaForTableFallback(tableName: string): { schema: string; table: string } {
   const tableSchemaMap: Record<string, string> = {
     // master_data スキーチE    'managements_offices': 'master_data',
     'managements_offices': 'master_data',
     'bases': 'master_data',
     'machine_types': 'master_data',
-    'machine-types': 'master_data', // ハイフン形式もサポ�EチE    'machines': 'master_data',
+    'machine-types': 'master_data', // ハイフン形式もサポ�EチE    'machines': 'master_data',
     'vehicles': 'master_data',
     'vehicle_types': 'master_data',
     'inspection_types': 'master_data',
@@ -360,31 +360,31 @@ export async function resolveResource(logicalResourceName: string): Promise<{ sc
     'monthly_maintenance_plans': 'maintenance',
   }
   
-  // チE�Eブル名エイリアス�E�実際のDBチE�Eブル名への変換�E�E  const tableNameAlias: Record<string, string> = {
+  // チE�Eブル名エイリアス�E�実際のDBチE�Eブル名への変換�E�E  const tableNameAlias: Record<string, string> = {
     'managements_offices': 'managements_offices',
   }
   
   const actualTableName = tableNameAlias[tableName] || tableName
   const schema = tableSchemaMap[tableName] || tableSchemaMap[actualTableName] || 'public'
-  // チE�Eブル名�Eハイフンをアンダースコアに変換
+  // チE�Eブル名�Eハイフンをアンダースコアに変換
   const physicalTable = actualTableName.replace(/-/g, '_')
   
   return { schema, table: physicalTable }
 }
 
-// チE�Eブル名からスキーマを自動判定（後方互換性のため残す�E�Efunction getSchemaForTable(tableName: string): string {
+// チE�Eブル名からスキーマを自動判定（後方互換性のため残す�E�Efunction getSchemaForTable(tableName: string): string {
   const { schema } = getSchemaForTableFallback(tableName)
   return schema
 }
 
-// SQLクエリにスキーマ�EレフィチE��スを�E動追加
+// SQLクエリにスキーマ�EレフィチE��スを�E動追加
 function addSchemaPrefix(sql: string): string {
-  // すでにスキーマ�EレフィチE��スがある場合�Eそ�Eまま返す
+  // すでにスキーマ�EレフィチE��スがある場合�Eそ�Eまま返す
   if (sql.match(/\b(master_data|operations|inspections|maintenance|public|information_schema)\./) ) {
     return sql
   }
   
-  // チE�Eブル名を検�Eしてスキーマ�EレフィチE��スを追加
+  // チE�Eブル名を検�Eしてスキーマ�EレフィチE��スを追加
   const tablePattern = /\b(FROM|JOIN|INTO|UPDATE|TABLE)\s+([a-z_]+)/gi
   const modifiedSql = sql.replace(tablePattern, (match, keyword, tableName) => {
     const schema = getSchemaForTable(tableName.toLowerCase())
@@ -397,11 +397,11 @@ function addSchemaPrefix(sql: string): string {
 // 汎用クエリ実行関数
 export async function executeQuery(sql: string, params: any[] = []): Promise<any> {
   try {
-    // スキーマ�EレフィチE��スを�E動追加
+    // スキーマ�EレフィチE��スを�E動追加
     const modifiedSql = addSchemaPrefix(sql)
     console.log("Executing query:", modifiedSql, "with params:", params)
     
-    // プ�Eルが�E期化されてぁE��か確誁E    const pool = getPool()
+    // プ�Eルが�E期化されてぁE��か確誁E    const pool = getPool()
     if (!pool) {
       console.error("❁EDatabase pool is null!")
       throw new Error("Database connection is not available")
@@ -421,13 +421,13 @@ export async function executeQuery(sql: string, params: any[] = []): Promise<any
   }
 }
 
-// Supabaseクライアント�E取得！EostgreSQLを使用する場合！Eexport function getSupabaseClient() {
-  // チE�Eタベ�Eスが設定されてぁE��ぁE��合�Enullを返す
+// Supabaseクライアント�E取得！EostgreSQLを使用する場合！Eexport function getSupabaseClient() {
+  // チE�Eタベ�Eスが設定されてぁE��ぁE��合�Enullを返す
   const databaseUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
   if (!databaseUrl) {
     return null
   }
   
-  // こ�EプロジェクトではPostgreSQLを直接使用してぁE��ため、E  // Supabaseクライアント�E代わりにPostgreSQLプ�Eルを返す
+  // こ�EプロジェクトではPostgreSQLを直接使用してぁE��ため、E  // Supabaseクライアント�E代わりにPostgreSQLプ�Eルを返す
   return getPool()
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { executeQuery, getDatabaseType } from "@/lib/database"
 
-// 基地コード生成関数�E�基地名�E頭2斁E��をローマ字に変換�E�Efunction generateBaseCode(baseName: string): string {
+// 基地コード生成関数�E�基地名�E頭2斁E��をローマ字に変換�E�Efunction generateBaseCode(baseName: string): string {
   const romajiMap: { [key: string]: string } = {
     'ぁE: 'A', 'ぁE: 'I', 'ぁE: 'U', 'ぁE: 'E', 'ぁE: 'O',
     'ぁE: 'KA', 'ぁE: 'KI', 'ぁE: 'KU', 'ぁE: 'KE', 'ぁE: 'KO',
@@ -36,7 +36,7 @@ import { executeQuery, getDatabaseType } from "@/lib/database"
   let result = ''
   let i = 0
   while (i < baseName.length && result.length < 2) {
-    // 2斁E���E絁E��合わせを先にチェチE��
+    // 2斁E���E絁E��合わせを先にチェチE��
     if (i < baseName.length - 1) {
       const twoChar = baseName.substring(i, i + 2)
       if (romajiMap[twoChar]) {
@@ -46,7 +46,7 @@ import { executeQuery, getDatabaseType } from "@/lib/database"
       }
     }
     
-    // 1斁E��ずつチェチE��
+    // 1斁E��ずつチェチE��
     const char = baseName[i]
     if (romajiMap[char]) {
       result += romajiMap[char]
@@ -58,11 +58,11 @@ import { executeQuery, getDatabaseType } from "@/lib/database"
     i++
   }
   
-  // 結果ぁE斁E��未満の場合�E0で埋めめE  while (result.length < 2) {
+  // 結果ぁE斁E��未満の場合�E0で埋めめE  while (result.length < 2) {
     result += '0'
   }
   
-  // 最初�E2斁E��を取得し、ランダムな2桁�E数字を追加
+  // 最初�E2斁E��を取得し、ランダムな2桁�E数字を追加
   const prefix = result.substring(0, 2)
   const randomNum = Math.floor(Math.random() * 100) + 1
   return `${prefix}${String(randomNum).padStart(2, '0')}`
@@ -88,20 +88,20 @@ export async function GET() {
       } catch (error) {
         console.error("Database query failed:", error)
         return NextResponse.json(
-          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
+          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
           { status: 500 }
         )
       }
     } else {
       return NextResponse.json(
-        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
+        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
         { status: 500 }
       )
     }
   } catch (error) {
     console.error("Unexpected error in GET /api/maintenance-bases:", error)
     return NextResponse.json(
-      { error: "サーバ�Eエラーが発生しました" },
+      { error: "サーバ�Eエラーが発生しました" },
       { status: 500 }
     )
   }
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
   try {
     console.log("POST /api/maintenance-bases called")
     
-    // 環墁E��数の確誁E    console.log("Environment variables check:")
+    // 環墁E��数の確誁E    console.log("Environment variables check:")
     console.log("NEXT_PUBLIC_SUPABASE_URL:", !!process.env.NEXT_PUBLIC_SUPABASE_URL)
     console.log("SUPABASE_SERVICE_ROLE_KEY:", !!process.env.SUPABASE_SERVICE_ROLE_KEY)
     console.log("NEXT_PUBLIC_SUPABASE_ANON_KEY:", !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
@@ -119,11 +119,11 @@ export async function POST(request: Request) {
     const body = await request.json()
     console.log("Request body:", body)
 
-    // バリチE�Eション
+    // バリチE�Eション
     if (!body.base_name || !body.management_office_id) {
       console.error("Validation failed: missing required fields")
       return NextResponse.json(
-        { error: "基地名と管琁E��業所は忁E��でぁE },
+        { error: "基地名と管琁E��業所は忁E��でぁE },
         { status: 400 }
       )
     }
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
 
     if (dbType === "postgresql") {
       try {
-        // base_codeを�E動生成（基地名�E頭2斁E��をローマ字に変換 + 連番�E�E        const baseCode = generateBaseCode(body.base_name)
+        // base_codeを�E動生成（基地名�E頭2斁E��をローマ字に変換 + 連番�E�E        const baseCode = generateBaseCode(body.base_name)
         console.log("Generated base_code:", baseCode)
 
         const result = await executeQuery(`
@@ -147,20 +147,20 @@ export async function POST(request: Request) {
         } else {
           console.error("PostgreSQL insertion failed or no rows returned")
           return NextResponse.json(
-            { error: "保守基地の作�Eに失敗しました" },
+            { error: "保守基地の作�Eに失敗しました" },
             { status: 500 }
           )
         }
       } catch (error) {
         console.error("Database insertion failed:", error)
         return NextResponse.json(
-          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
+          { error: "チE�Eタベ�Eス接続エラーが発生しました" },
           { status: 500 }
         )
       }
     } else {
       return NextResponse.json(
-        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
+        { error: "チE�Eタベ�Eスが設定されてぁE��せん" },
         { status: 500 }
       )
     }
@@ -175,7 +175,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json(
       { 
-        error: `サーバ�Eエラーが発生しました: ${error instanceof Error ? error.message : '不�Eなエラー'}`,
+        error: `サーバ�Eエラーが発生しました: ${error instanceof Error ? error.message : '不�Eなエラー'}`,
         details: error instanceof Error ? error.stack : 'No stack trace available'
       },
       { status: 500 }

@@ -23,6 +23,10 @@ RUN pnpm install --no-frozen-lockfile
 # ソースコードをコピー
 COPY . .
 
+# 【重要】Windows側のエンコーディング問題を完全に解消するため、Docker内で全ファイルのBOMを強制除去
+RUN find . -type f -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" | xargs sed -i '1s/^\xef\xbb\xbf//'
+
+
 # 環境変数（GitHub ActionsとRailway両対応）
 # ARG: GitHub Actionsのビルド時に渡される
 # ENV: Railwayの実行時に渡される

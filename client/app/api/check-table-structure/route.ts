@@ -9,7 +9,7 @@ export async function GET() {
 
     if (dbType === "postgresql") {
       try {
-        // チE�Eブルの構造を確誁E
+        // チE�Eブルの構造を確誁E
         const columns = await executeQuery(`
           SELECT column_name, data_type, is_nullable, column_default
           FROM information_schema.columns 
@@ -19,7 +19,7 @@ export async function GET() {
         `)
         console.log("Table columns:", columns)
 
-        // サンプルチE�Eタも確誁E
+        // サンプルチE�Eタも確誁E
         const sampleData = await executeQuery("SELECT * FROM managements_offices LIMIT 1")
         console.log("Sample data:", sampleData)
 
