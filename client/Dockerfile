@@ -1,18 +1,16 @@
 ﻿FROM node:20 AS builder
 WORKDIR /app
 
-# キャッシュを破壊して常に最新をビルド
+# 古いキャッシュを一切使わない
 ARG BUILD_ID=unknown
-RUN echo "REBUILD FORCE: $BUILD_ID"
+RUN echo "FORCE REBUILD: $BUILD_ID"
 
 RUN corepack enable && corepack prepare pnpm@9.15.3 --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --no-frozen-lockfile
 
-# 全ソースをコピー（文法エラーのない最新版）
 COPY . .
 
-# ビルド時に環境変数を注入
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_DASHBOARD_URL
@@ -25,15 +23,22 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN pnpm build
 
-FROM node:20 AS runner
+# 実行環境は徹底的にクリーンにする
+FROM node:20-slim AS runner
 WORKDIR /app
 
-# すべての成果物をコピー
-COPY --from=builder /app ./
-
 ENV NODE_ENV=production
+# Cloud Runから渡されるPORT。デフォルトがない場合は8080にするが、
+# Cloud Run環境では自動的に注入される値が優先される
 ENV PORT=8080
+ENV HOSTNAME="0.0.0.0"
 
-# Cloud Run が 8080 を期待するため、明示的に指定して起動
+# standaloneに必要な最小限のファイルのみをコピー
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+
 EXPOSE 8080
-CMD ["npx", "next", "start", "-p", "8080", "-H", "0.0.0.0"]
+
+# server.js は自動的に PORT 環境変数を読み込んで起動する
+CMD ["node", "server.js"]

@@ -18,6 +18,7 @@ if (process.env.NODE_ENV !== 'production' && typeof window === 'undefined') {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'standalone',
   poweredByHeader: false,
   // キャッシュを無効化
   generateBuildId: async () => `build-${Date.now()}`,
