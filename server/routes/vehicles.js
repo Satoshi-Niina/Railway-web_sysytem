@@ -8,6 +8,7 @@ router.get('/', async (req, res) => {
   try {
     const query = `
       SELECT 
+        v.vehicle_id as id,
         v.vehicle_id,
         v.registration_number as machine_number,
         v.registration_number as vehicle_number,

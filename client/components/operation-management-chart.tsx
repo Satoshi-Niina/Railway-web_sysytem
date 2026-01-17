@@ -1550,7 +1550,7 @@ export function OperationManagementChart() {
                 <SelectContent>
                   <SelectItem value="all">全ての事業所</SelectItem>
                   {availableOffices.filter(office => office.id).map((office) => (
-                    <SelectItem key={office.id} value={office.id.toString()}>
+                    <SelectItem key={office.id} value={(office.id || "none").toString()}>
                       <div className="flex items-center space-x-2">
                         <Building className="w-4 h-4" />
                         <span>{office.office_name}</span>
@@ -2357,7 +2357,7 @@ export function OperationManagementChart() {
                   </SelectTrigger>
                   <SelectContent>
                     {allVehicles.sort((a,b) => a.machine_number.localeCompare(b.machine_number, 'ja', {numeric: true})).map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                      <SelectItem key={vehicle.id} value={(vehicle.id || "none").toString()}>
                         {vehicle.machine_number} ({vehicle.vehicle_type || '機種不明'})
                       </SelectItem>
                     ))}
@@ -2711,7 +2711,7 @@ export function OperationManagementChart() {
                     {filteredBasesForModal.length > 0 && (
                       <>
                         {filteredBasesForModal.filter(b => b.id).map((base) => (
-                          <SelectItem key={base.id} value={base.id.toString()}>
+                          <SelectItem key={base.id} value={(base.id || "none").toString()}>
                             {base.base_name}
                           </SelectItem>
                         ))}
@@ -2730,7 +2730,7 @@ export function OperationManagementChart() {
                           </SelectItem>
                         )}
                         {otherBasesForModal.filter(b => b.id).map((base) => (
-                          <SelectItem key={base.id} value={base.id.toString()}>
+                          <SelectItem key={base.id} value={(base.id || "none").toString()}>
                             {base.base_name}
                           </SelectItem>
                         ))}
@@ -2891,7 +2891,7 @@ export function OperationManagementChart() {
                   </SelectTrigger>
                   <SelectContent>
                     {allVehicles.filter(v => v.id).map((vehicle) => (
-                      <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                      <SelectItem key={vehicle.id} value={vehicle.id?.toString() || ""}>
                         {vehicle.name} - {vehicle.machine_number}
                       </SelectItem>
                     ))}
@@ -2967,7 +2967,7 @@ export function OperationManagementChart() {
                           </div>
                         ) : (
                           inspectionTypes.map((type) => (
-                            <SelectItem key={type.id} value={type.id.toString()}>
+                            <SelectItem key={type.id} value={(type.id || "none").toString()}>
                               {type.type_name}・{type.interval_days ? `${type.interval_days}日` : '期間未設定'}
                             </SelectItem>
                           ))
@@ -3016,7 +3016,7 @@ export function OperationManagementChart() {
                     {filteredBasesForModal.length > 0 && (
                       <>
                         {filteredBasesForModal.filter(b => b.id).map((base) => (
-                          <SelectItem key={base.id} value={base.id.toString()}>
+                          <SelectItem key={base.id} value={(base.id || "none").toString()}>
                             {base.base_name}
                           </SelectItem>
                         ))}
@@ -3035,7 +3035,7 @@ export function OperationManagementChart() {
                           </SelectItem>
                         )}
                         {otherBasesForModal.filter(b => b.id).map((base) => (
-                          <SelectItem key={base.id} value={base.id.toString()}>
+                          <SelectItem key={base.id} value={(base.id || "none").toString()}>
                             {base.base_name}
                           </SelectItem>
                         ))}
@@ -3076,7 +3076,7 @@ export function OperationManagementChart() {
                     {filteredBasesForModal.length > 0 && (
                       <>
                         {filteredBasesForModal.filter(b => b.id).map((base) => (
-                          <SelectItem key={base.id} value={base.id.toString()}>
+                          <SelectItem key={base.id} value={(base.id || "none").toString()}>
                             {base.base_name}
                           </SelectItem>
                         ))}
@@ -3095,7 +3095,7 @@ export function OperationManagementChart() {
                           </SelectItem>
                         )}
                         {otherBasesForModal.filter(b => b.id).map((base) => (
-                          <SelectItem key={base.id} value={base.id.toString()}>
+                          <SelectItem key={base.id} value={(base.id || "none").toString()}>
                             {base.base_name}
                           </SelectItem>
                         ))}

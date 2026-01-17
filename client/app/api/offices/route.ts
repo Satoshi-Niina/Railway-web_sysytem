@@ -4,7 +4,7 @@ import { executeQuery } from "@/lib/database";
 export async function GET() {
   try {
     const offices = await executeQuery(`
-      SELECT office_id, office_name, office_code
+      SELECT office_id as id, office_name, office_code
       FROM master_data.management_offices
       ORDER BY office_name
     `);
