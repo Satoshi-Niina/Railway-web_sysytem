@@ -406,6 +406,26 @@ export function OperationManagementChart() {
       try {
         recordsData = await apiCall<OperationRecord[]>(`operation-records?month=${currentMonth}`)
         console.log(`[運用実績] 取得件数: ${recordsData.length}件`)
+        
+        // 運用実績のvehicle_id（実際はmachine_id/UUID）を車両テーブルのvehicle_idに変換
+        if (vehiclesData.length > 0) {
+          const machineToVehicleMap = new Map<string, number | string>()
+          vehiclesData.forEach(v => {
+            if (v.machine_id) {
+              machineToVehicleMap.set(String(v.machine_id), v.id)
+            }
+          })
+          
+          recordsData = recordsData.map(record => {
+            const mappedVehicleId = machineToVehicleMap.get(String(record.vehicle_id))
+            if (mappedVehicleId !== undefined) {
+              return { ...record, vehicle_id: mappedVehicleId }
+            }
+            return record
+          })
+          console.log(`[運用実績] vehicle_idマッピング完了: ${recordsData.length}件`)
+        }
+        
         // デバッグ: 2月の実績をログ出力
         if (currentMonth === '2026-02') {
           const feb2Records = recordsData.filter(r => {
@@ -793,8 +813,12 @@ export function OperationManagementChart() {
         }
       }
 
+      // vehicle_id を machine_id に変換（DBはUUID/machine_idを期待）
+      const vehicle = allVehicles.find(v => String(v.id) === String(recordForm.vehicle_id))
+      const machineIdForDb = vehicle?.machine_id || recordForm.vehicle_id
+      
       const recordData = {
-        vehicle_id: recordForm.vehicle_id, // UUID対応のため数値変換しない
+        vehicle_id: machineIdForDb, // machine_id (UUID) を送信
         record_date: recordForm.record_date,
         shift_type: recordForm.shift_type,
         actual_start_time: recordForm.start_time,

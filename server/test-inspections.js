@@ -18,29 +18,23 @@ async function test() {
   try {
     await client.connect();
     
-    // Check vehicles table for vehicle_id = 1 (machine_number = 300)
+    // Check operation_records data
     const res1 = await client.query(`
-      SELECT vehicle_id, registration_number, machine_id
-      FROM master_data.vehicles
-      WHERE registration_number = '300'
+      SELECT vehicle_id, operation_date, status
+      FROM operations.operation_records
+      ORDER BY operation_date DESC
+      LIMIT 5
     `);
-    console.log('Vehicle with registration_number 300:', res1.rows);
+    console.log('Recent operation_records:', res1.rows);
     
-    // Check if there are plans for vehicle_id = 1 or for vehicle 300
+    // Check column type
     const res2 = await client.query(`
-      SELECT DISTINCT vehicle_id 
-      FROM operations.operation_plans 
-      WHERE TO_CHAR(plan_date, 'YYYY-MM') = '2026-02'
+      SELECT column_name, data_type 
+      FROM information_schema.columns 
+      WHERE table_schema = 'operations' AND table_name = 'operation_records'
+      AND column_name = 'vehicle_id'
     `);
-    console.log('\nUnique vehicle_ids in operation_plans (2026-02):', res2.rows);
-    
-    // Check machines table for machine_number 300
-    const res3 = await client.query(`
-      SELECT id, machine_number, machine_type_id
-      FROM master_data.machines
-      WHERE machine_number LIKE '%300%'
-    `);
-    console.log('\nMachines with 300 in number:', res3.rows);
+    console.log('\noperation_records.vehicle_id type:', res2.rows);
     
   } catch (err) {
     console.error('Error:', err.message);
