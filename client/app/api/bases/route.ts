@@ -8,7 +8,7 @@ export async function GET() {
              b.office_id as management_office_id,
              mo.office_name
       FROM master_data.bases b
-      LEFT JOIN master_data.managements_offices mo ON b.office_id::text = mo.office_id::text
+      LEFT JOIN master_data.management_offices mo ON b.office_id::text = mo.office_id::text
       ORDER BY b.base_name
     `);
     return NextResponse.json(bases);
