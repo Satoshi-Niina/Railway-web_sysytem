@@ -21,10 +21,10 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     if (!body.base_name) return NextResponse.json({ error: "base_name is required" }, { status: 400 });
-    const result = await executeQuery(\`
+    const result = await executeQuery(`
       INSERT INTO master_data.bases (base_name, base_type, location, office_id, is_active)
       VALUES ($1, $2, $3, $4, true) RETURNING *
-    \`, [body.base_name, body.base_type || 'maintenance', body.location, body.office_id]);
+    `, [body.base_name, body.base_type || 'maintenance', body.location, body.office_id]);
     return NextResponse.json(result[0], { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
     if (month) {
       query += " AND DATE_TRUNC('month', or_table.operation_date) = DATE_TRUNC('month', $1::date)";
-      params.push(\`\${month}-01\`);
+      params.push(`${month}-01`);
     }
 
     const records = await executeQuery(query, params);
@@ -32,13 +32,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const result = await executeQuery(\`
+    const result = await executeQuery(`
       INSERT INTO operations.operation_records (
         vehicle_id, operation_date, shift_type, actual_start_time, actual_end_time,
         actual_distance, departure_base_id, arrival_base_id, status, notes
       ) VALUES ($1, $2::date, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
-    \`, [
+    `, [
       body.vehicle_id, body.record_date, body.shift_type || 'day', 
       body.actual_start_time, body.actual_end_time, body.actual_distance,
       body.departure_base_id, body.arrival_base_id, body.status, body.notes
